@@ -113,6 +113,8 @@ export default function AdminPointRequests() {
           request.userId
         );
 
+        const activityRef = doc(collection(db, "activities"));
+
         const requestSnapshot =
           await transaction.get(requestRef);
 
@@ -146,18 +148,29 @@ export default function AdminPointRequests() {
         const newTotalPoints =
           currentPoints + enteredPoints;
 
-        // Add points to member
+        // 1. Add points to member
         transaction.update(userRef, {
           totalPoints: newTotalPoints,
           lastPointUpdateAt: serverTimestamp(),
         });
 
-        // Mark request as approved
+        // 2. Mark request as approved
         transaction.update(requestRef, {
           status: "approved",
           pointsAwarded: enteredPoints,
           reviewedBy: currentUser.uid,
           reviewedAt: serverTimestamp(),
+        });
+
+        // 3. Log activity entry for Dashboard Recent Activity
+        transaction.set(activityRef, {
+          userId: request.userId,
+          memberName: request.memberName || "",
+          activityName: request.activityName,
+          points: enteredPoints,
+          type: "request_approved",
+          status: "approved",
+          createdAt: serverTimestamp(),
         });
       });
 
@@ -213,6 +226,8 @@ export default function AdminPointRequests() {
           request.id
         );
 
+        const activityRef = doc(collection(db, "activities"));
+
         const requestSnapshot =
           await transaction.get(requestRef);
 
@@ -231,11 +246,23 @@ export default function AdminPointRequests() {
           );
         }
 
+        // 1. Mark request as rejected
         transaction.update(requestRef, {
           status: "rejected",
           pointsAwarded: 0,
           reviewedBy: currentUser.uid,
           reviewedAt: serverTimestamp(),
+        });
+
+        // 2. Log rejection in activities
+        transaction.set(activityRef, {
+          userId: request.userId,
+          memberName: request.memberName || "",
+          activityName: request.activityName,
+          points: 0,
+          type: "request_rejected",
+          status: "rejected",
+          createdAt: serverTimestamp(),
         });
       });
 
@@ -279,64 +306,34 @@ export default function AdminPointRequests() {
   return (
     <div className="min-h-screen bg-slate-950 text-white">
 
-      {/* =================================================
-          NAVBAR
-      ================================================= */}
-
+      {/* NAVBAR */}
       <nav className="border-b border-slate-800 bg-slate-900/80 backdrop-blur-md sticky top-0 z-50">
-
         <div className="max-w-6xl mx-auto px-6 h-16 flex items-center justify-between">
-
           <button
             onClick={() => navigate("/admin")}
             className="flex items-center gap-2 text-slate-400 hover:text-white transition-colors"
           >
             <ArrowLeft size={18} />
-
-            <span>
-              Back to Admin Panel
-            </span>
+            <span>Back to Admin Panel</span>
           </button>
 
           <div className="text-xl font-black tracking-tight">
-            <span className="text-rose-500">
-              Rota
-            </span>
-
-            <span className="text-white">
-              Star
-            </span>
+            <span className="text-rose-500">Rota</span>
+            <span className="text-white">Star</span>
           </div>
-
         </div>
-
       </nav>
 
-      {/* =================================================
-          MAIN
-      ================================================= */}
-
+      {/* MAIN */}
       <main className="max-w-6xl mx-auto px-6 py-10">
-
-        {/* HEADER */}
-
         <div className="mb-8">
-
           <div className="flex items-center gap-3 mb-2">
-
             <div className="w-10 h-10 rounded-xl bg-rose-500/10 border border-rose-500/20 flex items-center justify-center">
-
-              <Clock
-                size={20}
-                className="text-rose-400"
-              />
-
+              <Clock size={20} className="text-rose-400" />
             </div>
-
             <span className="text-xs font-bold uppercase tracking-widest text-rose-400">
               Admin Control
             </span>
-
           </div>
 
           <h1 className="text-3xl sm:text-4xl font-extrabold">
@@ -344,156 +341,92 @@ export default function AdminPointRequests() {
           </h1>
 
           <p className="text-slate-400 mt-2">
-            Review member activities and award
-            points.
+            Review member activities and award points.
           </p>
-
         </div>
 
-        {/* =================================================
-            LOADING
-        ================================================= */}
-
+        {/* LOADING */}
         {loading && (
           <div className="bg-slate-900 border border-slate-800 rounded-2xl p-12 text-center">
-
-            <div className="text-slate-400">
-              Loading point requests...
-            </div>
-
+            <div className="text-slate-400">Loading point requests...</div>
           </div>
         )}
 
-        {/* =================================================
-            EMPTY
-        ================================================= */}
-
+        {/* EMPTY */}
         {!loading && requests.length === 0 && (
           <div className="bg-slate-900 border border-slate-800 rounded-2xl p-12 text-center">
-
             <CheckCircle
               size={48}
               className="mx-auto mb-4 text-emerald-500"
             />
-
             <h2 className="text-xl font-bold text-white">
               No Pending Requests
             </h2>
-
             <p className="text-slate-500 mt-2">
-              All point requests have been
-              processed.
+              All point requests have been processed.
             </p>
-
           </div>
         )}
 
-        {/* =================================================
-            REQUEST LIST
-        ================================================= */}
-
+        {/* REQUEST LIST */}
         {!loading && requests.length > 0 && (
           <div className="space-y-5">
-
             {requests.map((request) => {
-
-              const isProcessing =
-                processingId === request.id;
+              const isProcessing = processingId === request.id;
 
               return (
                 <div
                   key={request.id}
                   className="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-xl"
                 >
-
                   <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-8">
-
-                    {/* =====================================
-                        REQUEST INFORMATION
-                    ===================================== */}
-
                     <div className="flex-1">
-
-                      {/* STATUS */}
-
                       <div className="mb-4">
-
                         <span className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-amber-500/10 border border-amber-500/20 text-amber-400 text-xs font-bold">
-
                           <Clock size={14} />
-
                           PENDING
-
                         </span>
-
                       </div>
-
-                      {/* ACTIVITY */}
 
                       <h2 className="text-2xl font-bold text-white">
                         {request.activityName}
                       </h2>
 
-                      {/* MEMBER */}
-
                       <div className="mt-4">
-
                         <p className="text-sm text-slate-400">
                           Requested by
                         </p>
-
                         <p className="text-lg font-semibold text-white">
                           {request.memberName}
                         </p>
-
                         {request.memberEmail && (
                           <p className="text-sm text-slate-500">
                             {request.memberEmail}
                           </p>
                         )}
-
                       </div>
-
-                      {/* REASON */}
 
                       {request.reason && (
                         <div className="mt-5 p-4 rounded-xl bg-slate-950 border border-slate-800">
-
                           <p className="text-xs font-bold uppercase tracking-wider text-slate-500 mb-2">
                             Member's Reason
                           </p>
-
                           <p className="text-slate-300 leading-relaxed">
                             {request.reason}
                           </p>
-
                         </div>
                       )}
 
-                      {/* DATE */}
-
                       <p className="text-xs text-slate-600 mt-4">
-                        Submitted:{" "}
-                        {formatDate(
-                          request.requestedAt
-                        )}
+                        Submitted: {formatDate(request.requestedAt)}
                       </p>
-
                     </div>
 
-                    {/* =====================================
-                        ADMIN ACTIONS
-                    ===================================== */}
-
                     <div className="w-full lg:w-80">
-
                       <div className="p-5 rounded-2xl bg-slate-950 border border-slate-800">
-
                         <p className="text-sm font-bold text-white mb-4">
                           Award Points
                         </p>
-
-                        {/* POINT INPUT */}
 
                         <label className="block text-xs font-semibold text-slate-400 mb-2">
                           Points to award
@@ -504,78 +437,45 @@ export default function AdminPointRequests() {
                           min="1"
                           step="1"
                           placeholder="Example: 50"
-                          value={
-                            points[request.id] ||
-                            ""
-                          }
+                          value={points[request.id] || ""}
                           onChange={(e) =>
                             setPoints({
                               ...points,
-                              [request.id]:
-                                e.target.value,
+                              [request.id]: e.target.value,
                             })
                           }
                           disabled={isProcessing}
                           className="w-full px-4 py-3 bg-slate-900 border border-slate-700 rounded-xl text-white placeholder-slate-600 outline-none focus:border-rose-500 disabled:opacity-50"
                         />
 
-                        {/* APPROVE */}
-
                         <button
-                          onClick={() =>
-                            approveRequest(
-                              request
-                            )
-                          }
+                          onClick={() => approveRequest(request)}
                           disabled={isProcessing}
                           className="w-full mt-4 py-3 rounded-xl bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 disabled:cursor-not-allowed font-bold flex items-center justify-center gap-2 transition-colors"
                         >
-
-                          <CheckCircle
-                            size={18}
-                          />
-
+                          <CheckCircle size={18} />
                           {isProcessing
                             ? "Processing..."
                             : "Approve & Award Points"}
-
                         </button>
 
-                        {/* REJECT */}
-
                         <button
-                          onClick={() =>
-                            rejectRequest(
-                              request
-                            )
-                          }
+                          onClick={() => rejectRequest(request)}
                           disabled={isProcessing}
                           className="w-full mt-3 py-3 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 hover:bg-red-500/20 disabled:opacity-50 disabled:cursor-not-allowed font-bold flex items-center justify-center gap-2 transition-colors"
                         >
-
-                          <XCircle
-                            size={18}
-                          />
-
+                          <XCircle size={18} />
                           Reject Request
-
                         </button>
-
                       </div>
-
                     </div>
-
                   </div>
-
                 </div>
               );
             })}
-
           </div>
         )}
-
       </main>
-
     </div>
   );
 }
