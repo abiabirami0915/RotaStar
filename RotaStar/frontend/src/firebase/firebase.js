@@ -4,16 +4,19 @@ import { getAuth } from "firebase/auth";
 import { getStorage } from "firebase/storage";
 
 const firebaseConfig = {
-  apiKey: "YOUR_ACTUAL_FIREBASE_API_KEY",
-  authDomain: "YOUR_PROJECT_ID.firebaseapp.com",
-  projectId: "YOUR_PROJECT_ID",
-  storageBucket: "YOUR_PROJECT_ID.appspot.com",
-  messagingSenderId: "YOUR_SENDER_ID",
-  appId: "YOUR_APP_ID",
+  apiKey: "AIzaSyDEOlO9DdA2h8t5HX9UyK6K-EUY2Hr1oNI",
+  authDomain: "rotastar.firebaseapp.com",
+  projectId: "rotastar",
+  storageBucket: "rotastar.firebasestorage.app",
+  messagingSenderId: "783582530423",
+  appId: "1:783582530423:web:36d878c9cd55bcdfa8af72",
+  measurementId: "G-MRE566ZMPK",
 };
 
+// Initialize Firebase
 const app = initializeApp(firebaseConfig);
 
+// Export Firebase services for RotaStar
 export const auth = getAuth(app);
 export const db = getFirestore(app);
 export const storage = getStorage(app);
