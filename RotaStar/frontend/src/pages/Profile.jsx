@@ -3,8 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { ArrowLeft, Camera, User, Loader2, Check } from "lucide-react";
 import { updateProfile } from "firebase/auth";
 import { doc, updateDoc } from "firebase/firestore";
-import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
-import { db, storage } from "../firebase/firebase";
+import { db } from "../firebase/firebase";
 import { useAuth } from "../AuthContext";
 
 export default function Profile() {
@@ -19,7 +18,48 @@ export default function Profile() {
   const [successMsg, setSuccessMsg] = useState("");
   const [errorMsg, setErrorMsg] = useState("");
 
-  const handleImageChange = (e) => {
+  // Compress & resize image to lightweight base64
+  const compressImage = (file) => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.readAsDataURL(file);
+      reader.onload = (event) => {
+        const img = new Image();
+        img.src = event.target.result;
+        img.onload = () => {
+          const canvas = document.createElement("canvas");
+          const MAX_WIDTH = 300;
+          const MAX_HEIGHT = 300;
+          let width = img.width;
+          let height = img.height;
+
+          if (width > height) {
+            if (width > MAX_WIDTH) {
+              height *= MAX_WIDTH / width;
+              width = MAX_WIDTH;
+            }
+          } else {
+            if (height > MAX_HEIGHT) {
+              width *= MAX_HEIGHT / height;
+              height = MAX_HEIGHT;
+            }
+          }
+
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext("2d");
+          ctx.drawImage(img, 0, 0, width, height);
+
+          // Compress to JPEG format with 70% quality
+          resolve(canvas.toDataURL("image/jpeg", 0.7));
+        };
+        img.onerror = (err) => reject(err);
+      };
+      reader.onerror = (err) => reject(err);
+    });
+  };
+
+  const handleImageChange = async (e) => {
     const file = e.target.files[0];
     if (!file) return;
 
@@ -27,14 +67,16 @@ export default function Profile() {
       setErrorMsg("Please select an image file (PNG, JPG, JPEG).");
       return;
     }
-    if (file.size > 5 * 1024 * 1024) {
-      setErrorMsg("Image size must be less than 5MB.");
-      return;
-    }
 
-    setErrorMsg("");
-    setImageFile(file);
-    setPreviewUrl(URL.createObjectURL(file));
+    try {
+      setErrorMsg("");
+      const compressedBase64 = await compressImage(file);
+      setImageFile(compressedBase64);
+      setPreviewUrl(compressedBase64);
+    } catch (err) {
+      console.error("Compression error:", err);
+      setErrorMsg("Failed to process image. Try another photo.");
+    }
   };
 
   const handleUpload = async () => {
@@ -45,27 +87,27 @@ export default function Profile() {
       setErrorMsg("");
       setSuccessMsg("");
 
-      const storageRef = ref(
-        storage,
-        `profile_pictures/${currentUser.uid}`
-      );
-      await uploadBytes(storageRef, imageFile);
-      const downloadURL = await getDownloadURL(storageRef);
-
-      await updateProfile(currentUser, {
-        photoURL: downloadURL,
-      });
-
+      // 1. Save directly into Firestore user document
       const userDocRef = doc(db, "users", currentUser.uid);
       await updateDoc(userDocRef, {
-        photoURL: downloadURL,
+        photoURL: imageFile,
       });
+
+      // 2. Update Firebase Auth Profile
+      try {
+        await updateProfile(currentUser, {
+          photoURL: imageFile,
+        });
+      } catch (authErr) {
+        // Fallback in case base64 exceeds auth profile limit
+        console.warn("Auth photoURL update skipped, Firestore updated.");
+      }
 
       setSuccessMsg("Profile photo updated successfully!");
       setImageFile(null);
     } catch (err) {
-      console.error("Error uploading profile photo:", err);
-      setErrorMsg("Failed to upload image. Please try again.");
+      console.error("Error saving profile photo:", err);
+      setErrorMsg("Failed to save picture. Please try again.");
     } finally {
       setUploading(false);
     }
@@ -98,6 +140,7 @@ export default function Profile() {
             Upload or change your profile picture
           </p>
 
+          {/* AVATAR CONTAINER */}
           <div className="relative w-36 h-36 mx-auto mb-6">
             <div className="w-36 h-36 rounded-full overflow-hidden border-4 border-rose-500/30 bg-slate-950 flex items-center justify-center shadow-lg">
               {previewUrl ? (
@@ -128,6 +171,7 @@ export default function Profile() {
             </label>
           </div>
 
+          {/* USER DETAILS */}
           <h2 className="text-xl font-bold">
             {userData?.name || currentUser?.displayName || "Member"}
           </h2>
@@ -136,6 +180,7 @@ export default function Profile() {
             {userData?.role || "Member"}
           </span>
 
+          {/* FEEDBACK */}
           {errorMsg && (
             <div className="mt-4 p-3 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 text-sm">
               {errorMsg}
@@ -147,6 +192,7 @@ export default function Profile() {
             </div>
           )}
 
+          {/* SAVE BUTTON */}
           {imageFile && (
             <button
               onClick={handleUpload}
@@ -156,7 +202,7 @@ export default function Profile() {
               {uploading ? (
                 <>
                   <Loader2 size={18} className="animate-spin" />
-                  <span>Uploading Image...</span>
+                  <span>Saving Picture...</span>
                 </>
               ) : (
                 <span>Save New Picture</span>
