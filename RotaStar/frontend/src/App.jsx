@@ -1,59 +1,32 @@
+import React from "react";
 import { Routes, Route, Navigate } from "react-router-dom";
 
-// ===============================
 // AUTH PAGES
-// ===============================
 import Login from "./pages/Login";
 import Signup from "./pages/signup";
 
-// ===============================
 // MEMBER PAGES
-// ===============================
 import Dashboard from "./pages/Dashboard";
 import Leaderboard from "./pages/Leaderboard";
 import PointRequest from "./pages/PointRequest";
+import Profile from "./pages/Profile";
 
-// ===============================
 // ADMIN PAGES
-// ===============================
 import AdminPoints from "./pages/AdminPoints";
 import AdminPointRequests from "./pages/AdminPointRequests";
 
-// ===============================
 // ROUTE PROTECTION
-// ===============================
 import ProtectedRoute from "./components/ProtectedRoute";
 import AdminRoute from "./components/AdminRoute";
-
 
 function App() {
   return (
     <Routes>
+      {/* AUTH ROUTES */}
+      <Route path="/login" element={<Login />} />
+      <Route path="/signup" element={<Signup />} />
 
-      {/* =====================================================
-          LOGIN
-      ===================================================== */}
-
-      <Route
-        path="/login"
-        element={<Login />}
-      />
-
-
-      {/* =====================================================
-          SIGN UP
-      ===================================================== */}
-
-      <Route
-        path="/signup"
-        element={<Signup />}
-      />
-
-
-      {/* =====================================================
-          MEMBER DASHBOARD
-      ===================================================== */}
-
+      {/* MEMBER PROTECTED ROUTES */}
       <Route
         path="/dashboard"
         element={
@@ -63,11 +36,14 @@ function App() {
         }
       />
 
-
-      {/* =====================================================
-          LEADERBOARD
-          All logged-in users can view
-      ===================================================== */}
+      <Route
+        path="/profile"
+        element={
+          <ProtectedRoute>
+            <Profile />
+          </ProtectedRoute>
+        }
+      />
 
       <Route
         path="/leaderboard"
@@ -78,18 +54,6 @@ function App() {
         }
       />
 
-
-      {/* =====================================================
-          REQUEST POINTS
-          
-          MEMBER:
-          - Activity name
-          - Requested points
-          - Optional reason
-          - Submit request
-          - View request status
-      ===================================================== */}
-
       <Route
         path="/request-points"
         element={
@@ -99,15 +63,7 @@ function App() {
         }
       />
 
-
-      {/* =====================================================
-          ADMIN POINT MANAGEMENT
-          
-          ADMIN + SUPER ADMIN ONLY
-          
-          Direct point adjustment
-      ===================================================== */}
-
+      {/* ADMIN PROTECTED ROUTES */}
       <Route
         path="/admin"
         element={
@@ -116,20 +72,6 @@ function App() {
           </AdminRoute>
         }
       />
-
-
-      {/* =====================================================
-          POINT REQUEST MANAGEMENT
-          
-          ADMIN + SUPER ADMIN ONLY
-          
-          Admin can:
-          - View pending requests
-          - Approve requests
-          - Reject requests
-          
-          Super Admin can do everything Admin can do.
-      ===================================================== */}
 
       <Route
         path="/admin/requests"
@@ -140,36 +82,9 @@ function App() {
         }
       />
 
-
-      {/* =====================================================
-          DEFAULT ROUTE
-      ===================================================== */}
-
-      <Route
-        path="/"
-        element={
-          <Navigate
-            to="/login"
-            replace
-          />
-        }
-      />
-
-
-      {/* =====================================================
-          UNKNOWN URL
-      ===================================================== */}
-
-      <Route
-        path="*"
-        element={
-          <Navigate
-            to="/login"
-            replace
-          />
-        }
-      />
-
+      {/* REDIRECTS */}
+      <Route path="/" element={<Navigate to="/login" replace />} />
+      <Route path="*" element={<Navigate to="/login" replace />} />
     </Routes>
   );
 }
