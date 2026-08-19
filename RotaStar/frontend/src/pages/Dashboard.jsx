@@ -1,462 +1,379 @@
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
-  Flame,
   Trophy,
+  Flame,
   CheckCircle,
   Award,
   FileText,
   ChevronRight,
   Shield,
   LogOut,
-  Clock,
-  XCircle,
   User,
+  Users,
 } from "lucide-react";
-
-import { collection, onSnapshot, query, where } from "firebase/firestore";
+import {
+  collection,
+  query,
+  where,
+  orderBy,
+  limit,
+  onSnapshot,
+} from "firebase/firestore";
 import { db } from "../firebase/firebase";
 import { useAuth } from "../AuthContext";
 
 export default function Dashboard() {
   const navigate = useNavigate();
+  const { currentUser, userData, isAdmin, isSuperAdmin, logout } = useAuth();
 
-  const {
-    currentUser,
-    userData,
-    logout,
-    isAdmin,
-    isSuperAdmin,
-  } = useAuth();
+  const [recentActivities, setRecentActivities] = useState([]);
+  const [userRank, setUserRank] = useState("-");
 
-  const [rank, setRank] = useState("-");
-  const [loadingRank, setLoadingRank] = useState(true);
-  const [activities, setActivities] = useState([]);
-  const [loadingActivities, setLoadingActivities] = useState(true);
+  // Determine Level / Tier
+  const points = userData?.totalPoints || 0;
+  let levelTitle = "Green Rotaractor";
+  if (points >= 500) levelTitle = "Platinum Star";
+  else if (points >= 300) levelTitle = "Gold Star";
+  else if (points >= 150) levelTitle = "Silver Star";
+  else if (points >= 50) levelTitle = "Bronze Star";
 
-  // GET CURRENT USER RANK
+  // Calculate Rank
   useEffect(() => {
-    if (!currentUser) return;
+    const unsubUsers = onSnapshot(collection(db, "users"), (snapshot) => {
+      const allUsers = snapshot.docs.map((docSnap) => ({
+        id: docSnap.id,
+        points: docSnap.data().totalPoints || 0,
+      }));
 
-    const usersQuery = query(collection(db, "users"));
+      allUsers.sort((a, b) => b.points - a.points);
+      const rankIndex = allUsers.findIndex((u) => u.id === currentUser?.uid);
+      setUserRank(rankIndex !== -1 ? `#${rankIndex + 1}` : "-");
+    });
 
-    const unsubscribe = onSnapshot(
-      usersQuery,
-      (snapshot) => {
-        const users = snapshot.docs.map((doc) => ({
-          id: doc.id,
-          ...doc.data(),
-        }));
-
-        users.sort(
-          (a, b) =>
-            (b.totalPoints || 0) - (a.totalPoints || 0)
-        );
-
-        const currentIndex = users.findIndex(
-          (user) => user.id === currentUser.uid
-        );
-
-        if (currentIndex !== -1) {
-          setRank(currentIndex + 1);
-        } else {
-          setRank("-");
-        }
-
-        setLoadingRank(false);
-      },
-      (error) => {
-        console.error("Rank error:", error);
-        setLoadingRank(false);
-      }
-    );
-
-    return () => unsubscribe();
+    return () => unsubUsers();
   }, [currentUser]);
 
-  // GET RECENT ACTIVITIES
+  // Fetch Recent Activities
   useEffect(() => {
     if (!currentUser) return;
 
-    const activitiesQuery = query(
+    const q = query(
       collection(db, "activities"),
-      where("userId", "==", currentUser.uid)
+      where("userId", "==", currentUser.uid),
+      orderBy("createdAt", "desc"),
+      limit(5)
     );
 
-    const unsubscribe = onSnapshot(
-      activitiesQuery,
+    const unsubActivities = onSnapshot(
+      q,
       (snapshot) => {
-        const activityList = snapshot.docs.map((doc) => ({
-          id: doc.id,
-          ...doc.data(),
+        const acts = snapshot.docs.map((docSnap) => ({
+          id: docSnap.id,
+          ...docSnap.data(),
         }));
-
-        activityList.sort((a, b) => {
-          const timeA = a.createdAt?.toMillis?.() || 0;
-          const timeB = b.createdAt?.toMillis?.() || 0;
-          return timeB - timeA;
-        });
-
-        setActivities(activityList);
-        setLoadingActivities(false);
+        setRecentActivities(acts);
       },
-      (error) => {
-        console.error("Activities error:", error);
-        setLoadingActivities(false);
-      }
+      (err) => console.log("Activities subscription notice:", err)
     );
 
-    return () => unsubscribe();
+    return () => unsubActivities();
   }, [currentUser]);
-
-  const getLevel = (points = 0) => {
-    if (points >= 1000) return "RotaStar Elite";
-    if (points >= 600) return "Gold Rotaractor";
-    if (points >= 300) return "Active Rotaractor";
-    if (points >= 100) return "Rising Star";
-    return "Green Rotaractor";
-  };
 
   const handleLogout = async () => {
-    try {
-      await logout();
-      navigate("/login");
-    } catch (error) {
-      console.error("Logout error:", error);
-    }
+    await logout();
+    navigate("/login");
   };
-
-  const formatDate = (timestamp) => {
-    if (!timestamp?.toDate) return "Just now";
-    return timestamp.toDate().toLocaleString("en-IN", {
-      dateStyle: "medium",
-      timeStyle: "short",
-    });
-  };
-
-  const totalPoints = userData?.totalPoints || 0;
-  const userName = userData?.name || currentUser?.displayName || "Rotaractor";
-  const userRole = userData?.role || "Member";
-  const profilePic = userData?.photoURL || currentUser?.photoURL;
-  const level = getLevel(totalPoints);
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100">
+    <div className="min-h-screen bg-slate-950 text-white">
       {/* NAVBAR */}
-      <nav className="sticky top-0 z-50 border-b border-slate-800 bg-slate-950/90 backdrop-blur-md">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="h-16 flex items-center justify-between">
-            <div
-              className="flex items-center gap-3 cursor-pointer"
-              onClick={() => navigate("/dashboard")}
+      <nav className="border-b border-slate-800 bg-slate-900/80 backdrop-blur-md sticky top-0 z-50">
+        <div className="max-w-6xl mx-auto px-6 h-16 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-xl bg-rose-600 flex items-center justify-center font-black text-white shadow-lg shadow-rose-600/20">
+              R
+            </div>
+            <div>
+              <span className="font-extrabold tracking-tight text-lg text-rose-500">
+                Rota
+              </span>
+              <span className="font-extrabold tracking-tight text-lg text-white">
+                Star
+              </span>
+              <span className="text-[10px] text-slate-400 block -mt-1 tracking-wider uppercase font-semibold">
+                PSVPEC
+              </span>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-4">
+            <button
+              onClick={() => navigate("/leaderboard")}
+              className="text-xs font-semibold text-slate-300 hover:text-white transition"
             >
-              <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-rose-500 to-orange-500 flex items-center justify-center font-black text-white text-lg">
-                R
-              </div>
-              <div>
-                <div className="text-xl font-black">
-                  Rota<span className="text-rose-500">Star</span>
-                </div>
-                <div className="text-[10px] uppercase tracking-widest text-slate-500">
-                  PSVPEC
-                </div>
-              </div>
-            </div>
+              Leaderboard
+            </button>
 
-            <div className="flex items-center gap-3">
-              <button
-                onClick={() => navigate("/leaderboard")}
-                className="hidden sm:flex px-4 py-2 rounded-lg text-sm text-slate-300 hover:text-white hover:bg-slate-800 transition"
-              >
-                Leaderboard
-              </button>
-
-              {(isAdmin || isSuperAdmin) && (
-                <button
-                  onClick={() => navigate("/admin")}
-                  className="hidden sm:flex items-center gap-2 px-4 py-2 rounded-lg bg-rose-500/10 text-rose-400 border border-rose-500/20 hover:bg-rose-500/20 transition text-sm"
-                >
-                  <Shield size={16} />
-                  Admin Panel
-                </button>
+            <button
+              onClick={() => navigate("/profile")}
+              className="w-9 h-9 rounded-full overflow-hidden border border-slate-700 bg-slate-950 flex items-center justify-center hover:border-rose-500 transition"
+              title="Profile"
+            >
+              {userData?.photoURL || currentUser?.photoURL ? (
+                <img
+                  src={userData?.photoURL || currentUser?.photoURL}
+                  alt="Profile"
+                  className="w-full h-full object-cover"
+                />
+              ) : (
+                <User size={18} className="text-slate-400" />
               )}
+            </button>
 
-              {/* PROFILE BUTTON */}
-              <button
-                onClick={() => navigate("/profile")}
-                className="flex items-center gap-2 p-1 rounded-full hover:ring-2 hover:ring-rose-500 transition"
-                title="View Profile"
-              >
-                {profilePic ? (
-                  <img
-                    src={profilePic}
-                    alt="Profile"
-                    className="w-9 h-9 rounded-full object-cover border border-slate-700"
-                  />
-                ) : (
-                  <div className="w-9 h-9 rounded-full bg-slate-800 flex items-center justify-center text-xs font-bold text-slate-300 border border-slate-700">
-                    <User size={18} />
-                  </div>
-                )}
-              </button>
-
-              <button
-                onClick={handleLogout}
-                className="flex items-center gap-2 px-3 py-2 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition"
-              >
-                <LogOut size={17} />
-                <span className="hidden sm:inline">Logout</span>
-              </button>
-            </div>
+            <button
+              onClick={handleLogout}
+              className="flex items-center gap-1.5 text-xs text-slate-400 hover:text-rose-400 transition ml-2"
+            >
+              <LogOut size={16} />
+              <span>Logout</span>
+            </button>
           </div>
         </div>
       </nav>
 
-      {/* MAIN */}
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* WELCOME BANNER */}
-        <section className="rounded-2xl border border-rose-500/20 bg-gradient-to-r from-rose-950/70 via-slate-900 to-slate-900 p-6 sm:p-8 mb-6">
-          <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6">
-            <div className="flex items-center gap-5">
-              <div
-                onClick={() => navigate("/profile")}
-                className="cursor-pointer group relative w-16 h-16 rounded-2xl overflow-hidden border-2 border-rose-500/40 bg-slate-950 flex items-center justify-center shrink-0"
-              >
-                {profilePic ? (
-                  <img
-                    src={profilePic}
-                    alt="Avatar"
-                    className="w-full h-full object-cover"
-                  />
-                ) : (
-                  <User size={30} className="text-slate-500" />
-                )}
-              </div>
-
-              <div>
-                <div className="flex items-center gap-2 text-rose-400 text-xs font-bold uppercase tracking-widest mb-1">
-                  <Trophy size={14} />
-                  Current Status
-                </div>
-                <h1 className="text-2xl sm:text-4xl font-black text-white">
-                  Hello, {userName}
-                </h1>
-                <p className="text-slate-400 text-sm mt-1">
-                  Role: <span className="text-white font-semibold">{userRole}</span>
-                </p>
-              </div>
+      {/* MAIN BODY */}
+      <main className="max-w-6xl mx-auto px-6 py-8">
+        {/* HERO STATUS CARD */}
+        <div className="bg-gradient-to-r from-rose-950/40 via-slate-900 to-slate-900 border border-rose-500/20 rounded-3xl p-6 sm:p-8 mb-6 flex flex-col md:flex-row md:items-center justify-between gap-6 shadow-xl">
+          <div className="flex items-center gap-4">
+            <div className="w-16 h-16 rounded-2xl overflow-hidden border border-slate-700 bg-slate-950 flex items-center justify-center shrink-0 shadow-lg">
+              {userData?.photoURL || currentUser?.photoURL ? (
+                <img
+                  src={userData?.photoURL || currentUser?.photoURL}
+                  alt="Avatar"
+                  className="w-full h-full object-cover"
+                />
+              ) : (
+                <User size={30} className="text-slate-500" />
+              )}
             </div>
 
-            <div className="flex items-center gap-4 bg-slate-950/60 border border-slate-800 rounded-xl px-5 py-4 self-start lg:self-auto">
-              <div className="w-12 h-12 rounded-xl bg-rose-500/10 flex items-center justify-center">
-                <Trophy size={25} className="text-rose-400" />
+            <div>
+              <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-rose-400 mb-1">
+                <Trophy size={14} />
+                <span>Current Status</span>
               </div>
-              <div>
-                <div className="text-xs uppercase tracking-wider text-slate-500">
-                  Level
-                </div>
-                <div className="text-lg font-bold text-rose-400">{level}</div>
-              </div>
-            </div>
-          </div>
-        </section>
-
-        {/* STAT CARDS */}
-        <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5">
-            <div className="flex items-center gap-4">
-              <div className="w-12 h-12 rounded-xl bg-amber-500/10 flex items-center justify-center">
-                <Flame size={25} className="text-amber-400" />
-              </div>
-              <div>
-                <p className="text-sm text-slate-400">Total Points</p>
-                <p className="text-3xl font-black text-white">{totalPoints}</p>
-              </div>
+              <h1 className="text-2xl sm:text-3xl font-black">
+                Hello, {userData?.name || currentUser?.displayName || "Member"}
+              </h1>
+              <p className="text-xs text-slate-400 mt-1">
+                Role: <span className="capitalize text-slate-300 font-semibold">{userData?.role || "Member"}</span>
+                {userData?.username && ` • @${userData.username}`}
+              </p>
             </div>
           </div>
 
-          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5">
-            <div className="flex items-center gap-4">
-              <div className="w-12 h-12 rounded-xl bg-blue-500/10 flex items-center justify-center">
-                <Trophy size={25} className="text-blue-400" />
-              </div>
-              <div>
-                <p className="text-sm text-slate-400">Current Rank</p>
-                <p className="text-3xl font-black text-white">
-                  {loadingRank ? "..." : `#${rank}`}
-                </p>
-              </div>
+          <div className="bg-slate-950/70 border border-slate-800 rounded-2xl p-4 sm:px-6 flex items-center gap-4">
+            <div className="p-2.5 rounded-xl bg-rose-500/10 text-rose-400 border border-rose-500/20">
+              <Trophy size={20} />
+            </div>
+            <div>
+              <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">
+                Level
+              </p>
+              <p className="text-base font-extrabold text-rose-400">
+                {levelTitle}
+              </p>
             </div>
           </div>
+        </div>
 
-          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5">
-            <div className="flex items-center gap-4">
-              <div className="w-12 h-12 rounded-xl bg-emerald-500/10 flex items-center justify-center">
-                <CheckCircle size={25} className="text-emerald-400" />
-              </div>
-              <div>
-                <p className="text-sm text-slate-400">Attendance Rate</p>
-                <p className="text-3xl font-black text-white">
-                  {userData?.attendanceRate || 100}%
-                </p>
-              </div>
+        {/* METRICS ROW */}
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-lg">
+            <div className="flex items-center gap-2 text-slate-400 text-xs font-semibold mb-2">
+              <Flame size={16} className="text-amber-500" />
+              <span>Total Points</span>
             </div>
+            <p className="text-2xl sm:text-3xl font-black text-white">{points}</p>
           </div>
 
-          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5">
-            <div className="flex items-center gap-4">
-              <div className="w-12 h-12 rounded-xl bg-purple-500/10 flex items-center justify-center">
-                <Award size={25} className="text-purple-400" />
-              </div>
-              <div>
-                <p className="text-sm text-slate-400">Badges Earned</p>
-                <p className="text-3xl font-black text-white">
-                  {userData?.badges?.length || 0}
-                </p>
-              </div>
+          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-lg">
+            <div className="flex items-center gap-2 text-slate-400 text-xs font-semibold mb-2">
+              <Trophy size={16} className="text-sky-400" />
+              <span>Current Rank</span>
             </div>
+            <p className="text-2xl sm:text-3xl font-black text-white">{userRank}</p>
           </div>
-        </section>
 
-        {/* IMPORTANT ACTIONS */}
-        <section className="grid grid-cols-1 md:grid-cols-2 gap-5 mb-6">
+          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-lg">
+            <div className="flex items-center gap-2 text-slate-400 text-xs font-semibold mb-2">
+              <CheckCircle size={16} className="text-emerald-400" />
+              <span>Attendance Rate</span>
+            </div>
+            <p className="text-2xl sm:text-3xl font-black text-white">100%</p>
+          </div>
+
+          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-lg">
+            <div className="flex items-center gap-2 text-slate-400 text-xs font-semibold mb-2">
+              <Award size={16} className="text-purple-400" />
+              <span>Badges Earned</span>
+            </div>
+            <p className="text-2xl sm:text-3xl font-black text-white">
+              {points >= 300 ? "3" : points >= 150 ? "2" : points >= 50 ? "1" : "0"}
+            </p>
+          </div>
+        </div>
+
+        {/* PRIMARY ACTION BUTTONS */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
           <button
             onClick={() => navigate("/request-points")}
-            className="text-left group bg-gradient-to-r from-rose-600 to-orange-500 rounded-2xl p-6 shadow-xl hover:scale-[1.01] transition-all"
+            className="p-6 rounded-2xl bg-gradient-to-r from-rose-600 to-orange-500 hover:from-rose-500 hover:to-orange-400 text-left transition shadow-lg shadow-rose-600/20 flex items-center justify-between"
           >
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-4">
-                <div className="w-14 h-14 rounded-xl bg-white/15 flex items-center justify-center">
-                  <FileText size={28} className="text-white" />
-                </div>
-                <div>
-                  <h2 className="text-xl font-bold text-white">Request Points</h2>
-                  <p className="text-white/75 text-sm mt-1">
-                    Submit your activity and request points
-                  </p>
-                </div>
+            <div className="flex items-center gap-4">
+              <div className="p-3 bg-white/15 rounded-xl">
+                <FileText size={24} />
               </div>
-              <ChevronRight
-                size={25}
-                className="text-white group-hover:translate-x-1 transition"
-              />
+              <div>
+                <h3 className="font-extrabold text-lg text-white">
+                  Request Points
+                </h3>
+                <p className="text-xs text-rose-100/90 mt-0.5">
+                  Submit your activity and request club points
+                </p>
+              </div>
             </div>
+            <ChevronRight size={22} className="text-white/80" />
           </button>
 
           <button
             onClick={() => navigate("/leaderboard")}
-            className="text-left group bg-slate-900 border border-slate-800 rounded-2xl p-6 hover:border-rose-500/30 transition-all"
+            className="p-6 rounded-2xl bg-slate-900 border border-slate-800 hover:border-slate-700 text-left transition shadow-lg flex items-center justify-between"
           >
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-4">
-                <div className="w-14 h-14 rounded-xl bg-blue-500/10 flex items-center justify-center">
-                  <Trophy size={28} className="text-blue-400" />
-                </div>
-                <div>
-                  <h2 className="text-xl font-bold text-white">View Leaderboard</h2>
-                  <p className="text-slate-400 text-sm mt-1">
-                    Check your position and club rankings
-                  </p>
-                </div>
+            <div className="flex items-center gap-4">
+              <div className="p-3 bg-rose-500/10 text-rose-400 rounded-xl">
+                <Trophy size={24} />
               </div>
-              <ChevronRight
-                size={25}
-                className="text-slate-500 group-hover:translate-x-1 transition"
-              />
+              <div>
+                <h3 className="font-extrabold text-lg text-white">
+                  View Leaderboard
+                </h3>
+                <p className="text-xs text-slate-400 mt-0.5">
+                  Check your standing and club rankings
+                </p>
+              </div>
             </div>
+            <ChevronRight size={22} className="text-slate-500" />
           </button>
-        </section>
+        </div>
 
-        {/* ADMIN SECTION */}
+        {/* ADMIN PANEL SECTION */}
         {(isAdmin || isSuperAdmin) && (
           <section className="mb-6">
-            <div className="bg-slate-900 border border-rose-500/20 rounded-2xl p-6">
+            <div className="bg-slate-900 border border-rose-500/20 rounded-2xl p-6 shadow-xl">
               <div className="flex items-center gap-3 mb-5">
                 <div className="w-10 h-10 rounded-lg bg-rose-500/10 flex items-center justify-center">
-                  <Shield size={21} className="text-rose-400" />
+                  <Shield size={20} className="text-rose-400" />
                 </div>
                 <div>
                   <h2 className="text-lg font-bold text-white">Admin Controls</h2>
-                  <p className="text-sm text-slate-400">
-                    Manage member points and requests
+                  <p className="text-xs text-slate-400">
+                    Manage points, verify submissions, and review member roster
                   </p>
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 <button
                   onClick={() => navigate("/admin")}
-                  className="flex items-center justify-between p-4 rounded-xl bg-slate-950 border border-slate-800 hover:border-rose-500/40 transition"
+                  className="flex items-center justify-between p-4 rounded-xl bg-slate-950 border border-slate-800 hover:border-rose-500/40 text-left transition"
                 >
-                  <div className="text-left">
-                    <p className="font-semibold text-white">Point Management</p>
-                    <p className="text-xs text-slate-500 mt-1">Add or deduct points</p>
+                  <div>
+                    <p className="font-semibold text-white text-sm">
+                      Point Management
+                    </p>
+                    <p className="text-xs text-slate-500 mt-0.5">
+                      Award or deduct points
+                    </p>
                   </div>
-                  <ChevronRight size={18} className="text-slate-500" />
+                  <ChevronRight size={16} className="text-slate-500" />
                 </button>
 
                 <button
                   onClick={() => navigate("/admin/requests")}
-                  className="flex items-center justify-between p-4 rounded-xl bg-slate-950 border border-slate-800 hover:border-rose-500/40 transition"
+                  className="flex items-center justify-between p-4 rounded-xl bg-slate-950 border border-slate-800 hover:border-rose-500/40 text-left transition"
                 >
-                  <div className="text-left">
-                    <p className="font-semibold text-white">Point Requests</p>
-                    <p className="text-xs text-slate-500 mt-1">Review member requests</p>
+                  <div>
+                    <p className="font-semibold text-white text-sm">
+                      Point Requests
+                    </p>
+                    <p className="text-xs text-slate-500 mt-0.5">
+                      Approve/Reject requests
+                    </p>
                   </div>
-                  <ChevronRight size={18} className="text-slate-500" />
+                  <ChevronRight size={16} className="text-slate-500" />
+                </button>
+
+                <button
+                  onClick={() => navigate("/admin/members")}
+                  className="flex items-center justify-between p-4 rounded-xl bg-slate-950 border border-rose-500/30 hover:border-rose-500 text-left transition"
+                >
+                  <div>
+                    <p className="font-semibold text-white text-sm flex items-center gap-1.5">
+                      <Users size={14} className="text-rose-400" />
+                      View Members
+                    </p>
+                    <p className="text-xs text-slate-500 mt-0.5">
+                      Directory & Super Admin delete
+                    </p>
+                  </div>
+                  <ChevronRight size={16} className="text-rose-400" />
                 </button>
               </div>
             </div>
           </section>
         )}
 
-        {/* RECENT ACTIVITY */}
-        <section className="bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden">
-          <div className="p-6 border-b border-slate-800">
-            <h2 className="text-lg font-bold text-white">Recent Point Activity</h2>
-          </div>
+        {/* RECENT POINT ACTIVITY */}
+        <section className="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-xl">
+          <h2 className="font-extrabold text-base mb-4 text-white">
+            Recent Point Activity
+          </h2>
 
-          <div className="p-6 space-y-3">
-            {loadingActivities && (
-              <div className="text-slate-500 text-sm py-4 text-center">
-                Loading recent activities...
-              </div>
-            )}
-
-            {!loadingActivities && activities.length === 0 && (
-              <div className="text-slate-500 text-sm py-4 text-center">
-                No recent activity recorded yet.
-              </div>
-            )}
-
-            {!loadingActivities &&
-              activities.map((item) => (
+          {recentActivities.length === 0 ? (
+            <p className="text-center text-slate-500 text-sm py-8">
+              No recent activity recorded yet.
+            </p>
+          ) : (
+            <div className="divide-y divide-slate-800">
+              {recentActivities.map((act) => (
                 <div
-                  key={item.id}
-                  className="bg-slate-950 border border-slate-800 rounded-xl p-5 flex items-center justify-between"
+                  key={act.id}
+                  className="py-3 flex items-center justify-between text-sm"
                 >
                   <div>
                     <p className="font-semibold text-white">
-                      {item.activityName || "Activity"}
+                      {act.activityName || "Activity"}
                     </p>
-                    <p className="text-xs text-slate-500 mt-1 flex items-center gap-2">
-                      <Clock size={13} />
-                      {formatDate(item.createdAt)}
+                    <p className="text-xs text-slate-500">
+                      {act.createdAt?.toDate
+                        ? act.createdAt.toDate().toLocaleDateString()
+                        : "Recent"}
                     </p>
                   </div>
-
-                  {item.status === "rejected" ? (
-                    <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-red-500/10 text-red-400 border border-red-500/20 text-sm font-bold">
-                      <XCircle size={14} /> Rejected
-                    </span>
-                  ) : (
-                    <span className="px-3 py-1 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 text-sm font-bold">
-                      +{item.points || 0} pts
-                    </span>
-                  )}
+                  <span
+                    className={`font-bold ${
+                      (act.points || 0) >= 0 ? "text-emerald-400" : "text-rose-400"
+                    }`}
+                  >
+                    {(act.points || 0) >= 0 ? `+${act.points}` : act.points} pts
+                  </span>
                 </div>
               ))}
-          </div>
+            </div>
+          )}
         </section>
       </main>
     </div>

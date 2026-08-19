@@ -14,19 +14,19 @@ import Profile from "./pages/Profile";
 // ADMIN PAGES
 import AdminPoints from "./pages/AdminPoints";
 import AdminPointRequests from "./pages/AdminPointRequests";
+import AdminMembers from "./pages/AdminMembers";
 
-// ROUTE PROTECTION
+// ROUTE GUARDS
 import ProtectedRoute from "./components/ProtectedRoute";
 import AdminRoute from "./components/AdminRoute";
 
-function App() {
+export default function App() {
   return (
     <Routes>
-      {/* AUTH ROUTES */}
       <Route path="/login" element={<Login />} />
       <Route path="/signup" element={<Signup />} />
 
-      {/* MEMBER PROTECTED ROUTES */}
+      {/* MEMBER ROUTES */}
       <Route
         path="/dashboard"
         element={
@@ -63,7 +63,7 @@ function App() {
         }
       />
 
-      {/* ADMIN PROTECTED ROUTES */}
+      {/* ADMIN ROUTES */}
       <Route
         path="/admin"
         element={
@@ -82,11 +82,18 @@ function App() {
         }
       />
 
-      {/* REDIRECTS */}
-      <Route path="/" element={<Navigate to="/login" replace />} />
-      <Route path="*" element={<Navigate to="/login" replace />} />
+      <Route
+        path="/admin/members"
+        element={
+          <AdminRoute>
+            <AdminMembers />
+          </AdminRoute>
+        }
+      />
+
+      {/* FALLBACKS */}
+      <Route path="/" element={<Navigate to="/dashboard" replace />} />
+      <Route path="*" element={<Navigate to="/dashboard" replace />} />
     </Routes>
   );
 }
-
-export default App;

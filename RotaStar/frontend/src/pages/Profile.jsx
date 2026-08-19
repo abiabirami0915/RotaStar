@@ -20,25 +20,20 @@ export default function Profile() {
   const navigate = useNavigate();
   const { currentUser, userData } = useAuth();
 
-  // Form State
   const [fullName, setFullName] = useState("");
   const [username, setUsername] = useState("");
   const [phoneNumber, setPhoneNumber] = useState("");
 
-  // Photo State
   const [imageFile, setImageFile] = useState(null);
   const [previewUrl, setPreviewUrl] = useState("");
 
-  // Status & Feedback
   const [saving, setSaving] = useState(false);
   const [successMsg, setSuccessMsg] = useState("");
   const [errorMsg, setErrorMsg] = useState("");
 
-  // Cooldown Calculation (14 Days)
   const [daysRemaining, setDaysRemaining] = useState(0);
   const [canChangeUsername, setCanChangeUsername] = useState(true);
 
-  // Sync initial values from userData
   useEffect(() => {
     if (userData) {
       setFullName(userData.name || currentUser?.displayName || "");
@@ -46,7 +41,6 @@ export default function Profile() {
       setPhoneNumber(userData.phoneNumber || "");
       setPreviewUrl(userData.photoURL || currentUser?.photoURL || "");
 
-      // Check last username update timestamp
       if (userData.lastUsernameChange) {
         const lastChangeDate = userData.lastUsernameChange.toDate
           ? userData.lastUsernameChange.toDate()
@@ -69,7 +63,6 @@ export default function Profile() {
     }
   }, [userData, currentUser]);
 
-  // Compress & resize image to lightweight base64
   const compressImage = (file) => {
     return new Promise((resolve, reject) => {
       const reader = new FileReader();
@@ -129,7 +122,6 @@ export default function Profile() {
     }
   };
 
-  // Option to automatically set Username to Full Name
   const handleUseFullNameAsUsername = () => {
     if (!canChangeUsername) return;
     const cleanUsername = fullName.toLowerCase().replace(/\s+/g, "_").trim();
@@ -151,7 +143,6 @@ export default function Profile() {
         phoneNumber: phoneNumber.trim(),
       };
 
-      // Check if username was modified
       const currentStoredUsername = userData?.username || userData?.name;
       const isUsernameModified =
         username.trim() !== currentStoredUsername && username.trim().length > 0;
@@ -166,22 +157,19 @@ export default function Profile() {
         updates.lastUsernameChange = Timestamp.now();
       }
 
-      // If photo was changed
       if (imageFile) {
         updates.photoURL = imageFile;
       }
 
-      // 1. Update Firestore User Document
       await updateDoc(userDocRef, updates);
 
-      // 2. Update Firebase Auth Profile Display Name
       try {
         await updateProfile(currentUser, {
           displayName: fullName.trim(),
           ...(imageFile ? { photoURL: imageFile } : {}),
         });
       } catch (authErr) {
-        console.warn("Auth profile sync warning:", authErr);
+        console.warn("Auth profile display sync notice:", authErr);
       }
 
       setSuccessMsg("Profile updated successfully!");
@@ -223,7 +211,6 @@ export default function Profile() {
             </p>
           </div>
 
-          {/* AVATAR PICKER */}
           <div className="relative w-32 h-32 mx-auto mb-6">
             <div className="w-32 h-32 rounded-full overflow-hidden border-4 border-rose-500/30 bg-slate-950 flex items-center justify-center shadow-lg">
               {previewUrl ? (
@@ -255,16 +242,13 @@ export default function Profile() {
             </label>
           </div>
 
-          {/* ROLE BADGE */}
           <div className="text-center mb-6">
             <span className="inline-block px-3 py-1 rounded-full bg-rose-500/10 border border-rose-500/20 text-rose-400 text-xs font-bold uppercase tracking-wider">
               {userData?.role || "Member"}
             </span>
           </div>
 
-          {/* FORM */}
           <form onSubmit={handleSaveProfile} className="space-y-4">
-            {/* FULL NAME */}
             <div>
               <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">
                 Full Name
@@ -279,7 +263,6 @@ export default function Profile() {
               />
             </div>
 
-            {/* USERNAME & 14-DAY COOLDOWN */}
             <div>
               <div className="flex items-center justify-between mb-2">
                 <label className="text-xs font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
@@ -315,7 +298,6 @@ export default function Profile() {
                 }`}
               />
 
-              {/* COOLDOWN HELPER TEXT */}
               {!canChangeUsername ? (
                 <p className="text-[11px] text-amber-400/90 mt-1.5 flex items-center gap-1">
                   <Calendar size={12} />
@@ -329,7 +311,6 @@ export default function Profile() {
               )}
             </div>
 
-            {/* PHONE NUMBER (OPTIONAL) */}
             <div>
               <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">
                 Phone Number <span className="text-slate-500 font-normal">(Optional)</span>
@@ -349,7 +330,6 @@ export default function Profile() {
               </div>
             </div>
 
-            {/* EMAIL (READ-ONLY) */}
             <div>
               <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">
                 Email Address
@@ -362,7 +342,6 @@ export default function Profile() {
               />
             </div>
 
-            {/* FEEDBACK MESSAGES */}
             {errorMsg && (
               <div className="p-3 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 text-sm">
                 {errorMsg}
@@ -374,7 +353,6 @@ export default function Profile() {
               </div>
             )}
 
-            {/* SUBMIT BUTTON */}
             <button
               type="submit"
               disabled={saving}

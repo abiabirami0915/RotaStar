@@ -25,7 +25,6 @@ export function AuthProvider({ children }) {
       setCurrentUser(user);
 
       if (user) {
-        // Real-time listener for Firestore user document (catches profile photo & point updates)
         unsubDoc = onSnapshot(
           doc(db, "users", user.uid),
           (docSnap) => {
@@ -37,7 +36,7 @@ export function AuthProvider({ children }) {
             setLoading(false);
           },
           (error) => {
-            console.error("Error fetching user data:", error);
+            console.error("Error fetching user document:", error);
             setLoading(false);
           }
         );
@@ -62,9 +61,18 @@ export function AuthProvider({ children }) {
     return signOut(auth);
   };
 
-  const role = userData?.role || "Member";
-  const isAdmin = role === "Admin" || role === "Super Admin";
-  const isSuperAdmin = role === "Super Admin";
+  // Case-insensitive role validation
+  const rawRole = userData?.role || "Member";
+  const normalizedRole = rawRole.toString().trim().toLowerCase();
+
+  const isAdmin =
+    normalizedRole === "admin" ||
+    normalizedRole === "super admin" ||
+    normalizedRole === "superadmin";
+
+  const isSuperAdmin =
+    normalizedRole === "super admin" ||
+    normalizedRole === "superadmin";
 
   const value = {
     currentUser,
@@ -72,7 +80,7 @@ export function AuthProvider({ children }) {
     loading,
     login,
     logout,
-    role,
+    role: rawRole,
     isAdmin,
     isSuperAdmin,
   };
