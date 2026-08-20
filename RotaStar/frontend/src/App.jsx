@@ -91,7 +91,7 @@ export default function App() {
         }
       />
 
-      {/* FALLBACKS */}
+      {/* DEFAULT FALLBACKS */}
       <Route path="/" element={<Navigate to="/dashboard" replace />} />
       <Route path="*" element={<Navigate to="/dashboard" replace />} />
     </Routes>
