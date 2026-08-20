@@ -12,7 +12,9 @@ import { useNavigate } from "react-router-dom";
 import {
   Send,
   ArrowLeft,
-  CheckCircle
+  CheckCircle,
+  Sparkles,
+  Crown
 } from "lucide-react";
 
 export default function PointRequest() {
@@ -47,27 +49,17 @@ export default function PointRequest() {
 
       await addDoc(collection(db, "pointRequests"), {
         userId: currentUser.uid,
-
         memberName:
           userData?.name ||
           currentUser.displayName ||
           "Member",
-
-        memberEmail:
-          currentUser.email || "",
-
+        memberEmail: currentUser.email || "",
         activityName: activityName.trim(),
-
         reason: reason.trim() || "",
-
         status: "pending",
-
         requestedAt: serverTimestamp(),
-
         reviewedAt: null,
-
         reviewedBy: null,
-
         pointsAwarded: 0
       });
 
@@ -79,129 +71,110 @@ export default function PointRequest() {
       );
     } catch (error) {
       console.error("Point request error:", error);
-
-      setError(
-        "Unable to submit request. Please try again."
-      );
+      setError("Unable to submit request. Please try again.");
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="min-h-screen bg-slate-950 text-white">
-
+    <div className="min-h-screen bg-[#030014] text-white">
       {/* Navbar */}
-      <nav className="border-b border-slate-800 bg-slate-900/80">
+      <nav className="border-b border-violet-900/40 bg-slate-950/80 backdrop-blur-md sticky top-0 z-50">
         <div className="max-w-4xl mx-auto px-6 h-16 flex items-center justify-between">
-
           <button
             onClick={() => navigate("/dashboard")}
-            className="flex items-center gap-2 text-slate-400 hover:text-white"
+            className="flex items-center gap-2 text-violet-300 hover:text-amber-300 transition-colors text-sm font-semibold"
           >
             <ArrowLeft size={18} />
-            Back
+            <span>Back to Dashboard</span>
           </button>
 
           <div className="font-black text-xl">
-            <span className="text-rose-500">Rota</span>
-            <span className="text-white">Star</span>
+            <span className="text-violet-400">Rota</span>
+            <span className="text-amber-400">Star</span>
           </div>
-
         </div>
       </nav>
 
       {/* Main */}
       <main className="max-w-2xl mx-auto px-6 py-10">
-
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold">
-            Request Points
-          </h1>
-
-          <p className="text-slate-400 mt-2">
-            Submit your activity for admin approval.
-          </p>
+        <div className="mb-8 flex items-center gap-4">
+          <div className="w-12 h-12 rounded-2xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-center shadow-lg shadow-amber-500/10">
+            <Crown size={24} className="text-amber-400" />
+          </div>
+          <div>
+            <h1 className="text-3xl font-black flex items-center gap-2">
+              Request Points
+              <Sparkles size={18} className="text-amber-400" />
+            </h1>
+            <p className="text-slate-400 text-sm mt-1">
+              Submit your community contribution for imperial admin approval.
+            </p>
+          </div>
         </div>
 
-        <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-xl">
-
+        <div className="bg-slate-900/90 border border-violet-900/50 rounded-3xl p-6 sm:p-8 shadow-2xl shadow-violet-950/50">
           {success && (
-            <div className="mb-6 p-4 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 flex gap-3">
-              <CheckCircle size={20} />
+            <div className="mb-6 p-4 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 flex gap-3 items-center text-sm">
+              <CheckCircle size={20} className="shrink-0" />
               <span>{success}</span>
             </div>
           )}
 
           {error && (
-            <div className="mb-6 p-4 rounded-xl bg-red-500/10 border border-red-500/30 text-red-400">
+            <div className="mb-6 p-4 rounded-xl bg-red-500/10 border border-red-500/30 text-red-400 text-sm">
               {error}
             </div>
           )}
 
-          <form
-            onSubmit={handleSubmit}
-            className="space-y-6"
-          >
-
+          <form onSubmit={handleSubmit} className="space-y-6">
             {/* Activity */}
             <div>
-              <label className="block text-sm font-semibold text-slate-300 mb-2">
+              <label className="block text-xs font-bold text-violet-300 uppercase tracking-wider mb-2">
                 Activity Name *
               </label>
 
               <input
                 type="text"
                 value={activityName}
-                onChange={(e) =>
-                  setActivityName(e.target.value)
-                }
+                onChange={(e) => setActivityName(e.target.value)}
                 placeholder="Example: Mega Health Camp"
-                className="w-full px-4 py-3 rounded-xl bg-slate-950 border border-slate-700 text-white outline-none focus:border-rose-500"
+                className="w-full px-4 py-3 rounded-xl bg-slate-950 border border-violet-900/40 text-white outline-none focus:border-amber-400 transition text-sm"
                 required
               />
             </div>
 
             {/* Reason */}
             <div>
-              <label className="block text-sm font-semibold text-slate-300 mb-2">
-                Reason
-                <span className="text-slate-500 font-normal">
-                  {" "} (Optional)
-                </span>
+              <label className="block text-xs font-bold text-violet-300 uppercase tracking-wider mb-2">
+                Reason{" "}
+                <span className="text-slate-500 font-normal">(Optional)</span>
               </label>
 
               <textarea
                 value={reason}
-                onChange={(e) =>
-                  setReason(e.target.value)
-                }
+                onChange={(e) => setReason(e.target.value)}
                 placeholder="Explain what you contributed..."
                 rows={5}
-                className="w-full px-4 py-3 rounded-xl bg-slate-950 border border-slate-700 text-white outline-none focus:border-rose-500 resize-none"
+                className="w-full px-4 py-3 rounded-xl bg-slate-950 border border-violet-900/40 text-white outline-none focus:border-amber-400 transition text-sm resize-none"
               />
             </div>
 
             {/* Important note */}
-            <div className="p-4 rounded-xl bg-blue-500/10 border border-blue-500/20 text-blue-300 text-sm">
-              <strong>Note:</strong> You cannot assign points
-              yourself. An Admin or Super Admin will review
-              your request and decide the points.
+            <div className="p-4 rounded-xl bg-violet-950/40 border border-violet-500/30 text-violet-200 text-xs leading-relaxed">
+              <strong className="text-amber-400">Imperial Note:</strong> You cannot assign points yourself. An Admin or Super Admin will review your submission and grant the appropriate points.
             </div>
 
             {/* Submit */}
             <button
               type="submit"
               disabled={loading}
-              className="w-full py-3 rounded-xl bg-rose-600 hover:bg-rose-500 disabled:opacity-50 font-bold flex items-center justify-center gap-2"
+              className="w-full py-3.5 rounded-xl bg-gradient-to-r from-violet-700 via-purple-600 to-amber-600 hover:from-violet-600 hover:to-amber-500 text-white font-bold flex items-center justify-center gap-2 shadow-xl shadow-violet-950 transition disabled:opacity-50 border border-amber-400/20"
             >
               <Send size={18} />
-
-              {loading
-                ? "Submitting..."
-                : "Submit Point Request"}
+              {loading ? "Submitting Request..." : "Submit Point Request"}
             </button>
-
           </form>
         </div>
       </main>
