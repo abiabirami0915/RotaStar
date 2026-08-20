@@ -1,181 +1,185 @@
 import React, { useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
-import { useAuth } from "../AuthContext";
+import { useNavigate, Link } from "react-router-dom";
+import { createUserWithEmailAndPassword, updateProfile } from "firebase/auth";
+import { doc, setDoc, serverTimestamp } from "firebase/firestore";
+import { auth, db } from "../firebase/firebase";
+import { Loader2, AlertCircle, Sparkles } from "lucide-react";
 
-function Signup() {
+export default function Signup() {
   const navigate = useNavigate();
-
-  const { signup } = useAuth();
 
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [confirmPassword, setConfirmPassword] =
-    useState("");
+  const [phoneNumber, setPhoneNumber] = useState("");
 
-  const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [errorMsg, setErrorMsg] = useState("");
 
   const handleSignup = async (e) => {
     e.preventDefault();
-
-    setError("");
-
-    if (!name.trim()) {
-      setError("Please enter your name.");
-      return;
-    }
-
-    if (!email.trim()) {
-      setError("Please enter your email.");
-      return;
-    }
+    setErrorMsg("");
 
     if (password.length < 6) {
-      setError(
-        "Password must contain at least 6 characters."
-      );
+      setErrorMsg("Password must be at least 6 characters long.");
       return;
     }
 
-    if (password !== confirmPassword) {
-      setError("Passwords do not match.");
-      return;
-    }
+    setLoading(true);
 
     try {
-      setLoading(true);
-
-      await signup(
-        name.trim(),
-        email.trim(),
+      // 1. Create User in Firebase Auth
+      const userCredential = await createUserWithEmailAndPassword(
+        auth,
+        email.trim().toLowerCase(),
         password
       );
+      const user = userCredential.user;
 
-      // Account successfully created
-      navigate("/dashboard");
-    } catch (error) {
-      console.error(error);
+      // 2. Format standard username
+      const defaultUsername = name
+        .trim()
+        .toLowerCase()
+        .replace(/[^a-z0-9_]/g, "_")
+        .replace(/_+/g, "_");
 
-      if (error.code === "auth/email-already-in-use") {
-        setError(
-          "This email is already registered. Please login."
-        );
-      } else if (
-        error.code === "auth/invalid-email"
-      ) {
-        setError("Please enter a valid email.");
-      } else if (
-        error.code === "auth/weak-password"
-      ) {
-        setError(
-          "Password is too weak. Use at least 6 characters."
-        );
-      } else {
-        setError(
-          "Account creation failed. Please try again."
-        );
+      // 3. Update Auth Profile Display Name
+      try {
+        await updateProfile(user, {
+          displayName: name.trim(),
+        });
+      } catch (pErr) {
+        console.warn("Display name update notice:", pErr);
       }
+
+      // 4. Create User Document in Firestore
+      await setDoc(doc(db, "users", user.uid), {
+        uid: user.uid,
+        name: name.trim(),
+        username: defaultUsername,
+        email: email.trim().toLowerCase(),
+        phoneNumber: phoneNumber.trim() || "",
+        role: "Member",
+        totalPoints: 0,
+        photoURL: "",
+        createdAt: serverTimestamp(),
+        lastUsernameChange: null,
+      });
+
+      // 5. Success -> Dashboard
+      navigate("/dashboard");
+    } catch (err) {
+      console.error("Full signup error:", err);
+      // Print the exact code & message so we know the precise culprit
+      setErrorMsg(`Error (${err.code || "unknown"}): ${err.message}`);
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="auth-page">
-      <div className="auth-card">
-
-        <div className="auth-logo">
-          <span>Rota</span>Star
+    <div className="min-h-screen bg-slate-950 text-white flex items-center justify-center p-4">
+      <div className="bg-slate-900 border border-slate-800 rounded-3xl p-8 max-w-md w-full shadow-2xl">
+        <div className="text-center mb-8">
+          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-rose-500/10 border border-rose-500/20 text-rose-400 text-xs font-bold uppercase tracking-wider mb-3">
+            <Sparkles size={13} />
+            <span>Join RotaStar</span>
+          </div>
+          <h1 className="text-2xl sm:text-3xl font-black">Create an Account</h1>
+          <p className="text-sm text-slate-400 mt-1">
+            Sign up to track attendance and earn points
+          </p>
         </div>
 
-        <h1>Create Account</h1>
-
-        <p className="auth-subtitle">
-          Join RotaStar · Rotaract Club of PSVPEC
-        </p>
-
-        {error && (
-          <div className="auth-error">
-            {error}
+        {errorMsg && (
+          <div className="mb-6 p-4 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 text-sm flex items-start gap-3 break-words">
+            <AlertCircle size={18} className="shrink-0 mt-0.5" />
+            <span>{errorMsg}</span>
           </div>
         )}
 
-        <form onSubmit={handleSignup}>
+        <form onSubmit={handleSignup} className="space-y-4">
+          <div>
+            <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">
+              Full Name
+            </label>
+            <input
+              type="text"
+              required
+              placeholder="e.g. Rahul Sharma"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              className="w-full px-4 py-3 bg-slate-950 border border-slate-800 rounded-xl text-white outline-none focus:border-rose-500 transition text-sm"
+            />
+          </div>
 
-          <label>Full Name</label>
+          <div>
+            <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">
+              Email Address
+            </label>
+            <input
+              type="email"
+              required
+              placeholder="member@rotary.org"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              className="w-full px-4 py-3 bg-slate-950 border border-slate-800 rounded-xl text-white outline-none focus:border-rose-500 transition text-sm"
+            />
+          </div>
 
-          <input
-            type="text"
-            placeholder="Enter your full name"
-            value={name}
-            onChange={(e) =>
-              setName(e.target.value)
-            }
-            required
-          />
+          <div>
+            <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">
+              Phone Number <span className="text-slate-500 font-normal">(Optional)</span>
+            </label>
+            <input
+              type="tel"
+              placeholder="+91 98765 43210"
+              value={phoneNumber}
+              onChange={(e) => setPhoneNumber(e.target.value)}
+              className="w-full px-4 py-3 bg-slate-950 border border-slate-800 rounded-xl text-white outline-none focus:border-rose-500 transition text-sm"
+            />
+          </div>
 
-          <label>Email</label>
-
-          <input
-            type="email"
-            placeholder="Enter your email"
-            value={email}
-            onChange={(e) =>
-              setEmail(e.target.value)
-            }
-            required
-          />
-
-          <label>Password</label>
-
-          <input
-            type="password"
-            placeholder="Create a password"
-            value={password}
-            onChange={(e) =>
-              setPassword(e.target.value)
-            }
-            required
-          />
-
-          <small>
-            Password must contain at least 6 characters.
-          </small>
-
-          <label>Confirm Password</label>
-
-          <input
-            type="password"
-            placeholder="Confirm your password"
-            value={confirmPassword}
-            onChange={(e) =>
-              setConfirmPassword(e.target.value)
-            }
-            required
-          />
+          <div>
+            <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">
+              Password
+            </label>
+            <input
+              type="password"
+              required
+              placeholder="Min. 6 characters"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              className="w-full px-4 py-3 bg-slate-950 border border-slate-800 rounded-xl text-white outline-none focus:border-rose-500 transition text-sm"
+            />
+          </div>
 
           <button
             type="submit"
             disabled={loading}
+            className="w-full !mt-6 py-3.5 rounded-xl bg-gradient-to-r from-rose-600 to-orange-500 hover:from-rose-500 hover:to-orange-400 text-white font-bold flex items-center justify-center gap-2 shadow-lg shadow-rose-600/20 transition disabled:opacity-50"
           >
-            {loading
-              ? "Creating Account..."
-              : "Create Account"}
+            {loading ? (
+              <>
+                <Loader2 size={18} className="animate-spin" />
+                <span>Creating Account...</span>
+              </>
+            ) : (
+              <span>Create Account</span>
+            )}
           </button>
         </form>
 
-        <p className="auth-footer">
-          Already have an account?
-          {" "}
-          <Link to="/login">
-            Login
+        <p className="text-center text-xs text-slate-400 mt-6">
+          Already have an account?{" "}
+          <Link
+            to="/login"
+            className="text-rose-400 hover:text-rose-300 font-bold underline transition"
+          >
+            Sign In
           </Link>
         </p>
-
       </div>
     </div>
   );
 }
-
-export default Signup;
