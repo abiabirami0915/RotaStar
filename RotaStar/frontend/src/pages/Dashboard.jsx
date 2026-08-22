@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, Link } from "react-router-dom";
 import {
   Trophy,
   Flame,
@@ -10,7 +10,8 @@ import {
   Shield,
   LogOut,
   User,
-  Users,
+  Crown,
+  Sparkles,
 } from "lucide-react";
 import {
   collection,
@@ -30,15 +31,12 @@ export default function Dashboard() {
   const [recentActivities, setRecentActivities] = useState([]);
   const [userRank, setUserRank] = useState("-");
 
-  // Determine Level / Tier
+  // Level Logic: 0-100 = Level 1, 101-200 = Level 2, 201-300 = Level 3, ...
   const points = userData?.totalPoints || 0;
-  let levelTitle = "Green Rotaractor";
-  if (points >= 500) levelTitle = "Platinum Star";
-  else if (points >= 300) levelTitle = "Gold Star";
-  else if (points >= 150) levelTitle = "Silver Star";
-  else if (points >= 50) levelTitle = "Bronze Star";
+  const currentLevelNumber =
+    points <= 0 ? 1 : Math.floor((points - 1) / 100) + 1;
+  const levelTitle = `Level ${currentLevelNumber}`;
 
-  // Calculate Rank
   useEffect(() => {
     const unsubUsers = onSnapshot(collection(db, "users"), (snapshot) => {
       const allUsers = snapshot.docs.map((docSnap) => ({
@@ -54,7 +52,6 @@ export default function Dashboard() {
     return () => unsubUsers();
   }, [currentUser]);
 
-  // Fetch Recent Activities
   useEffect(() => {
     if (!currentUser) return;
 
@@ -74,7 +71,7 @@ export default function Dashboard() {
         }));
         setRecentActivities(acts);
       },
-      (err) => console.log("Activities subscription notice:", err)
+      (err) => console.log("Activities listener notice:", err)
     );
 
     return () => unsubActivities();
@@ -86,68 +83,71 @@ export default function Dashboard() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-950 text-white">
+    <div className="min-h-screen bg-[#030014] text-white">
       {/* NAVBAR */}
-      <nav className="border-b border-slate-800 bg-slate-900/80 backdrop-blur-md sticky top-0 z-50">
+      <nav className="border-b border-violet-900/40 bg-slate-950/80 backdrop-blur-md sticky top-0 z-50">
         <div className="max-w-6xl mx-auto px-6 h-16 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-xl bg-rose-600 flex items-center justify-center font-black text-white shadow-lg shadow-rose-600/20">
-              R
+            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-violet-600 to-amber-500 flex items-center justify-center font-black text-white shadow-lg shadow-violet-600/30">
+              <Crown size={20} className="text-amber-200" />
             </div>
             <div>
-              <span className="font-extrabold tracking-tight text-lg text-rose-500">
+              <span className="font-extrabold tracking-tight text-lg text-violet-400">
                 Rota
               </span>
-              <span className="font-extrabold tracking-tight text-lg text-white">
+              <span className="font-extrabold tracking-tight text-lg text-amber-400">
                 Star
               </span>
-              <span className="text-[10px] text-slate-400 block -mt-1 tracking-wider uppercase font-semibold">
+              <span className="text-[10px] text-amber-300/70 block -mt-1 tracking-wider uppercase font-bold">
                 PSVPEC
               </span>
             </div>
           </div>
 
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-3 sm:gap-4">
             <button
               onClick={() => navigate("/leaderboard")}
-              className="text-xs font-semibold text-slate-300 hover:text-white transition"
+              className="text-xs font-semibold text-violet-200/80 hover:text-amber-300 transition"
             >
               Leaderboard
             </button>
 
-            <button
-              onClick={() => navigate("/profile")}
-              className="w-9 h-9 rounded-full overflow-hidden border border-slate-700 bg-slate-950 flex items-center justify-center hover:border-rose-500 transition"
+            <Link
+              to="/profile"
+              className="w-10 h-10 rounded-full overflow-hidden border-2 border-amber-500/40 hover:border-amber-400 bg-slate-950 flex items-center justify-center transition shrink-0 cursor-pointer shadow-lg shadow-violet-900/20"
               title="Profile"
             >
               {userData?.photoURL || currentUser?.photoURL ? (
                 <img
                   src={userData?.photoURL || currentUser?.photoURL}
                   alt="Profile"
-                  className="w-full h-full object-cover"
+                  className="w-full h-full object-cover pointer-events-none"
                 />
               ) : (
-                <User size={18} className="text-slate-400" />
+                <User size={20} className="text-violet-300 pointer-events-none" />
               )}
-            </button>
+            </Link>
 
             <button
               onClick={handleLogout}
-              className="flex items-center gap-1.5 text-xs text-slate-400 hover:text-rose-400 transition ml-2"
+              className="flex items-center gap-1 text-xs text-slate-400 hover:text-rose-400 transition ml-1"
             >
               <LogOut size={16} />
-              <span>Logout</span>
+              <span className="hidden sm:inline">Logout</span>
             </button>
           </div>
         </div>
       </nav>
 
-      {/* MAIN BODY */}
+      {/* MAIN CONTAINER */}
       <main className="max-w-6xl mx-auto px-6 py-8">
         {/* HERO STATUS CARD */}
-        <div className="bg-gradient-to-r from-rose-950/40 via-slate-900 to-slate-900 border border-rose-500/20 rounded-3xl p-6 sm:p-8 mb-6 flex flex-col md:flex-row md:items-center justify-between gap-6 shadow-xl">
+        <div
+          onClick={() => navigate("/profile")}
+          className="cursor-pointer bg-gradient-to-r from-violet-950/70 via-slate-900/90 to-amber-950/40 border border-violet-500/30 hover:border-amber-500/60 rounded-3xl p-6 sm:p-8 mb-6 flex flex-col md:flex-row md:items-center justify-between gap-6 shadow-2xl transition-all group hover:shadow-violet-900/20"
+        >
           <div className="flex items-center gap-4">
-            <div className="w-16 h-16 rounded-2xl overflow-hidden border border-slate-700 bg-slate-950 flex items-center justify-center shrink-0 shadow-lg">
+            <div className="w-16 h-16 rounded-2xl overflow-hidden border-2 border-amber-500/50 bg-slate-950 flex items-center justify-center shrink-0 shadow-lg shadow-amber-500/10 group-hover:scale-105 transition-transform">
               {userData?.photoURL || currentUser?.photoURL ? (
                 <img
                   src={userData?.photoURL || currentUser?.photoURL}
@@ -155,34 +155,35 @@ export default function Dashboard() {
                   className="w-full h-full object-cover"
                 />
               ) : (
-                <User size={30} className="text-slate-500" />
+                <User size={32} className="text-violet-400" />
               )}
             </div>
 
             <div>
-              <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-rose-400 mb-1">
-                <Trophy size={14} />
+              <div className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-amber-400 mb-1">
+                <Sparkles size={14} className="text-amber-400" />
                 <span>Current Status</span>
               </div>
-              <h1 className="text-2xl sm:text-3xl font-black">
+              <h1 className="text-2xl sm:text-3xl font-black text-white group-hover:text-amber-300 transition-colors">
                 Hello, {userData?.name || currentUser?.displayName || "Member"}
               </h1>
               <p className="text-xs text-slate-400 mt-1">
-                Role: <span className="capitalize text-slate-300 font-semibold">{userData?.role || "Member"}</span>
+                Role: <span className="capitalize text-violet-300 font-semibold">{userData?.role || "Member"}</span>
                 {userData?.username && ` • @${userData.username}`}
+                <span className="text-amber-400 font-medium ml-2 underline">Edit Profile →</span>
               </p>
             </div>
           </div>
 
-          <div className="bg-slate-950/70 border border-slate-800 rounded-2xl p-4 sm:px-6 flex items-center gap-4">
-            <div className="p-2.5 rounded-xl bg-rose-500/10 text-rose-400 border border-rose-500/20">
+          <div className="bg-slate-950/80 border border-amber-500/30 rounded-2xl p-4 sm:px-6 flex items-center gap-4 shadow-lg shadow-amber-500/5">
+            <div className="p-2.5 rounded-xl bg-amber-500/10 text-amber-400 border border-amber-500/20">
               <Trophy size={20} />
             </div>
             <div>
-              <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">
-                Level
+              <p className="text-[10px] text-amber-300/80 font-bold uppercase tracking-wider">
+                Current Level
               </p>
-              <p className="text-base font-extrabold text-rose-400">
+              <p className="text-lg font-black text-amber-400 tracking-wide">
                 {levelTitle}
               </p>
             </div>
@@ -191,96 +192,96 @@ export default function Dashboard() {
 
         {/* METRICS ROW */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-lg">
-            <div className="flex items-center gap-2 text-slate-400 text-xs font-semibold mb-2">
-              <Flame size={16} className="text-amber-500" />
+          <div className="bg-slate-900/90 border border-violet-900/40 hover:border-amber-500/40 rounded-2xl p-5 shadow-xl transition">
+            <div className="flex items-center gap-2 text-violet-300 text-xs font-semibold mb-2">
+              <Flame size={16} className="text-amber-400" />
               <span>Total Points</span>
             </div>
-            <p className="text-2xl sm:text-3xl font-black text-white">{points}</p>
+            <p className="text-2xl sm:text-3xl font-black text-amber-400">{points}</p>
           </div>
 
-          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-lg">
-            <div className="flex items-center gap-2 text-slate-400 text-xs font-semibold mb-2">
-              <Trophy size={16} className="text-sky-400" />
+          <div className="bg-slate-900/90 border border-violet-900/40 hover:border-violet-500/40 rounded-2xl p-5 shadow-xl transition">
+            <div className="flex items-center gap-2 text-violet-300 text-xs font-semibold mb-2">
+              <Trophy size={16} className="text-violet-400" />
               <span>Current Rank</span>
             </div>
             <p className="text-2xl sm:text-3xl font-black text-white">{userRank}</p>
           </div>
 
-          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-lg">
-            <div className="flex items-center gap-2 text-slate-400 text-xs font-semibold mb-2">
+          <div className="bg-slate-900/90 border border-violet-900/40 rounded-2xl p-5 shadow-xl">
+            <div className="flex items-center gap-2 text-violet-300 text-xs font-semibold mb-2">
               <CheckCircle size={16} className="text-emerald-400" />
               <span>Attendance Rate</span>
             </div>
             <p className="text-2xl sm:text-3xl font-black text-white">100%</p>
           </div>
 
-          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-lg">
-            <div className="flex items-center gap-2 text-slate-400 text-xs font-semibold mb-2">
-              <Award size={16} className="text-purple-400" />
+          <div className="bg-slate-900/90 border border-violet-900/40 rounded-2xl p-5 shadow-xl">
+            <div className="flex items-center gap-2 text-violet-300 text-xs font-semibold mb-2">
+              <Award size={16} className="text-amber-400" />
               <span>Badges Earned</span>
             </div>
             <p className="text-2xl sm:text-3xl font-black text-white">
-              {points >= 300 ? "3" : points >= 150 ? "2" : points >= 50 ? "1" : "0"}
+              {currentLevelNumber > 1 ? currentLevelNumber - 1 : 0}
             </p>
           </div>
         </div>
 
-        {/* PRIMARY ACTION BUTTONS */}
+        {/* PRIMARY ACTIONS */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
           <button
             onClick={() => navigate("/request-points")}
-            className="p-6 rounded-2xl bg-gradient-to-r from-rose-600 to-orange-500 hover:from-rose-500 hover:to-orange-400 text-left transition shadow-lg shadow-rose-600/20 flex items-center justify-between"
+            className="p-6 rounded-2xl bg-gradient-to-r from-violet-700 to-amber-600 hover:from-violet-600 hover:to-amber-500 text-left transition shadow-xl shadow-violet-950 flex items-center justify-between group"
           >
             <div className="flex items-center gap-4">
-              <div className="p-3 bg-white/15 rounded-xl">
+              <div className="p-3 bg-white/15 rounded-xl text-amber-200">
                 <FileText size={24} />
               </div>
               <div>
                 <h3 className="font-extrabold text-lg text-white">
                   Request Points
                 </h3>
-                <p className="text-xs text-rose-100/90 mt-0.5">
-                  Submit your activity and request club points
+                <p className="text-xs text-amber-100/90 mt-0.5">
+                  Submit your activity and claim club points
                 </p>
               </div>
             </div>
-            <ChevronRight size={22} className="text-white/80" />
+            <ChevronRight size={22} className="text-amber-200 group-hover:translate-x-1 transition-transform" />
           </button>
 
           <button
             onClick={() => navigate("/leaderboard")}
-            className="p-6 rounded-2xl bg-slate-900 border border-slate-800 hover:border-slate-700 text-left transition shadow-lg flex items-center justify-between"
+            className="p-6 rounded-2xl bg-slate-900/90 border border-violet-900/50 hover:border-amber-500/50 text-left transition shadow-xl flex items-center justify-between group"
           >
             <div className="flex items-center gap-4">
-              <div className="p-3 bg-rose-500/10 text-rose-400 rounded-xl">
-                <Trophy size={24} />
+              <div className="p-3 bg-violet-600/10 text-amber-400 rounded-xl border border-violet-500/20">
+                <Crown size={24} />
               </div>
               <div>
                 <h3 className="font-extrabold text-lg text-white">
-                  View Leaderboard
+                  Royal Leaderboard
                 </h3>
                 <p className="text-xs text-slate-400 mt-0.5">
-                  Check your standing and club rankings
+                  View standings, tiers, and top ranks
                 </p>
               </div>
             </div>
-            <ChevronRight size={22} className="text-slate-500" />
+            <ChevronRight size={22} className="text-violet-400 group-hover:translate-x-1 transition-transform" />
           </button>
         </div>
 
-        {/* ADMIN PANEL SECTION */}
+        {/* ADMIN PANEL */}
         {(isAdmin || isSuperAdmin) && (
           <section className="mb-6">
-            <div className="bg-slate-900 border border-rose-500/20 rounded-2xl p-6 shadow-xl">
+            <div className="bg-slate-900/90 border border-amber-500/30 rounded-3xl p-6 shadow-2xl">
               <div className="flex items-center gap-3 mb-5">
-                <div className="w-10 h-10 rounded-lg bg-rose-500/10 flex items-center justify-center">
-                  <Shield size={20} className="text-rose-400" />
+                <div className="w-10 h-10 rounded-lg bg-amber-500/10 border border-amber-500/20 flex items-center justify-center">
+                  <Shield size={20} className="text-amber-400" />
                 </div>
                 <div>
                   <h2 className="text-lg font-bold text-white">Admin Controls</h2>
                   <p className="text-xs text-slate-400">
-                    Manage points, verify submissions, and review member roster
+                    Oversee points ledger, submissions, and member privileges
                   </p>
                 </div>
               </div>
@@ -288,7 +289,7 @@ export default function Dashboard() {
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 <button
                   onClick={() => navigate("/admin")}
-                  className="flex items-center justify-between p-4 rounded-xl bg-slate-950 border border-slate-800 hover:border-rose-500/40 text-left transition"
+                  className="flex items-center justify-between p-4 rounded-xl bg-slate-950 border border-violet-900/40 hover:border-amber-500/40 text-left transition"
                 >
                   <div>
                     <p className="font-semibold text-white text-sm">
@@ -298,12 +299,12 @@ export default function Dashboard() {
                       Award or deduct points
                     </p>
                   </div>
-                  <ChevronRight size={16} className="text-slate-500" />
+                  <ChevronRight size={16} className="text-amber-400" />
                 </button>
 
                 <button
                   onClick={() => navigate("/admin/requests")}
-                  className="flex items-center justify-between p-4 rounded-xl bg-slate-950 border border-slate-800 hover:border-rose-500/40 text-left transition"
+                  className="flex items-center justify-between p-4 rounded-xl bg-slate-950 border border-violet-900/40 hover:border-amber-500/40 text-left transition"
                 >
                   <div>
                     <p className="font-semibold text-white text-sm">
@@ -313,23 +314,23 @@ export default function Dashboard() {
                       Approve/Reject requests
                     </p>
                   </div>
-                  <ChevronRight size={16} className="text-slate-500" />
+                  <ChevronRight size={16} className="text-amber-400" />
                 </button>
 
                 <button
                   onClick={() => navigate("/admin/members")}
-                  className="flex items-center justify-between p-4 rounded-xl bg-slate-950 border border-rose-500/30 hover:border-rose-500 text-left transition"
+                  className="flex items-center justify-between p-4 rounded-xl bg-slate-950 border border-amber-500/30 hover:border-amber-500 text-left transition"
                 >
                   <div>
                     <p className="font-semibold text-white text-sm flex items-center gap-1.5">
-                      <Users size={14} className="text-rose-400" />
+                      <Crown size={14} className="text-amber-400" />
                       View Members
                     </p>
                     <p className="text-xs text-slate-500 mt-0.5">
-                      Directory & Super Admin delete
+                      Roster & Super Admin delete
                     </p>
                   </div>
-                  <ChevronRight size={16} className="text-rose-400" />
+                  <ChevronRight size={16} className="text-amber-400" />
                 </button>
               </div>
             </div>
@@ -337,8 +338,9 @@ export default function Dashboard() {
         )}
 
         {/* RECENT POINT ACTIVITY */}
-        <section className="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-xl">
-          <h2 className="font-extrabold text-base mb-4 text-white">
+        <section className="bg-slate-900/90 border border-violet-900/40 rounded-3xl p-6 shadow-xl">
+          <h2 className="font-extrabold text-base mb-4 text-white flex items-center gap-2">
+            <Sparkles size={16} className="text-amber-400" />
             Recent Point Activity
           </h2>
 
@@ -347,7 +349,7 @@ export default function Dashboard() {
               No recent activity recorded yet.
             </p>
           ) : (
-            <div className="divide-y divide-slate-800">
+            <div className="divide-y divide-violet-950/80">
               {recentActivities.map((act) => (
                 <div
                   key={act.id}
@@ -365,7 +367,7 @@ export default function Dashboard() {
                   </div>
                   <span
                     className={`font-bold ${
-                      (act.points || 0) >= 0 ? "text-emerald-400" : "text-rose-400"
+                      (act.points || 0) >= 0 ? "text-amber-400" : "text-rose-400"
                     }`}
                   >
                     {(act.points || 0) >= 0 ? `+${act.points}` : act.points} pts
