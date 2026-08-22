@@ -28,7 +28,6 @@ export default function Signup() {
     setLoading(true);
 
     try {
-      // 1. Create User in Firebase Authentication
       const userCredential = await createUserWithEmailAndPassword(
         auth,
         email.trim().toLowerCase(),
@@ -36,21 +35,18 @@ export default function Signup() {
       );
       const user = userCredential.user;
 
-      // 2. Format standard username
       const defaultUsername = name
         .trim()
         .toLowerCase()
         .replace(/[^a-z0-9_]/g, "_")
         .replace(/_+/g, "_");
 
-      // 3. Update Auth Profile Display Name
       try {
         await updateProfile(user, { displayName: name.trim() });
       } catch (pErr) {
         console.warn("Display name update notice:", pErr);
       }
 
-      // 4. Create User Document in Firestore with 50 Initial Points
       await setDoc(doc(db, "users", user.uid), {
         uid: user.uid,
         name: name.trim(),
@@ -64,7 +60,6 @@ export default function Signup() {
         lastUsernameChange: null,
       });
 
-      // 5. Create initial activity entry for Dashboard feed
       await addDoc(collection(db, "activities"), {
         userId: user.uid,
         memberName: name.trim(),
@@ -74,10 +69,7 @@ export default function Signup() {
         awardedBy: "System",
       });
 
-      // 6. Set one-time welcome trigger flag
       sessionStorage.setItem("showWelcomeReward", "true");
-
-      // 7. Navigate to Dashboard
       navigate("/dashboard");
     } catch (err) {
       console.error("Signup error details:", err);
@@ -108,11 +100,15 @@ export default function Signup() {
             Create an <span className="text-violet-400">Account</span>
           </h1>
 
-          <p className="text-[11px] text-amber-300/80 font-medium tracking-tight mt-1">
+          <p className="text-[11px] text-amber-400/90 font-semibold tracking-wide uppercase mt-1">
+            "Service with Purpose, Recognition with Merit."
+          </p>
+
+          <p className="text-[10px] text-slate-400 mt-1">
             Rotaract Club of Prince Shri Venkateshwara Padmavathy Engineering College
           </p>
 
-          <p className="text-xs text-slate-400 mt-2">
+          <p className="text-xs text-amber-300/90 mt-2 font-medium">
             Sign up to claim your instant <strong className="text-amber-400 font-bold">50 point</strong> starter reward!
           </p>
         </div>

@@ -35,7 +35,7 @@ export default function Dashboard() {
   const [userRank, setUserRank] = useState("-");
   const [showWelcomeModal, setShowWelcomeModal] = useState(false);
 
-  // Level Logic: 0-100: Level 1, 101-200: Level 2, 201-300: Level 3...
+  // 1-100: Level 1, 101-200: Level 2, 201-300: Level 3...
   const points = userData?.totalPoints || 0;
   const currentLevelNumber =
     points <= 0 ? 1 : Math.floor((points - 1) / 100) + 1;
@@ -114,7 +114,7 @@ export default function Dashboard() {
                 </span>
               </div>
               <p className="text-[10px] text-amber-300/80 tracking-tight font-medium">
-                Rotaract Club of Prince Shri Venkateshwara Padmavathy Engineering College
+                Service with Purpose, Recognition with Merit.
               </p>
             </div>
           </div>
@@ -285,26 +285,25 @@ export default function Dashboard() {
           </button>
         </div>
 
-        {/* VISION & MISSION SECTION */}
+        {/* CUSTOM VISION CARD */}
         <section className="bg-gradient-to-r from-violet-950/70 via-slate-900/90 to-amber-950/40 border border-violet-900/50 rounded-3xl p-6 sm:p-8 shadow-2xl mb-6">
           <div className="flex items-start gap-4">
-            <div className="p-3 bg-amber-500/10 border border-amber-500/30 rounded-2xl text-amber-400 shrink-0 shadow-lg shadow-amber-500/10">
-              <Target size={24} />
+            <div className="p-3.5 bg-amber-500/10 border border-amber-500/30 rounded-2xl text-amber-400 shrink-0 shadow-lg shadow-amber-500/10">
+              <Target size={26} />
             </div>
             <div>
               <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-amber-400 mb-1">
                 <Sparkles size={13} />
-                <span>Our Vision & Purpose</span>
+                <span>Our Vision</span>
               </div>
-              <h2 className="text-xl font-black text-white mb-2">
-                "Engage in impactful service, earn rightful recognition"
+              <h2 className="text-xl sm:text-2xl font-black text-white mb-2">
+                "Service with Purpose, Recognition with Merit."
               </h2>
               <p className="text-sm text-slate-300 leading-relaxed">
-                RotaStar empowers the members of the{" "}
+                To inspire active community participation by ensuring that every effort, service hour, and leadership contribution made by our members translates into tangible recognition and personal growth at the{" "}
                 <strong className="text-white font-semibold">
                   Rotaract Club of Prince Shri Venkateshwara Padmavathy Engineering College
-                </strong>{" "}
-                by providing a transparent, merit-driven system. Every community initiative, meeting attendance, and leadership contribution is celebrated and recognized.
+                </strong>.
               </p>
             </div>
           </div>
