@@ -15,6 +15,7 @@ import {
   Gift,
   X,
   Target,
+  Users,
 } from "lucide-react";
 import {
   collection,
@@ -41,7 +42,15 @@ export default function Dashboard() {
     points <= 0 ? 1 : Math.floor((points - 1) / 100) + 1;
   const levelTitle = `Level ${currentLevelNumber}`;
 
-  // Check for one-time welcome bonus popup
+  // Direct check for admin privileges
+  const roleString = (userData?.role || "").toLowerCase();
+  const showAdminPanel =
+    isAdmin ||
+    isSuperAdmin ||
+    roleString.includes("admin") ||
+    roleString.includes("president") ||
+    roleString.includes("secretary");
+
   useEffect(() => {
     const isNewUser = sessionStorage.getItem("showWelcomeReward");
     if (isNewUser === "true") {
@@ -285,8 +294,8 @@ export default function Dashboard() {
           </button>
         </div>
 
-        {/* ADMIN PANEL */}
-        {(isAdmin || isSuperAdmin) && (
+        {/* ADMIN CONTROLS PANEL */}
+        {showAdminPanel && (
           <section className="mb-6">
             <div className="bg-slate-900/90 border border-amber-500/30 rounded-3xl p-6 shadow-2xl">
               <div className="flex items-center gap-3 mb-5">
@@ -338,11 +347,11 @@ export default function Dashboard() {
                 >
                   <div>
                     <p className="font-semibold text-white text-sm flex items-center gap-1.5">
-                      <Crown size={14} className="text-amber-400" />
+                      <Users size={14} className="text-amber-400" />
                       View Members
                     </p>
                     <p className="text-xs text-slate-500 mt-0.5">
-                      Roster & Super Admin delete
+                      Directory & Super Admin delete
                     </p>
                   </div>
                   <ChevronRight size={16} className="text-amber-400" />
@@ -393,7 +402,7 @@ export default function Dashboard() {
           )}
         </section>
 
-        {/* VISION & PURPOSE SECTION (PLACED AT THE LAST) */}
+        {/* VISION & PURPOSE SECTION */}
         <section className="bg-gradient-to-r from-violet-950/70 via-slate-900/90 to-amber-950/40 border border-violet-900/50 rounded-3xl p-6 sm:p-8 shadow-2xl">
           <div className="flex items-start gap-4">
             <div className="p-3.5 bg-amber-500/10 border border-amber-500/30 rounded-2xl text-amber-400 shrink-0 shadow-lg shadow-amber-500/10">

@@ -36,7 +36,7 @@ export function AuthProvider({ children }) {
             setLoading(false);
           },
           (error) => {
-            console.error("Error fetching user document:", error);
+            console.error("User profile sync error:", error);
             setLoading(false);
           }
         );
@@ -54,25 +54,25 @@ export function AuthProvider({ children }) {
   }, []);
 
   const login = (email, password) => {
-    return signInWithEmailAndPassword(auth, email, password);
+    return signInWithEmailAndPassword(auth, email.trim(), password);
   };
 
   const logout = () => {
     return signOut(auth);
   };
 
-  // Case-insensitive role validation
-  const rawRole = userData?.role || "Member";
-  const normalizedRole = rawRole.toString().trim().toLowerCase();
-
-  const isAdmin =
-    normalizedRole === "admin" ||
-    normalizedRole === "super admin" ||
-    normalizedRole === "superadmin";
+  // Resilient role validation
+  const rawRole = (userData?.role || "Member").toString().toLowerCase().trim();
 
   const isSuperAdmin =
-    normalizedRole === "super admin" ||
-    normalizedRole === "superadmin";
+    rawRole.includes("super admin") ||
+    rawRole.includes("superadmin");
+
+  const isAdmin =
+    isSuperAdmin ||
+    rawRole.includes("admin") ||
+    rawRole.includes("president") ||
+    rawRole.includes("secretary");
 
   const value = {
     currentUser,
@@ -80,7 +80,7 @@ export function AuthProvider({ children }) {
     loading,
     login,
     logout,
-    role: rawRole,
+    role: userData?.role || "Member",
     isAdmin,
     isSuperAdmin,
   };
