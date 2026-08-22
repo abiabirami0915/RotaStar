@@ -285,30 +285,6 @@ export default function Dashboard() {
           </button>
         </div>
 
-        {/* CUSTOM VISION CARD */}
-        <section className="bg-gradient-to-r from-violet-950/70 via-slate-900/90 to-amber-950/40 border border-violet-900/50 rounded-3xl p-6 sm:p-8 shadow-2xl mb-6">
-          <div className="flex items-start gap-4">
-            <div className="p-3.5 bg-amber-500/10 border border-amber-500/30 rounded-2xl text-amber-400 shrink-0 shadow-lg shadow-amber-500/10">
-              <Target size={26} />
-            </div>
-            <div>
-              <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-amber-400 mb-1">
-                <Sparkles size={13} />
-                <span>Our Vision</span>
-              </div>
-              <h2 className="text-xl sm:text-2xl font-black text-white mb-2">
-                "Service with Purpose, Recognition with Merit."
-              </h2>
-              <p className="text-sm text-slate-300 leading-relaxed">
-                To inspire active community participation by ensuring that every effort, service hour, and leadership contribution made by our members translates into tangible recognition and personal growth at the{" "}
-                <strong className="text-white font-semibold">
-                  Rotaract Club of Prince Shri Venkateshwara Padmavathy Engineering College
-                </strong>.
-              </p>
-            </div>
-          </div>
-        </section>
-
         {/* ADMIN PANEL */}
         {(isAdmin || isSuperAdmin) && (
           <section className="mb-6">
@@ -377,7 +353,7 @@ export default function Dashboard() {
         )}
 
         {/* RECENT POINT ACTIVITY */}
-        <section className="bg-slate-900/90 border border-violet-900/40 rounded-3xl p-6 shadow-xl">
+        <section className="bg-slate-900/90 border border-violet-900/40 rounded-3xl p-6 shadow-xl mb-6">
           <h2 className="font-extrabold text-base mb-4 text-white flex items-center gap-2">
             <Sparkles size={16} className="text-amber-400" />
             Recent Point Activity
@@ -415,6 +391,30 @@ export default function Dashboard() {
               ))}
             </div>
           )}
+        </section>
+
+        {/* VISION & PURPOSE SECTION (PLACED AT THE LAST) */}
+        <section className="bg-gradient-to-r from-violet-950/70 via-slate-900/90 to-amber-950/40 border border-violet-900/50 rounded-3xl p-6 sm:p-8 shadow-2xl">
+          <div className="flex items-start gap-4">
+            <div className="p-3.5 bg-amber-500/10 border border-amber-500/30 rounded-2xl text-amber-400 shrink-0 shadow-lg shadow-amber-500/10">
+              <Target size={26} />
+            </div>
+            <div>
+              <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-amber-400 mb-1">
+                <Sparkles size={13} />
+                <span>Our Vision</span>
+              </div>
+              <h2 className="text-xl sm:text-2xl font-black text-white mb-2">
+                "Service with Purpose, Recognition with Merit."
+              </h2>
+              <p className="text-sm text-slate-300 leading-relaxed">
+                To inspire active community participation by ensuring that every effort, service hour, and leadership contribution made by our members translates into tangible recognition and personal growth at the{" "}
+                <strong className="text-white font-semibold">
+                  Rotaract Club of Prince Shri Venkateshwara Padmavathy Engineering College
+                </strong>.
+              </p>
+            </div>
+          </div>
         </section>
       </main>
 
