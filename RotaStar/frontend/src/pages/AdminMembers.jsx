@@ -12,15 +12,23 @@ import {
   Loader2,
   AlertTriangle,
   Check,
+  Gift,
+  Crown,
+  Sparkles,
 } from "lucide-react";
 import {
   collection,
   onSnapshot,
   doc,
   deleteDoc,
+  updateDoc,
+  addDoc,
   getDocs,
   query,
   where,
+  writeBatch,
+  serverTimestamp,
+  increment,
 } from "firebase/firestore";
 import { db } from "../firebase/firebase";
 import { useAuth } from "../AuthContext";
@@ -34,9 +42,9 @@ export default function AdminMembers() {
   const [searchTerm, setSearchTerm] = useState("");
   const [roleFilter, setRoleFilter] = useState("all");
 
-  // Deletion modal state (Super Admin only)
   const [userToDelete, setUserToDelete] = useState(null);
   const [deleteLoading, setDeleteLoading] = useState(false);
+  const [bonusLoading, setBonusLoading] = useState(false);
   const [message, setMessage] = useState({ text: "", type: "" });
 
   useEffect(() => {
@@ -63,7 +71,72 @@ export default function AdminMembers() {
 
   const showToast = (text, type = "success") => {
     setMessage({ text, type });
-    setTimeout(() => setMessage({ text: "", type: "" }), 4000);
+    setTimeout(() => setMessage({ text: "", type: "" }), 5000);
+  };
+
+  const handleRoleChange = async (memberId, newRole) => {
+    if (!isSuperAdmin) return;
+    try {
+      await updateDoc(doc(db, "users", memberId), { role: newRole });
+      showToast(`Role updated to ${newRole}`);
+    } catch (err) {
+      console.error("Error updating role:", err);
+      showToast("Failed to update role", "error");
+    }
+  };
+
+  // =========================================================
+  // ONE-TIME MIGRATION: Grant 50 Welcome Points to All Existing Users
+  // =========================================================
+  const handleGrantWelcomeBonusToExisting = async () => {
+    if (!isSuperAdmin) return;
+
+    const confirmGrant = window.confirm(
+      "Are you sure you want to add +50 Welcome Bonus points to all existing members?"
+    );
+    if (!confirmGrant) return;
+
+    setBonusLoading(true);
+    try {
+      const usersSnap = await getDocs(collection(db, "users"));
+      let updatedCount = 0;
+
+      // Use Firestore Batched Writes
+      const batch = writeBatch(db);
+
+      for (const userDoc of usersSnap.docs) {
+        const userData = userDoc.data();
+        const currentPoints = userData.totalPoints || 0;
+
+        // If member had 0 points or needs the initial 50 starter grant
+        const userRef = doc(db, "users", userDoc.id);
+        batch.update(userRef, {
+          totalPoints: currentPoints + 50,
+          lastPointUpdateAt: serverTimestamp(),
+        });
+
+        // Add welcome bonus activity entry
+        const actRef = doc(collection(db, "activities"));
+        batch.set(actRef, {
+          userId: userDoc.id,
+          memberName: userData.name || userData.email || "Member",
+          activityName: "Welcome Starter Bonus",
+          points: 50,
+          createdAt: serverTimestamp(),
+          awardedBy: "System Migration",
+        });
+
+        updatedCount++;
+      }
+
+      await batch.commit();
+      showToast(`Successfully granted +50 welcome points to ${updatedCount} existing members!`);
+    } catch (err) {
+      console.error("Error migrating points:", err);
+      showToast("Failed to distribute points. Check Firestore rules.", "error");
+    } finally {
+      setBonusLoading(false);
+    }
   };
 
   const handleDeleteMember = async () => {
@@ -73,10 +146,8 @@ export default function AdminMembers() {
     try {
       const memberId = userToDelete.id;
 
-      // 1. Delete user profile doc
       await deleteDoc(doc(db, "users", memberId));
 
-      // 2. Cascade delete from activities
       const actQuery = query(
         collection(db, "activities"),
         where("userId", "==", memberId)
@@ -86,7 +157,6 @@ export default function AdminMembers() {
         deleteDoc(doc(db, "activities", d.id))
       );
 
-      // 3. Cascade delete from point requests
       const reqQuery = query(
         collection(db, "pointRequests"),
         where("userId", "==", memberId)
@@ -96,7 +166,6 @@ export default function AdminMembers() {
         deleteDoc(doc(db, "pointRequests", d.id))
       );
 
-      // 4. Cascade delete from points ledger
       const ptsQuery = query(
         collection(db, "points"),
         where("userId", "==", memberId)
@@ -140,48 +209,76 @@ export default function AdminMembers() {
   });
 
   return (
-    <div className="min-h-screen bg-slate-950 text-white">
+    <div className="min-h-screen bg-[#030014] text-white">
       {/* NAVBAR */}
-      <nav className="border-b border-slate-800 bg-slate-900/80 backdrop-blur-md sticky top-0 z-50">
-        <div className="max-w-6xl mx-auto px-6 h-16 flex items-center justify-between">
+      <nav className="border-b border-violet-900/40 bg-slate-950/80 backdrop-blur-md sticky top-0 z-50">
+        <div className="max-w-6xl mx-auto px-6 h-20 flex items-center justify-between">
           <button
             onClick={() => navigate("/dashboard")}
-            className="flex items-center gap-2 text-slate-400 hover:text-white transition-colors"
+            className="flex items-center gap-2 text-violet-300 hover:text-amber-300 transition-colors text-sm font-semibold"
           >
             <ArrowLeft size={18} />
             <span>Dashboard</span>
           </button>
-          <div className="flex items-center gap-2 text-rose-500 font-bold">
-            <Shield size={18} />
-            <span>Admin Directory</span>
+          
+          <div className="flex flex-col items-end">
+            <div className="flex items-center gap-1.5 text-amber-400 font-bold">
+              <Crown size={18} />
+              <span>Admin Directory</span>
+            </div>
+            <p className="text-[10px] text-amber-300/80 tracking-tight font-medium">
+              Engage in impactful service, earn rightful recognition
+            </p>
           </div>
         </div>
       </nav>
 
-      {/* MAIN CONTAINER */}
+      {/* MAIN */}
       <main className="max-w-6xl mx-auto px-6 py-8">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
           <div>
             <h1 className="text-2xl font-black flex items-center gap-2.5">
-              <Users className="text-rose-500" size={26} />
+              <Users className="text-amber-400" size={26} />
               Club Directory
             </h1>
-            <p className="text-sm text-slate-400">
+            <p className="text-sm text-slate-400 mt-0.5">
               Total registered users:{" "}
-              <span className="text-white font-bold">{members.length}</span>
+              <span className="text-amber-400 font-bold">{members.length}</span>
             </p>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center flex-wrap gap-2">
+            {/* SUPER ADMIN ONE-CLICK BONUS BUTTON */}
+            {isSuperAdmin && (
+              <button
+                onClick={handleGrantWelcomeBonusToExisting}
+                disabled={bonusLoading}
+                className="px-3.5 py-2 rounded-xl bg-amber-500/10 border border-amber-500/30 hover:bg-amber-500/20 text-amber-400 text-xs font-bold transition flex items-center gap-1.5 shadow-lg shadow-amber-500/5 disabled:opacity-50"
+                title="Grant 50 welcome points to all existing users"
+              >
+                {bonusLoading ? (
+                  <>
+                    <Loader2 size={14} className="animate-spin" />
+                    <span>Distributing...</span>
+                  </>
+                ) : (
+                  <>
+                    <Gift size={14} />
+                    <span>Grant +50 Pts to All</span>
+                  </>
+                )}
+              </button>
+            )}
+
             <button
               onClick={() => navigate("/admin")}
-              className="px-4 py-2 rounded-xl bg-slate-900 border border-slate-800 hover:border-rose-500/40 text-sm font-semibold transition"
+              className="px-3.5 py-2 rounded-xl bg-slate-900/90 border border-violet-900/50 hover:border-amber-500/50 text-amber-400 text-xs font-bold transition shadow-md shadow-violet-950/50"
             >
               Points Panel
             </button>
             <button
               onClick={() => navigate("/admin/requests")}
-              className="px-4 py-2 rounded-xl bg-slate-900 border border-slate-800 hover:border-rose-500/40 text-sm font-semibold transition"
+              className="px-3.5 py-2 rounded-xl bg-slate-900/90 border border-violet-900/50 hover:border-amber-500/50 text-amber-400 text-xs font-bold transition shadow-md shadow-violet-950/50"
             >
               Point Requests
             </button>
@@ -190,16 +287,16 @@ export default function AdminMembers() {
 
         {message.text && (
           <div
-            className={`p-4 rounded-xl mb-6 flex items-center gap-2 text-sm border ${
+            className={`p-4 rounded-2xl mb-6 flex items-center gap-3 text-sm border ${
               message.type === "error"
                 ? "bg-red-500/10 border-red-500/20 text-red-400"
                 : "bg-emerald-500/10 border-emerald-500/20 text-emerald-400"
             }`}
           >
             {message.type === "error" ? (
-              <AlertTriangle size={18} />
+              <AlertTriangle size={18} className="shrink-0" />
             ) : (
-              <Check size={18} />
+              <Check size={18} className="shrink-0" />
             )}
             <span>{message.text}</span>
           </div>
@@ -213,7 +310,7 @@ export default function AdminMembers() {
               placeholder="Search by name, email, @username, or phone..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-11 pr-4 py-3 bg-slate-900 border border-slate-800 rounded-xl text-white placeholder-slate-500 text-sm outline-none focus:border-rose-500 transition"
+              className="w-full pl-11 pr-4 py-3 bg-slate-900/90 border border-violet-900/40 rounded-xl text-white placeholder-slate-500 text-sm outline-none focus:border-amber-400 transition"
             />
             <Search
               size={18}
@@ -225,7 +322,7 @@ export default function AdminMembers() {
             <select
               value={roleFilter}
               onChange={(e) => setRoleFilter(e.target.value)}
-              className="w-full px-4 py-3 bg-slate-900 border border-slate-800 rounded-xl text-white text-sm outline-none focus:border-rose-500 transition"
+              className="w-full px-4 py-3 bg-slate-900/90 border border-violet-900/40 rounded-xl text-white text-sm outline-none focus:border-amber-400 transition"
             >
               <option value="all">All Roles</option>
               <option value="member">Members Only</option>
@@ -237,11 +334,11 @@ export default function AdminMembers() {
 
         {/* MEMBERS GRID */}
         {loading ? (
-          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-12 text-center text-slate-500">
+          <div className="bg-slate-900/90 border border-violet-900/40 rounded-3xl p-12 text-center text-slate-500">
             Loading directory...
           </div>
         ) : filteredMembers.length === 0 ? (
-          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-12 text-center text-slate-500">
+          <div className="bg-slate-900/90 border border-violet-900/40 rounded-3xl p-12 text-center text-slate-500">
             No matching members found.
           </div>
         ) : (
@@ -249,11 +346,11 @@ export default function AdminMembers() {
             {filteredMembers.map((member) => (
               <div
                 key={member.id}
-                className="bg-slate-900 border border-slate-800 hover:border-slate-700 rounded-2xl p-5 shadow-lg flex flex-col justify-between transition"
+                className="bg-slate-900/90 border border-violet-900/50 hover:border-amber-500/50 rounded-3xl p-5 shadow-xl flex flex-col justify-between transition"
               >
                 <div>
                   <div className="flex items-center gap-3 mb-4">
-                    <div className="w-12 h-12 rounded-full overflow-hidden border border-slate-700 bg-slate-950 flex items-center justify-center shrink-0">
+                    <div className="w-12 h-12 rounded-full overflow-hidden border-2 border-amber-500/40 bg-slate-950 flex items-center justify-center shrink-0 shadow-md">
                       {member.photoURL ? (
                         <img
                           src={member.photoURL}
@@ -261,7 +358,7 @@ export default function AdminMembers() {
                           className="w-full h-full object-cover"
                         />
                       ) : (
-                        <User size={22} className="text-slate-500" />
+                        <User size={22} className="text-violet-300" />
                       )}
                     </div>
 
@@ -270,14 +367,14 @@ export default function AdminMembers() {
                         {member.name || "Unnamed"}
                       </h2>
                       {member.username && (
-                        <p className="text-xs text-rose-400 truncate">
+                        <p className="text-xs text-amber-400 truncate">
                           @{member.username}
                         </p>
                       )}
                     </div>
                   </div>
 
-                  <div className="space-y-2 text-xs text-slate-400 border-t border-slate-800/80 pt-3 mb-4">
+                  <div className="space-y-2 text-xs text-slate-400 border-t border-violet-950 pt-3 mb-4">
                     <div className="flex items-center gap-2 truncate">
                       <Mail size={14} className="text-slate-500 shrink-0" />
                       <span className="truncate">
@@ -292,17 +389,29 @@ export default function AdminMembers() {
                   </div>
                 </div>
 
-                <div className="flex items-center justify-between pt-3 border-t border-slate-800/80">
-                  <span className="px-2.5 py-1 rounded-full bg-slate-950 border border-slate-800 text-rose-400 text-[11px] font-bold uppercase">
-                    {member.role || "Member"}
-                  </span>
+                <div className="flex items-center justify-between pt-3 border-t border-violet-950">
+                  {isSuperAdmin ? (
+                    <select
+                      value={member.role || "Member"}
+                      onChange={(e) => handleRoleChange(member.id, e.target.value)}
+                      className="px-2 py-1 rounded-lg bg-slate-950 border border-violet-900/40 text-violet-300 text-xs font-bold uppercase outline-none cursor-pointer hover:border-amber-400 transition"
+                    >
+                      <option value="Member">Member</option>
+                      <option value="Admin">Admin</option>
+                      <option value="Super Admin">Super Admin</option>
+                    </select>
+                  ) : (
+                    <span className="px-2.5 py-1 rounded-full bg-slate-950 border border-violet-900/40 text-violet-300 text-[11px] font-bold uppercase">
+                      {member.role || "Member"}
+                    </span>
+                  )}
 
                   <div className="flex items-center gap-3">
                     <div className="text-right">
                       <span className="text-sm font-black text-amber-400">
                         {member.totalPoints || 0}
                       </span>
-                      <span className="text-[10px] text-slate-500 ml-1">pts</span>
+                      <span className="text-[10px] text-slate-500 ml-1 font-bold">pts</span>
                     </div>
 
                     {isSuperAdmin && (
@@ -322,7 +431,7 @@ export default function AdminMembers() {
         )}
       </main>
 
-      {/* SUPER ADMIN CONFIRM MODAL */}
+      {/* DELETE CONFIRMATION MODAL */}
       {userToDelete && (
         <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
           <div className="bg-slate-900 border border-red-500/30 rounded-3xl p-6 sm:p-8 max-w-md w-full shadow-2xl">
@@ -336,7 +445,7 @@ export default function AdminMembers() {
               <strong className="text-white">
                 {userToDelete.name || userToDelete.email}
               </strong>
-              ? This removes their account profile, total points, and all related requests.
+              ? This removes their account profile, total points, and all related records.
             </p>
 
             <div className="flex items-center justify-end gap-3">
