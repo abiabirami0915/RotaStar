@@ -16,6 +16,8 @@ import {
   X,
   Target,
   Users,
+  Zap,
+  PartyPopper,
 } from "lucide-react";
 import {
   collection,
@@ -28,21 +30,34 @@ import {
 import { db } from "../firebase/firebase";
 import { useAuth } from "../AuthContext";
 
+const MOTIVATIONAL_QUOTES = [
+  "“The best way to find yourself is to lose yourself in the service of others.” — Mahatma Gandhi",
+  "“Great things are done by a series of small things brought together.” — Vincent van Gogh",
+  "“Leadership is not about a title or a designation. It's about impact, influence, and inspiration.”",
+  "“Alone we can do so little; together we can do so much.” — Helen Keller",
+  "“Your dedication today shapes the leaders of tomorrow. Keep shining!”",
+  "“Service to others is the rent you pay for your room here on earth.” — Muhammad Ali",
+];
+
 export default function Dashboard() {
   const navigate = useNavigate();
   const { currentUser, userData, isAdmin, isSuperAdmin, logout } = useAuth();
 
   const [recentActivities, setRecentActivities] = useState([]);
   const [userRank, setUserRank] = useState("-");
+  
+  // Modals
   const [showWelcomeModal, setShowWelcomeModal] = useState(false);
+  const [showLevelUpModal, setShowLevelUpModal] = useState(false);
+  const [levelUpData, setLevelUpData] = useState({ oldLevel: 1, newLevel: 1, quote: "" });
 
-  // 1-100: Level 1, 101-200: Level 2, 201-300: Level 3...
+  // Level Logic: 0-100: Level 1, 101-200: Level 2, 201-300: Level 3...
   const points = userData?.totalPoints || 0;
   const currentLevelNumber =
     points <= 0 ? 1 : Math.floor((points - 1) / 100) + 1;
   const levelTitle = `Level ${currentLevelNumber}`;
 
-  // Direct check for admin privileges
+  // Admin access check
   const roleString = (userData?.role || "").toLowerCase();
   const showAdminPanel =
     isAdmin ||
@@ -51,6 +66,7 @@ export default function Dashboard() {
     roleString.includes("president") ||
     roleString.includes("secretary");
 
+  // 1. One-time welcome bonus modal
   useEffect(() => {
     const isNewUser = sessionStorage.getItem("showWelcomeReward");
     if (isNewUser === "true") {
@@ -59,6 +75,34 @@ export default function Dashboard() {
     }
   }, []);
 
+  // 2. Level-Up detection and popup trigger
+  useEffect(() => {
+    if (!currentUser || !userData) return;
+
+    const storageKey = `rotastar_seen_level_${currentUser.uid}`;
+    const storedLevelStr = localStorage.getItem(storageKey);
+
+    if (storedLevelStr !== null) {
+      const prevLevel = parseInt(storedLevelStr, 10);
+      if (currentLevelNumber > prevLevel) {
+        const randomQuote =
+          MOTIVATIONAL_QUOTES[
+            Math.floor(Math.random() * MOTIVATIONAL_QUOTES.length)
+          ];
+        setLevelUpData({
+          oldLevel: prevLevel,
+          newLevel: currentLevelNumber,
+          quote: randomQuote,
+        });
+        setShowLevelUpModal(true);
+      }
+    }
+
+    // Always update stored level to current level
+    localStorage.setItem(storageKey, currentLevelNumber.toString());
+  }, [currentUser, userData, currentLevelNumber]);
+
+  // Rank listener
   useEffect(() => {
     const unsubUsers = onSnapshot(collection(db, "users"), (snapshot) => {
       const allUsers = snapshot.docs.map((docSnap) => ({
@@ -74,6 +118,7 @@ export default function Dashboard() {
     return () => unsubUsers();
   }, [currentUser]);
 
+  // Recent activity listener
   useEffect(() => {
     if (!currentUser) return;
 
@@ -460,6 +505,52 @@ export default function Dashboard() {
               className="w-full py-3.5 rounded-xl bg-gradient-to-r from-violet-700 via-purple-600 to-amber-600 hover:from-violet-600 hover:to-amber-500 text-white font-bold transition shadow-xl shadow-violet-950 border border-amber-400/30"
             >
               Claim & Explore Dashboard
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* LEVEL-UP MOTIVATIONAL POPUP MODAL */}
+      {showLevelUpModal && (
+        <div className="fixed inset-0 z-50 bg-black/90 backdrop-blur-md flex items-center justify-center p-4">
+          <div className="bg-slate-900 border-2 border-amber-400 rounded-3xl p-6 sm:p-8 max-w-md w-full shadow-2xl shadow-amber-500/20 relative text-center animate-in fade-in zoom-in duration-300">
+            <button
+              onClick={() => setShowLevelUpModal(false)}
+              className="absolute top-4 right-4 p-2 rounded-full text-slate-400 hover:text-white hover:bg-slate-800 transition"
+            >
+              <X size={20} />
+            </button>
+
+            {/* Glowing Icon */}
+            <div className="w-20 h-20 rounded-3xl bg-gradient-to-tr from-amber-500 to-amber-300 flex items-center justify-center text-slate-950 mx-auto mb-4 shadow-xl shadow-amber-500/30 animate-bounce">
+              <PartyPopper size={40} />
+            </div>
+
+            <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-500/10 border border-amber-500/30 text-amber-400 text-xs font-extrabold uppercase tracking-widest mb-2">
+              <Zap size={14} />
+              <span>Level Up Achieved</span>
+            </div>
+
+            <h2 className="text-2xl sm:text-3xl font-black text-white mb-1">
+              Congratulations Champ! 🎉
+            </h2>
+
+            <p className="text-amber-400 font-bold text-base mb-4">
+              You've officially unlocked Level {levelUpData.newLevel}!
+            </p>
+
+            {/* Motivational Quote Card */}
+            <div className="p-4 rounded-2xl bg-slate-950/80 border border-violet-900/50 mb-6 text-left">
+              <p className="text-xs text-amber-300/90 italic leading-relaxed">
+                {levelUpData.quote}
+              </p>
+            </div>
+
+            <button
+              onClick={() => setShowLevelUpModal(false)}
+              className="w-full py-3.5 rounded-xl bg-gradient-to-r from-violet-700 via-purple-600 to-amber-600 hover:from-violet-600 hover:to-amber-500 text-white font-bold transition shadow-xl shadow-violet-950 border border-amber-400/30 text-sm"
+            >
+              Keep Leveling Up! 🚀
             </button>
           </div>
         </div>
