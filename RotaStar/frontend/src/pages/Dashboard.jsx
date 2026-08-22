@@ -23,8 +23,6 @@ import {
   collection,
   query,
   where,
-  orderBy,
-  limit,
   onSnapshot,
 } from "firebase/firestore";
 import { db } from "../firebase/firebase";
@@ -45,19 +43,19 @@ export default function Dashboard() {
 
   const [recentActivities, setRecentActivities] = useState([]);
   const [userRank, setUserRank] = useState("-");
-  
-  // Modals
+
+  // Modal triggers
   const [showWelcomeModal, setShowWelcomeModal] = useState(false);
   const [showLevelUpModal, setShowLevelUpModal] = useState(false);
   const [levelUpData, setLevelUpData] = useState({ oldLevel: 1, newLevel: 1, quote: "" });
 
-  // Level Logic: 0-100: Level 1, 101-200: Level 2, 201-300: Level 3...
+  // 1-100: Level 1, 101-200: Level 2, 201-300: Level 3...
   const points = userData?.totalPoints || 0;
   const currentLevelNumber =
     points <= 0 ? 1 : Math.floor((points - 1) / 100) + 1;
   const levelTitle = `Level ${currentLevelNumber}`;
 
-  // Admin access check
+  // Admin access validation
   const roleString = (userData?.role || "").toLowerCase();
   const showAdminPanel =
     isAdmin ||
@@ -66,7 +64,7 @@ export default function Dashboard() {
     roleString.includes("president") ||
     roleString.includes("secretary");
 
-  // 1. One-time welcome bonus modal
+  // 1. Check for one-time welcome bonus popup
   useEffect(() => {
     const isNewUser = sessionStorage.getItem("showWelcomeReward");
     if (isNewUser === "true") {
@@ -98,11 +96,10 @@ export default function Dashboard() {
       }
     }
 
-    // Always update stored level to current level
     localStorage.setItem(storageKey, currentLevelNumber.toString());
   }, [currentUser, userData, currentLevelNumber]);
 
-  // Rank listener
+  // 3. Leaderboard rank calculation
   useEffect(() => {
     const unsubUsers = onSnapshot(collection(db, "users"), (snapshot) => {
       const allUsers = snapshot.docs.map((docSnap) => ({
@@ -118,15 +115,13 @@ export default function Dashboard() {
     return () => unsubUsers();
   }, [currentUser]);
 
-  // Recent activity listener
+  // 4. Real-time Recent Activity Sync with resilient client-side fallback sorting
   useEffect(() => {
     if (!currentUser) return;
 
     const q = query(
       collection(db, "activities"),
-      where("userId", "==", currentUser.uid),
-      orderBy("createdAt", "desc"),
-      limit(5)
+      where("userId", "==", currentUser.uid)
     );
 
     const unsubActivities = onSnapshot(
@@ -136,9 +131,19 @@ export default function Dashboard() {
           id: docSnap.id,
           ...docSnap.data(),
         }));
-        setRecentActivities(acts);
+
+        // Sort descending by date on client side
+        acts.sort((a, b) => {
+          const timeA = a.createdAt?.toDate ? a.createdAt.toDate().getTime() : 0;
+          const timeB = b.createdAt?.toDate ? b.createdAt.toDate().getTime() : 0;
+          return timeB - timeA;
+        });
+
+        setRecentActivities(acts.slice(0, 5));
       },
-      (err) => console.log("Activities listener notice:", err)
+      (err) => {
+        console.error("Activities listener error:", err);
+      }
     );
 
     return () => unsubActivities();
@@ -521,7 +526,6 @@ export default function Dashboard() {
               <X size={20} />
             </button>
 
-            {/* Glowing Icon */}
             <div className="w-20 h-20 rounded-3xl bg-gradient-to-tr from-amber-500 to-amber-300 flex items-center justify-center text-slate-950 mx-auto mb-4 shadow-xl shadow-amber-500/30 animate-bounce">
               <PartyPopper size={40} />
             </div>
@@ -539,7 +543,6 @@ export default function Dashboard() {
               You've officially unlocked Level {levelUpData.newLevel}!
             </p>
 
-            {/* Motivational Quote Card */}
             <div className="p-4 rounded-2xl bg-slate-950/80 border border-violet-900/50 mb-6 text-left">
               <p className="text-xs text-amber-300/90 italic leading-relaxed">
                 {levelUpData.quote}

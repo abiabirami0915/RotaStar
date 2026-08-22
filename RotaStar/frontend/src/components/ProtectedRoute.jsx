@@ -1,36 +1,22 @@
 import React from "react";
 import { Navigate } from "react-router-dom";
 import { useAuth } from "../AuthContext";
+import { Loader2 } from "lucide-react";
 
-function ProtectedRoute({ children }) {
+export default function ProtectedRoute({ children }) {
   const { currentUser, loading } = useAuth();
 
-  // Wait until Firebase finishes checking login
   if (loading) {
     return (
-      <div
-        style={{
-          minHeight: "100vh",
-          display: "flex",
-          justifyContent: "center",
-          alignItems: "center",
-          background: "#020617",
-          color: "white",
-          fontSize: "20px",
-        }}
-      >
-        Loading RotaStar...
+      <div className="min-h-screen bg-[#030014] flex items-center justify-center">
+        <Loader2 className="animate-spin text-amber-400" size={32} />
       </div>
     );
   }
 
-  // If user is not logged in, go to login
   if (!currentUser) {
     return <Navigate to="/login" replace />;
   }
 
-  // User is logged in
   return children;
 }
-
-export default ProtectedRoute;

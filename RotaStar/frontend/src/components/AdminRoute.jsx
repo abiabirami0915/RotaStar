@@ -1,39 +1,23 @@
-
 import React from "react";
 import { Navigate } from "react-router-dom";
 import { useAuth } from "../AuthContext";
+import { Loader2 } from "lucide-react";
 
 export default function AdminRoute({ children }) {
-  const {
-    currentUser,
-    userData,
-    isAdmin,
-    isSuperAdmin,
-  } = useAuth();
+  const { currentUser, isAdmin, isSuperAdmin, loading } = useAuth();
 
-  // User is not logged in
-  if (!currentUser) {
-    return <Navigate to="/login" replace />;
-  }
-
-  // Still loading user information
-  if (!userData) {
+  if (loading) {
     return (
-      <div className="min-h-screen bg-slate-950 text-white flex items-center justify-center">
-        <div className="text-center">
-          <div className="text-rose-500 text-xl font-bold mb-2">
-            RotaStar
-          </div>
-
-          <p className="text-slate-400 text-sm">
-            Checking permissions...
-          </p>
-        </div>
+      <div className="min-h-screen bg-[#030014] flex items-center justify-center">
+        <Loader2 className="animate-spin text-amber-400" size={32} />
       </div>
     );
   }
 
-  // Only admin and superadmin can access
+  if (!currentUser) {
+    return <Navigate to="/login" replace />;
+  }
+
   if (!isAdmin && !isSuperAdmin) {
     return <Navigate to="/dashboard" replace />;
   }
