@@ -108,12 +108,11 @@ export default function Signup() {
             Create an <span className="text-violet-400">Account</span>
           </h1>
 
-          {/* TAGLINE */}
-          <p className="text-[11px] text-amber-400/90 font-medium tracking-wide uppercase mt-1">
-            "Engage in impactful service, earn rightful recognition"
+          <p className="text-[11px] text-amber-300/80 font-medium tracking-tight mt-1">
+            Rotaract Club of Prince Shri Venkateshwara Padmavathy Engineering College
           </p>
 
-          <p className="text-xs text-slate-400 mt-1">
+          <p className="text-xs text-slate-400 mt-2">
             Sign up to claim your instant <strong className="text-amber-400 font-bold">50 point</strong> starter reward!
           </p>
         </div>
