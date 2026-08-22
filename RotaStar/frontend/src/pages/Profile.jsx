@@ -12,9 +12,11 @@ import {
   Sparkles,
   AlertCircle,
   Upload,
+  Crown,
+  Briefcase,
 } from "lucide-react";
 import { updateProfile } from "firebase/auth";
-import { doc, updateDoc, setDoc, serverTimestamp } from "firebase/firestore";
+import { doc, setDoc, serverTimestamp } from "firebase/firestore";
 import { db } from "../firebase/firebase";
 import { useAuth } from "../AuthContext";
 
@@ -22,34 +24,30 @@ export default function Profile() {
   const navigate = useNavigate();
   const { currentUser, userData } = useAuth();
 
-  // Profile Form Fields
   const [fullName, setFullName] = useState("");
+  const [role, setRole] = useState("");
   const [username, setUsername] = useState("");
   const [phoneNumber, setPhoneNumber] = useState("");
 
-  // Photo State
   const [newImageBase64, setNewImageBase64] = useState(null);
   const [currentPhoto, setCurrentPhoto] = useState("");
   const [photoUploading, setPhotoUploading] = useState(false);
 
-  // Form Status
   const [savingForm, setSavingForm] = useState(false);
   const [successMsg, setSuccessMsg] = useState("");
   const [errorMsg, setErrorMsg] = useState("");
 
-  // Username Cooldown
   const [daysRemaining, setDaysRemaining] = useState(0);
   const [canChangeUsername, setCanChangeUsername] = useState(true);
 
-  // Load user data
   useEffect(() => {
     if (currentUser) {
       setFullName(userData?.name || currentUser.displayName || "");
+      setRole(userData?.role || "Member");
       setUsername(userData?.username || userData?.name || "");
       setPhoneNumber(userData?.phoneNumber || "");
       setCurrentPhoto(userData?.photoURL || currentUser.photoURL || "");
 
-      // 14-day check
       if (userData?.lastUsernameChange) {
         try {
           const lastDate =
@@ -78,7 +76,6 @@ export default function Profile() {
     }
   }, [userData, currentUser]);
 
-  // Robust client-side resize & compression to < 20KB Base64
   const processImageFile = (file) => {
     return new Promise((resolve, reject) => {
       const reader = new FileReader();
@@ -87,13 +84,12 @@ export default function Profile() {
         const image = new Image();
         image.onerror = () => reject(new Error("Invalid image format."));
         image.onload = () => {
-          const targetSize = 200; // 200x200 square avatar
+          const targetSize = 200;
           const canvas = document.createElement("canvas");
           canvas.width = targetSize;
           canvas.height = targetSize;
           const ctx = canvas.getContext("2d");
 
-          // Calculate center crop
           const minDim = Math.min(image.width, image.height);
           const startX = (image.width - minDim) / 2;
           const startY = (image.height - minDim) / 2;
@@ -110,7 +106,6 @@ export default function Profile() {
             targetSize
           );
 
-          // Return lightweight compressed JPEG string
           resolve(canvas.toDataURL("image/jpeg", 0.65));
         };
         image.src = readerEvent.target.result;
@@ -119,7 +114,6 @@ export default function Profile() {
     });
   };
 
-  // Handle file selection from gallery/camera
   const handleFileSelect = async (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -137,7 +131,6 @@ export default function Profile() {
     }
   };
 
-  // Save photo directly
   const handleSavePhotoOnly = async () => {
     if (!newImageBase64 || !currentUser) return;
 
@@ -165,7 +158,6 @@ export default function Profile() {
     }
   };
 
-  // Set Full Name as Username helper
   const handleUseFullName = () => {
     if (!canChangeUsername) return;
     const formatted = fullName
@@ -176,7 +168,6 @@ export default function Profile() {
     setUsername(formatted || fullName);
   };
 
-  // Save text details
   const handleSaveProfile = async (e) => {
     e.preventDefault();
     if (!currentUser) return;
@@ -189,6 +180,7 @@ export default function Profile() {
       const userDocRef = doc(db, "users", currentUser.uid);
       const updates = {
         name: fullName.trim(),
+        role: role.trim() || "Member",
         phoneNumber: phoneNumber.trim(),
       };
 
@@ -220,7 +212,7 @@ export default function Profile() {
         console.warn("Auth displayName update notice:", authErr);
       }
 
-      setSuccessMsg("Profile updated successfully!");
+      setSuccessMsg("Profile and Club Role updated successfully!");
       setNewImageBase64(null);
     } catch (err) {
       console.error("Profile save error:", err);
@@ -231,38 +223,41 @@ export default function Profile() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-950 text-white">
+    <div className="min-h-screen bg-[#030014] text-white">
       {/* NAVBAR */}
-      <nav className="border-b border-slate-800 bg-slate-900/80 backdrop-blur-md sticky top-0 z-50">
+      <nav className="border-b border-violet-900/40 bg-slate-950/80 backdrop-blur-md sticky top-0 z-50">
         <div className="max-w-4xl mx-auto px-6 h-16 flex items-center justify-between">
           <button
             onClick={() => navigate("/dashboard")}
-            className="flex items-center gap-2 text-slate-400 hover:text-white transition text-sm font-semibold"
+            className="flex items-center gap-2 text-violet-300 hover:text-amber-300 transition text-sm font-semibold"
           >
             <ArrowLeft size={18} />
             <span>Back to Dashboard</span>
           </button>
           <div className="text-xl font-black tracking-tight">
-            <span className="text-rose-500">Rota</span>
-            <span className="text-white">Star</span>
+            <span className="text-violet-400">Rota</span>
+            <span className="text-amber-400">Star</span>
           </div>
         </div>
       </nav>
 
       {/* MAIN CONTAINER */}
       <main className="max-w-xl mx-auto px-6 py-10">
-        <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 sm:p-8 shadow-xl">
+        <div className="bg-slate-900/90 border border-violet-900/50 rounded-3xl p-6 sm:p-8 shadow-2xl">
           <div className="text-center mb-6">
-            <h1 className="text-2xl font-black">Account Profile</h1>
+            <h1 className="text-2xl font-black text-white flex items-center justify-center gap-2">
+              <Crown size={22} className="text-amber-400" />
+              Member Profile
+            </h1>
             <p className="text-sm text-slate-400 mt-1">
-              Manage your personal info, avatar, and contact details
+              Manage your personal info, club role, and contact details
             </p>
           </div>
 
-          {/* AVATAR SECTION */}
+          {/* AVATAR */}
           <div className="flex flex-col items-center mb-6">
             <div className="relative w-32 h-32 mb-3">
-              <div className="w-32 h-32 rounded-full overflow-hidden border-4 border-rose-500/30 bg-slate-950 flex items-center justify-center shadow-lg">
+              <div className="w-32 h-32 rounded-full overflow-hidden border-4 border-amber-500/40 bg-slate-950 flex items-center justify-center shadow-xl shadow-violet-900/30">
                 {currentPhoto ? (
                   <img
                     src={currentPhoto}
@@ -270,7 +265,7 @@ export default function Profile() {
                     className="w-full h-full object-cover"
                   />
                 ) : (
-                  <User size={56} className="text-slate-600" />
+                  <User size={56} className="text-violet-400" />
                 )}
               </div>
 
@@ -285,20 +280,19 @@ export default function Profile() {
 
               <label
                 htmlFor="galleryInput"
-                className="absolute bottom-0 right-0 p-2.5 rounded-full bg-rose-600 hover:bg-rose-500 text-white cursor-pointer shadow-lg transition hover:scale-105 active:scale-95"
+                className="absolute bottom-0 right-0 p-2.5 rounded-full bg-gradient-to-r from-violet-600 to-amber-600 hover:from-violet-500 hover:to-amber-500 text-white cursor-pointer shadow-lg transition hover:scale-105 active:scale-95 border border-amber-400/40"
                 title="Choose from Gallery"
               >
                 <Camera size={16} />
               </label>
             </div>
 
-            {/* QUICK SAVE PHOTO BUTTON WHEN A NEW PHOTO IS SELECTED */}
             {newImageBase64 && (
               <button
                 type="button"
                 onClick={handleSavePhotoOnly}
                 disabled={photoUploading}
-                className="mt-2 px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold flex items-center gap-1.5 shadow-lg transition animate-pulse"
+                className="mt-2 px-4 py-2 rounded-xl bg-amber-600 hover:bg-amber-500 text-white text-xs font-bold flex items-center gap-1.5 shadow-lg transition animate-pulse"
               >
                 {photoUploading ? (
                   <>
@@ -315,7 +309,7 @@ export default function Profile() {
             )}
 
             <div className="mt-3">
-              <span className="inline-block px-3 py-1 rounded-full bg-rose-500/10 border border-rose-500/20 text-rose-400 text-xs font-bold uppercase tracking-wider">
+              <span className="inline-block px-3 py-1 rounded-full bg-violet-500/10 border border-violet-500/30 text-amber-300 text-xs font-bold uppercase tracking-wider">
                 {userData?.role || "Member"}
               </span>
             </div>
@@ -336,11 +330,10 @@ export default function Profile() {
             </div>
           )}
 
-          {/* MAIN PROFILE FORM */}
+          {/* PROFILE FORM */}
           <form onSubmit={handleSaveProfile} className="space-y-4">
-            {/* FULL NAME */}
             <div>
-              <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">
+              <label className="block text-xs font-bold text-violet-300 uppercase tracking-wider mb-2">
                 Full Name
               </label>
               <input
@@ -349,14 +342,32 @@ export default function Profile() {
                 onChange={(e) => setFullName(e.target.value)}
                 placeholder="Enter your full name"
                 required
-                className="w-full px-4 py-3 bg-slate-950 border border-slate-800 rounded-xl text-white outline-none focus:border-rose-500 transition text-sm"
+                className="w-full px-4 py-3 bg-slate-950 border border-violet-900/40 rounded-xl text-white outline-none focus:border-amber-400 transition text-sm"
               />
             </div>
 
-            {/* USERNAME */}
+            {/* EDITABLE CLUB ROLE */}
+            <div>
+              <label className="block text-xs font-bold text-violet-300 uppercase tracking-wider mb-2 flex items-center gap-1.5">
+                <Briefcase size={14} className="text-amber-400" />
+                Club Designation / Role
+              </label>
+              <input
+                type="text"
+                value={role}
+                onChange={(e) => setRole(e.target.value)}
+                placeholder="e.g. Club Secretary, Director of Community Service, Member"
+                required
+                className="w-full px-4 py-3 bg-slate-950 border border-violet-900/40 rounded-xl text-white outline-none focus:border-amber-400 transition text-sm"
+              />
+              <p className="text-[11px] text-slate-500 mt-1">
+                This designation will appear beneath your name across the entire platform.
+              </p>
+            </div>
+
             <div>
               <div className="flex items-center justify-between mb-2">
-                <label className="text-xs font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
+                <label className="text-xs font-bold text-violet-300 uppercase tracking-wider flex items-center gap-1.5">
                   Username
                   {!canChangeUsername && (
                     <Lock size={12} className="text-amber-400" />
@@ -367,7 +378,7 @@ export default function Profile() {
                   <button
                     type="button"
                     onClick={handleUseFullName}
-                    className="text-xs text-rose-400 hover:text-rose-300 flex items-center gap-1 transition"
+                    className="text-xs text-amber-400 hover:text-amber-300 flex items-center gap-1 transition"
                   >
                     <Sparkles size={12} />
                     Use Full Name
@@ -384,7 +395,7 @@ export default function Profile() {
                 required
                 className={`w-full px-4 py-3 bg-slate-950 border rounded-xl text-sm outline-none transition ${
                   canChangeUsername
-                    ? "border-slate-800 focus:border-rose-500 text-white"
+                    ? "border-violet-900/40 focus:border-amber-400 text-white"
                     : "border-slate-800/60 bg-slate-950/50 text-slate-500 cursor-not-allowed"
                 }`}
               />
@@ -402,9 +413,8 @@ export default function Profile() {
               )}
             </div>
 
-            {/* PHONE NUMBER (OPTIONAL) */}
             <div>
-              <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">
+              <label className="block text-xs font-bold text-violet-300 uppercase tracking-wider mb-2">
                 Phone Number{" "}
                 <span className="text-slate-500 font-normal">(Optional)</span>
               </label>
@@ -414,18 +424,17 @@ export default function Profile() {
                   value={phoneNumber}
                   onChange={(e) => setPhoneNumber(e.target.value)}
                   placeholder="+91 98765 43210"
-                  className="w-full pl-10 pr-4 py-3 bg-slate-950 border border-slate-800 rounded-xl text-white outline-none focus:border-rose-500 transition text-sm"
+                  className="w-full pl-10 pr-4 py-3 bg-slate-950 border border-violet-900/40 rounded-xl text-white outline-none focus:border-amber-400 transition text-sm"
                 />
                 <Phone
                   size={16}
-                  className="absolute left-3.5 top-3.5 text-slate-500"
+                  className="absolute left-3.5 top-3.5 text-violet-400"
                 />
               </div>
             </div>
 
-            {/* EMAIL (READ-ONLY) */}
             <div>
-              <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">
+              <label className="block text-xs font-bold text-violet-300 uppercase tracking-wider mb-2">
                 Email Address
               </label>
               <input
@@ -436,11 +445,10 @@ export default function Profile() {
               />
             </div>
 
-            {/* SUBMIT BUTTON */}
             <button
               type="submit"
               disabled={savingForm || photoUploading}
-              className="w-full !mt-6 py-3 rounded-xl bg-gradient-to-r from-rose-600 to-orange-500 hover:from-rose-500 hover:to-orange-400 text-white font-bold flex items-center justify-center gap-2 shadow-lg transition disabled:opacity-50"
+              className="w-full !mt-6 py-3.5 rounded-xl bg-gradient-to-r from-violet-700 via-purple-600 to-amber-600 hover:from-violet-600 hover:to-amber-500 text-white font-bold flex items-center justify-center gap-2 shadow-xl shadow-violet-950 transition disabled:opacity-50 border border-amber-400/20"
             >
               {savingForm ? (
                 <>

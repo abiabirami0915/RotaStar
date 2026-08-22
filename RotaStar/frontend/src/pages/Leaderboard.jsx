@@ -128,7 +128,8 @@ export default function Leaderboard() {
                       <p className={`font-bold text-base ${index === 0 ? "text-amber-300 font-extrabold" : "text-white"}`}>
                         {user.name || "Anonymous Member"}
                       </p>
-                      <p className="text-xs text-violet-300/70 capitalize">
+                      {/* ROLE UNDER NAME */}
+                      <p className="text-xs text-amber-300/80 font-medium">
                         {user.role || "Member"}
                         {user.username && ` • @${user.username}`}
                       </p>
