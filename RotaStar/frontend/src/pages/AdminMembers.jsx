@@ -7,14 +7,11 @@ import {
   User,
   Phone,
   Mail,
-  Shield,
   Trash2,
   Loader2,
   AlertTriangle,
   Check,
-  Gift,
   Crown,
-  Sparkles,
 } from "lucide-react";
 import {
   collection,
@@ -22,20 +19,16 @@ import {
   doc,
   deleteDoc,
   updateDoc,
-  addDoc,
   getDocs,
   query,
   where,
-  writeBatch,
-  serverTimestamp,
-  increment,
 } from "firebase/firestore";
 import { db } from "../firebase/firebase";
 import { useAuth } from "../AuthContext";
 
 export default function AdminMembers() {
   const navigate = useNavigate();
-  const { isSuperAdmin } = useAuth();
+  const { userData, isAdmin, isSuperAdmin } = useAuth();
 
   const [members, setMembers] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -44,8 +37,16 @@ export default function AdminMembers() {
 
   const [userToDelete, setUserToDelete] = useState(null);
   const [deleteLoading, setDeleteLoading] = useState(false);
-  const [bonusLoading, setBonusLoading] = useState(false);
   const [message, setMessage] = useState({ text: "", type: "" });
+
+  // Flexible admin verification
+  const currentRoleStr = (userData?.role || "").toLowerCase();
+  const canManageMembers =
+    isAdmin ||
+    isSuperAdmin ||
+    currentRoleStr.includes("admin") ||
+    currentRoleStr.includes("president") ||
+    currentRoleStr.includes("secretary");
 
   useEffect(() => {
     const unsubscribe = onSnapshot(
@@ -75,7 +76,7 @@ export default function AdminMembers() {
   };
 
   const handleRoleChange = async (memberId, newRole) => {
-    if (!isSuperAdmin) return;
+    if (!canManageMembers) return;
     try {
       await updateDoc(doc(db, "users", memberId), { role: newRole });
       showToast(`Role updated to ${newRole}`);
@@ -85,69 +86,17 @@ export default function AdminMembers() {
     }
   };
 
-  // =========================================================
-  // ONE-TIME MIGRATION: Grant 50 Welcome Points to All Existing Users
-  // =========================================================
-  const handleGrantWelcomeBonusToExisting = async () => {
-    if (!isSuperAdmin) return;
-
-    const confirmGrant = window.confirm(
-      "Are you sure you want to add +50 Welcome Bonus points to all existing members?"
-    );
-    if (!confirmGrant) return;
-
-    setBonusLoading(true);
-    try {
-      const usersSnap = await getDocs(collection(db, "users"));
-      let updatedCount = 0;
-
-      // Use Firestore Batched Writes
-      const batch = writeBatch(db);
-
-      for (const userDoc of usersSnap.docs) {
-        const userData = userDoc.data();
-        const currentPoints = userData.totalPoints || 0;
-
-        // If member had 0 points or needs the initial 50 starter grant
-        const userRef = doc(db, "users", userDoc.id);
-        batch.update(userRef, {
-          totalPoints: currentPoints + 50,
-          lastPointUpdateAt: serverTimestamp(),
-        });
-
-        // Add welcome bonus activity entry
-        const actRef = doc(collection(db, "activities"));
-        batch.set(actRef, {
-          userId: userDoc.id,
-          memberName: userData.name || userData.email || "Member",
-          activityName: "Welcome Starter Bonus",
-          points: 50,
-          createdAt: serverTimestamp(),
-          awardedBy: "System Migration",
-        });
-
-        updatedCount++;
-      }
-
-      await batch.commit();
-      showToast(`Successfully granted +50 welcome points to ${updatedCount} existing members!`);
-    } catch (err) {
-      console.error("Error migrating points:", err);
-      showToast("Failed to distribute points. Check Firestore rules.", "error");
-    } finally {
-      setBonusLoading(false);
-    }
-  };
-
   const handleDeleteMember = async () => {
-    if (!userToDelete || !isSuperAdmin) return;
+    if (!userToDelete) return;
 
     setDeleteLoading(true);
     try {
       const memberId = userToDelete.id;
 
+      // 1. Delete user from Firestore
       await deleteDoc(doc(db, "users", memberId));
 
+      // 2. Cascade delete from activities
       const actQuery = query(
         collection(db, "activities"),
         where("userId", "==", memberId)
@@ -157,6 +106,7 @@ export default function AdminMembers() {
         deleteDoc(doc(db, "activities", d.id))
       );
 
+      // 3. Cascade delete from point requests
       const reqQuery = query(
         collection(db, "pointRequests"),
         where("userId", "==", memberId)
@@ -166,6 +116,7 @@ export default function AdminMembers() {
         deleteDoc(doc(db, "pointRequests", d.id))
       );
 
+      // 4. Cascade delete from point ledger
       const ptsQuery = query(
         collection(db, "points"),
         where("userId", "==", memberId)
@@ -183,7 +134,7 @@ export default function AdminMembers() {
       setUserToDelete(null);
     } catch (err) {
       console.error("Error deleting member:", err);
-      showToast("Failed to delete member. Check Firestore rules.", "error");
+      showToast(`Delete failed: ${err.message || "Check Firestore permissions"}`, "error");
     } finally {
       setDeleteLoading(false);
     }
@@ -220,14 +171,14 @@ export default function AdminMembers() {
             <ArrowLeft size={18} />
             <span>Dashboard</span>
           </button>
-          
+
           <div className="flex flex-col items-end">
             <div className="flex items-center gap-1.5 text-amber-400 font-bold">
               <Crown size={18} />
               <span>Admin Directory</span>
             </div>
             <p className="text-[10px] text-amber-300/80 tracking-tight font-medium">
-              Engage in impactful service, earn rightful recognition
+              Service with Purpose, Recognition with Merit.
             </p>
           </div>
         </div>
@@ -248,28 +199,6 @@ export default function AdminMembers() {
           </div>
 
           <div className="flex items-center flex-wrap gap-2">
-            {/* SUPER ADMIN ONE-CLICK BONUS BUTTON */}
-            {isSuperAdmin && (
-              <button
-                onClick={handleGrantWelcomeBonusToExisting}
-                disabled={bonusLoading}
-                className="px-3.5 py-2 rounded-xl bg-amber-500/10 border border-amber-500/30 hover:bg-amber-500/20 text-amber-400 text-xs font-bold transition flex items-center gap-1.5 shadow-lg shadow-amber-500/5 disabled:opacity-50"
-                title="Grant 50 welcome points to all existing users"
-              >
-                {bonusLoading ? (
-                  <>
-                    <Loader2 size={14} className="animate-spin" />
-                    <span>Distributing...</span>
-                  </>
-                ) : (
-                  <>
-                    <Gift size={14} />
-                    <span>Grant +50 Pts to All</span>
-                  </>
-                )}
-              </button>
-            )}
-
             <button
               onClick={() => navigate("/admin")}
               className="px-3.5 py-2 rounded-xl bg-slate-900/90 border border-violet-900/50 hover:border-amber-500/50 text-amber-400 text-xs font-bold transition shadow-md shadow-violet-950/50"
@@ -366,8 +295,12 @@ export default function AdminMembers() {
                       <h2 className="font-bold text-white text-base truncate">
                         {member.name || "Unnamed"}
                       </h2>
+                      {/* ROLE UNDER NAME */}
+                      <p className="text-xs text-amber-400 font-semibold truncate">
+                        {member.role || "Member"}
+                      </p>
                       {member.username && (
-                        <p className="text-xs text-amber-400 truncate">
+                        <p className="text-[11px] text-slate-500 truncate">
                           @{member.username}
                         </p>
                       )}
@@ -390,21 +323,9 @@ export default function AdminMembers() {
                 </div>
 
                 <div className="flex items-center justify-between pt-3 border-t border-violet-950">
-                  {isSuperAdmin ? (
-                    <select
-                      value={member.role || "Member"}
-                      onChange={(e) => handleRoleChange(member.id, e.target.value)}
-                      className="px-2 py-1 rounded-lg bg-slate-950 border border-violet-900/40 text-violet-300 text-xs font-bold uppercase outline-none cursor-pointer hover:border-amber-400 transition"
-                    >
-                      <option value="Member">Member</option>
-                      <option value="Admin">Admin</option>
-                      <option value="Super Admin">Super Admin</option>
-                    </select>
-                  ) : (
-                    <span className="px-2.5 py-1 rounded-full bg-slate-950 border border-violet-900/40 text-violet-300 text-[11px] font-bold uppercase">
-                      {member.role || "Member"}
-                    </span>
-                  )}
+                  <span className="px-2.5 py-1 rounded-full bg-slate-950 border border-violet-900/40 text-violet-300 text-[11px] font-bold uppercase">
+                    {member.role || "Member"}
+                  </span>
 
                   <div className="flex items-center gap-3">
                     <div className="text-right">
@@ -414,13 +335,14 @@ export default function AdminMembers() {
                       <span className="text-[10px] text-slate-500 ml-1 font-bold">pts</span>
                     </div>
 
-                    {isSuperAdmin && (
+                    {/* DELETE MEMBER BUTTON */}
+                    {canManageMembers && (
                       <button
                         onClick={() => setUserToDelete(member)}
-                        className="p-1.5 rounded-lg bg-red-500/10 text-red-400 hover:bg-red-500/20 transition"
+                        className="p-2 rounded-xl bg-red-500/10 text-red-400 hover:bg-red-500/20 border border-red-500/20 transition"
                         title="Delete Member"
                       >
-                        <Trash2 size={15} />
+                        <Trash2 size={16} />
                       </button>
                     )}
                   </div>
