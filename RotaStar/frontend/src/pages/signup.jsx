@@ -1,9 +1,9 @@
 import React, { useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { createUserWithEmailAndPassword, updateProfile } from "firebase/auth";
-import { doc, setDoc, serverTimestamp } from "firebase/firestore";
+import { doc, setDoc, addDoc, collection, serverTimestamp } from "firebase/firestore";
 import { auth, db } from "../firebase/firebase";
-import { Loader2, AlertCircle, Sparkles } from "lucide-react";
+import { Loader2, AlertCircle, Crown, Sparkles } from "lucide-react";
 
 export default function Signup() {
   const navigate = useNavigate();
@@ -28,7 +28,7 @@ export default function Signup() {
     setLoading(true);
 
     try {
-      // 1. Create User in Firebase Auth
+      // 1. Create User in Firebase Authentication
       const userCredential = await createUserWithEmailAndPassword(
         auth,
         email.trim().toLowerCase(),
@@ -45,14 +45,12 @@ export default function Signup() {
 
       // 3. Update Auth Profile Display Name
       try {
-        await updateProfile(user, {
-          displayName: name.trim(),
-        });
+        await updateProfile(user, { displayName: name.trim() });
       } catch (pErr) {
         console.warn("Display name update notice:", pErr);
       }
 
-      // 4. Create User Document in Firestore
+      // 4. Create User Document in Firestore with 50 Initial Points
       await setDoc(doc(db, "users", user.uid), {
         uid: user.uid,
         name: name.trim(),
@@ -60,39 +58,58 @@ export default function Signup() {
         email: email.trim().toLowerCase(),
         phoneNumber: phoneNumber.trim() || "",
         role: "Member",
-        totalPoints: 0,
+        totalPoints: 50, // <-- 50 Starter Points
         photoURL: "",
         createdAt: serverTimestamp(),
         lastUsernameChange: null,
       });
 
-      // 5. Success -> Dashboard
+      // 5. Create initial activity entry for Dashboard feed
+      await addDoc(collection(db, "activities"), {
+        userId: user.uid,
+        memberName: name.trim(),
+        activityName: "Welcome Starter Bonus",
+        points: 50,
+        createdAt: serverTimestamp(),
+        awardedBy: "System",
+      });
+
+      // 6. Navigate to Dashboard
       navigate("/dashboard");
     } catch (err) {
-      console.error("Full signup error:", err);
-      // Print the exact code & message so we know the precise culprit
-      setErrorMsg(`Error (${err.code || "unknown"}): ${err.message}`);
+      console.error("Signup error details:", err);
+      let message = `Error (${err.code || "unknown"}): ${err.message}`;
+      if (err.code === "auth/email-already-in-use") {
+        message = "This email is already registered. Please sign in.";
+      } else if (err.code === "auth/invalid-email") {
+        message = "Please enter a valid email address.";
+      } else if (err.code === "auth/weak-password") {
+        message = "Password must be at least 6 characters long.";
+      }
+      setErrorMsg(message);
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="min-h-screen bg-slate-950 text-white flex items-center justify-center p-4">
-      <div className="bg-slate-900 border border-slate-800 rounded-3xl p-8 max-w-md w-full shadow-2xl">
+    <div className="min-h-screen bg-[#030014] text-white flex items-center justify-center p-4">
+      <div className="bg-slate-900/90 border border-violet-900/50 rounded-3xl p-8 max-w-md w-full shadow-2xl shadow-violet-950/50">
         <div className="text-center mb-8">
-          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-rose-500/10 border border-rose-500/20 text-rose-400 text-xs font-bold uppercase tracking-wider mb-3">
-            <Sparkles size={13} />
+          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-violet-500/10 border border-violet-500/30 text-amber-300 text-xs font-bold uppercase tracking-wider mb-3 shadow-md shadow-amber-500/5">
+            <Crown size={14} className="text-amber-400" />
             <span>Join RotaStar</span>
           </div>
-          <h1 className="text-2xl sm:text-3xl font-black">Create an Account</h1>
+          <h1 className="text-2xl sm:text-3xl font-black">
+            Create an <span className="text-violet-400">Account</span>
+          </h1>
           <p className="text-sm text-slate-400 mt-1">
-            Sign up to track attendance and earn points
+            Sign up and receive an instant <strong className="text-amber-400 font-bold">50 point</strong> starter bonus!
           </p>
         </div>
 
         {errorMsg && (
-          <div className="mb-6 p-4 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 text-sm flex items-start gap-3 break-words">
+          <div className="mb-6 p-4 rounded-2xl bg-red-500/10 border border-red-500/20 text-red-400 text-sm flex items-start gap-3 break-words">
             <AlertCircle size={18} className="shrink-0 mt-0.5" />
             <span>{errorMsg}</span>
           </div>
@@ -100,7 +117,7 @@ export default function Signup() {
 
         <form onSubmit={handleSignup} className="space-y-4">
           <div>
-            <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">
+            <label className="block text-xs font-bold text-violet-300 uppercase tracking-wider mb-2">
               Full Name
             </label>
             <input
@@ -109,12 +126,12 @@ export default function Signup() {
               placeholder="e.g. Rahul Sharma"
               value={name}
               onChange={(e) => setName(e.target.value)}
-              className="w-full px-4 py-3 bg-slate-950 border border-slate-800 rounded-xl text-white outline-none focus:border-rose-500 transition text-sm"
+              className="w-full px-4 py-3 bg-slate-950 border border-violet-900/40 rounded-xl text-white outline-none focus:border-amber-400 transition text-sm"
             />
           </div>
 
           <div>
-            <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">
+            <label className="block text-xs font-bold text-violet-300 uppercase tracking-wider mb-2">
               Email Address
             </label>
             <input
@@ -123,12 +140,12 @@ export default function Signup() {
               placeholder="member@rotary.org"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              className="w-full px-4 py-3 bg-slate-950 border border-slate-800 rounded-xl text-white outline-none focus:border-rose-500 transition text-sm"
+              className="w-full px-4 py-3 bg-slate-950 border border-violet-900/40 rounded-xl text-white outline-none focus:border-amber-400 transition text-sm"
             />
           </div>
 
           <div>
-            <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">
+            <label className="block text-xs font-bold text-violet-300 uppercase tracking-wider mb-2">
               Phone Number <span className="text-slate-500 font-normal">(Optional)</span>
             </label>
             <input
@@ -136,12 +153,12 @@ export default function Signup() {
               placeholder="+91 98765 43210"
               value={phoneNumber}
               onChange={(e) => setPhoneNumber(e.target.value)}
-              className="w-full px-4 py-3 bg-slate-950 border border-slate-800 rounded-xl text-white outline-none focus:border-rose-500 transition text-sm"
+              className="w-full px-4 py-3 bg-slate-950 border border-violet-900/40 rounded-xl text-white outline-none focus:border-amber-400 transition text-sm"
             />
           </div>
 
           <div>
-            <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">
+            <label className="block text-xs font-bold text-violet-300 uppercase tracking-wider mb-2">
               Password
             </label>
             <input
@@ -150,14 +167,14 @@ export default function Signup() {
               placeholder="Min. 6 characters"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              className="w-full px-4 py-3 bg-slate-950 border border-slate-800 rounded-xl text-white outline-none focus:border-rose-500 transition text-sm"
+              className="w-full px-4 py-3 bg-slate-950 border border-violet-900/40 rounded-xl text-white outline-none focus:border-amber-400 transition text-sm"
             />
           </div>
 
           <button
             type="submit"
             disabled={loading}
-            className="w-full !mt-6 py-3.5 rounded-xl bg-gradient-to-r from-rose-600 to-orange-500 hover:from-rose-500 hover:to-orange-400 text-white font-bold flex items-center justify-center gap-2 shadow-lg shadow-rose-600/20 transition disabled:opacity-50"
+            className="w-full !mt-6 py-3.5 rounded-xl bg-gradient-to-r from-violet-700 via-purple-600 to-amber-600 hover:from-violet-600 hover:to-amber-500 text-white font-bold flex items-center justify-center gap-2 shadow-xl shadow-violet-950 transition disabled:opacity-50 border border-amber-400/20"
           >
             {loading ? (
               <>
@@ -165,7 +182,7 @@ export default function Signup() {
                 <span>Creating Account...</span>
               </>
             ) : (
-              <span>Create Account</span>
+              <span>Create Account (+50 Pts)</span>
             )}
           </button>
         </form>
@@ -174,7 +191,7 @@ export default function Signup() {
           Already have an account?{" "}
           <Link
             to="/login"
-            className="text-rose-400 hover:text-rose-300 font-bold underline transition"
+            className="text-amber-400 hover:text-amber-300 font-bold underline transition"
           >
             Sign In
           </Link>
