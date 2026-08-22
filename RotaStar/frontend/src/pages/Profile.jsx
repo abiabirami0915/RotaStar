@@ -14,11 +14,20 @@ import {
   Upload,
   Crown,
   Briefcase,
+  Award,
+  Flame,
+  Zap,
+  Trophy,
 } from "lucide-react";
 import { updateProfile } from "firebase/auth";
-import { doc, setDoc, serverTimestamp } from "firebase/firestore";
+import { doc, setDoc, collection, query, where, onSnapshot, serverTimestamp } from "firebase/firestore";
 import { db } from "../firebase/firebase";
 import { useAuth } from "../AuthContext";
+import {
+  calculateLevelProgress,
+  getMemberBadges,
+  calculateMonthlyStreak,
+} from "../utils/gamification";
 
 export default function Profile() {
   const navigate = useNavigate();
@@ -39,6 +48,9 @@ export default function Profile() {
 
   const [daysRemaining, setDaysRemaining] = useState(0);
   const [canChangeUsername, setCanChangeUsername] = useState(true);
+
+  // Gamification states
+  const [userActivities, setUserActivities] = useState([]);
 
   useEffect(() => {
     if (currentUser) {
@@ -75,6 +87,25 @@ export default function Profile() {
       }
     }
   }, [userData, currentUser]);
+
+  // Sync user activities for streak and badge evaluation
+  useEffect(() => {
+    if (!currentUser) return;
+    const q = query(
+      collection(db, "activities"),
+      where("userId", "==", currentUser.uid)
+    );
+    const unsub = onSnapshot(q, (snapshot) => {
+      const acts = snapshot.docs.map((docSnap) => docSnap.data());
+      setUserActivities(acts);
+    });
+    return () => unsub();
+  }, [currentUser]);
+
+  const points = userData?.totalPoints || 0;
+  const levelData = calculateLevelProgress(points);
+  const monthlyStreak = calculateMonthlyStreak(userActivities);
+  const badges = getMemberBadges(points, userActivities, monthlyStreak);
 
   const processImageFile = (file) => {
     return new Promise((resolve, reject) => {
@@ -222,6 +253,24 @@ export default function Profile() {
     }
   };
 
+  const renderBadgeIcon = (iconName, unlocked) => {
+    const color = unlocked ? "text-amber-400" : "text-slate-600";
+    switch (iconName) {
+      case "Crown":
+        return <Crown size={20} className={color} />;
+      case "Award":
+        return <Award size={20} className={color} />;
+      case "Trophy":
+        return <Trophy size={20} className={color} />;
+      case "Flame":
+        return <Flame size={20} className={color} />;
+      case "Zap":
+        return <Zap size={20} className={color} />;
+      default:
+        return <Sparkles size={20} className={color} />;
+    }
+  };
+
   return (
     <div className="min-h-screen bg-[#030014] text-white">
       {/* NAVBAR */}
@@ -242,7 +291,37 @@ export default function Profile() {
       </nav>
 
       {/* MAIN CONTAINER */}
-      <main className="max-w-xl mx-auto px-6 py-10">
+      <main className="max-w-xl mx-auto px-6 py-10 space-y-6">
+        {/* GAMIFICATION SUMMARY CARD */}
+        <div className="bg-gradient-to-r from-violet-950/60 via-slate-900/90 to-amber-950/40 border border-violet-900/50 rounded-3xl p-6 shadow-xl">
+          <div className="grid grid-cols-3 gap-2 text-center divide-x divide-violet-900/40">
+            <div>
+              <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1">
+                Level
+              </p>
+              <p className="text-lg font-black text-amber-400">
+                {levelData.levelTitle}
+              </p>
+            </div>
+            <div>
+              <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1">
+                Total Points
+              </p>
+              <p className="text-lg font-black text-white">{points}</p>
+            </div>
+            <div>
+              <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1">
+                Streak
+              </p>
+              <p className="text-lg font-black text-amber-400 flex items-center justify-center gap-1">
+                <Flame size={16} className="text-amber-400" />
+                {monthlyStreak}m
+              </p>
+            </div>
+          </div>
+        </div>
+
+        {/* PROFILE EDIT FORM */}
         <div className="bg-slate-900/90 border border-violet-900/50 rounded-3xl p-6 sm:p-8 shadow-2xl">
           <div className="text-center mb-6">
             <h1 className="text-2xl font-black text-white flex items-center justify-center gap-2">
@@ -250,7 +329,7 @@ export default function Profile() {
               Member Profile
             </h1>
             <p className="text-sm text-slate-400 mt-1">
-              Manage your personal info, club role, and contact details
+              Manage your personal info, club designation, and contact details
             </p>
           </div>
 
@@ -330,7 +409,7 @@ export default function Profile() {
             </div>
           )}
 
-          {/* PROFILE FORM */}
+          {/* FORM */}
           <form onSubmit={handleSaveProfile} className="space-y-4">
             <div>
               <label className="block text-xs font-bold text-violet-300 uppercase tracking-wider mb-2">
@@ -346,7 +425,7 @@ export default function Profile() {
               />
             </div>
 
-            {/* EDITABLE CLUB ROLE */}
+            {/* EDITABLE ROLE */}
             <div>
               <label className="block text-xs font-bold text-violet-300 uppercase tracking-wider mb-2 flex items-center gap-1.5">
                 <Briefcase size={14} className="text-amber-400" />
@@ -361,7 +440,7 @@ export default function Profile() {
                 className="w-full px-4 py-3 bg-slate-950 border border-violet-900/40 rounded-xl text-white outline-none focus:border-amber-400 transition text-sm"
               />
               <p className="text-[11px] text-slate-500 mt-1">
-                This designation will appear beneath your name across the entire platform.
+                This designation appears beneath your name across the entire platform.
               </p>
             </div>
 
@@ -460,6 +539,42 @@ export default function Profile() {
               )}
             </button>
           </form>
+        </div>
+
+        {/* PROFILE BADGE SHOWCASE */}
+        <div className="bg-slate-900/90 border border-violet-900/50 rounded-3xl p-6 shadow-xl">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-sm font-bold text-white flex items-center gap-2">
+              <Award size={16} className="text-amber-400" />
+              Badges Showcase
+            </h3>
+            <span className="text-[11px] text-slate-400">
+              {badges.filter((b) => b.unlocked).length} of {badges.length} Unlocked
+            </span>
+          </div>
+
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+            {badges.map((b) => (
+              <div
+                key={b.id}
+                className={`p-3 rounded-2xl border text-center flex flex-col items-center justify-center gap-1.5 ${
+                  b.unlocked
+                    ? "bg-slate-950 border-amber-500/30"
+                    : "bg-slate-950/40 border-slate-800/60 opacity-50"
+                }`}
+              >
+                <div className="p-2 rounded-xl bg-slate-900 border border-slate-800">
+                  {renderBadgeIcon(b.icon, b.unlocked)}
+                </div>
+                <p className="text-xs font-bold text-white truncate max-w-full">
+                  {b.title}
+                </p>
+                <p className="text-[9px] text-amber-400 uppercase font-semibold">
+                  {b.category}
+                </p>
+              </div>
+            ))}
+          </div>
         </div>
       </main>
     </div>

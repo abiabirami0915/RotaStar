@@ -18,6 +18,8 @@ import {
   Users,
   Zap,
   PartyPopper,
+  Calendar,
+  Lock,
 } from "lucide-react";
 import {
   collection,
@@ -27,6 +29,11 @@ import {
 } from "firebase/firestore";
 import { db } from "../firebase/firebase";
 import { useAuth } from "../AuthContext";
+import {
+  calculateLevelProgress,
+  getMemberBadges,
+  calculateMonthlyStreak,
+} from "../utils/gamification";
 
 const MOTIVATIONAL_QUOTES = [
   "“The best way to find yourself is to lose yourself in the service of others.” — Mahatma Gandhi",
@@ -41,19 +48,21 @@ export default function Dashboard() {
   const navigate = useNavigate();
   const { currentUser, userData, isAdmin, isSuperAdmin, logout } = useAuth();
 
+  const [allUserActivities, setAllUserActivities] = useState([]);
   const [recentActivities, setRecentActivities] = useState([]);
   const [userRank, setUserRank] = useState("-");
 
-  // Modal triggers
+  // Modals
   const [showWelcomeModal, setShowWelcomeModal] = useState(false);
   const [showLevelUpModal, setShowLevelUpModal] = useState(false);
   const [levelUpData, setLevelUpData] = useState({ oldLevel: 1, newLevel: 1, quote: "" });
 
-  // 1-100: Level 1, 101-200: Level 2, 201-300: Level 3...
+  // Real-time Gamification Calculations
   const points = userData?.totalPoints || 0;
-  const currentLevelNumber =
-    points <= 0 ? 1 : Math.floor((points - 1) / 100) + 1;
-  const levelTitle = `Level ${currentLevelNumber}`;
+  const levelData = calculateLevelProgress(points);
+  const monthlyStreak = calculateMonthlyStreak(allUserActivities);
+  const memberBadges = getMemberBadges(points, allUserActivities, monthlyStreak);
+  const unlockedBadgesCount = memberBadges.filter((b) => b.unlocked).length;
 
   // Admin access validation
   const roleString = (userData?.role || "").toLowerCase();
@@ -64,7 +73,7 @@ export default function Dashboard() {
     roleString.includes("president") ||
     roleString.includes("secretary");
 
-  // 1. Check for one-time welcome bonus popup
+  // 1. One-time welcome bonus modal
   useEffect(() => {
     const isNewUser = sessionStorage.getItem("showWelcomeReward");
     if (isNewUser === "true") {
@@ -82,22 +91,22 @@ export default function Dashboard() {
 
     if (storedLevelStr !== null) {
       const prevLevel = parseInt(storedLevelStr, 10);
-      if (currentLevelNumber > prevLevel) {
+      if (levelData.currentLevel > prevLevel) {
         const randomQuote =
           MOTIVATIONAL_QUOTES[
             Math.floor(Math.random() * MOTIVATIONAL_QUOTES.length)
           ];
         setLevelUpData({
           oldLevel: prevLevel,
-          newLevel: currentLevelNumber,
+          newLevel: levelData.currentLevel,
           quote: randomQuote,
         });
         setShowLevelUpModal(true);
       }
     }
 
-    localStorage.setItem(storageKey, currentLevelNumber.toString());
-  }, [currentUser, userData, currentLevelNumber]);
+    localStorage.setItem(storageKey, levelData.currentLevel.toString());
+  }, [currentUser, userData, levelData.currentLevel]);
 
   // 3. Leaderboard rank calculation
   useEffect(() => {
@@ -115,7 +124,7 @@ export default function Dashboard() {
     return () => unsubUsers();
   }, [currentUser]);
 
-  // 4. Real-time Recent Activity Sync with resilient client-side fallback sorting
+  // 4. Activities Sync (Streak & Feed)
   useEffect(() => {
     if (!currentUser) return;
 
@@ -132,13 +141,14 @@ export default function Dashboard() {
           ...docSnap.data(),
         }));
 
-        // Sort descending by date on client side
+        // Sort descending by date
         acts.sort((a, b) => {
           const timeA = a.createdAt?.toDate ? a.createdAt.toDate().getTime() : 0;
           const timeB = b.createdAt?.toDate ? b.createdAt.toDate().getTime() : 0;
           return timeB - timeA;
         });
 
+        setAllUserActivities(acts);
         setRecentActivities(acts.slice(0, 5));
       },
       (err) => {
@@ -152,6 +162,24 @@ export default function Dashboard() {
   const handleLogout = async () => {
     await logout();
     navigate("/login");
+  };
+
+  const renderBadgeIcon = (iconName, unlocked) => {
+    const color = unlocked ? "text-amber-400" : "text-slate-600";
+    switch (iconName) {
+      case "Crown":
+        return <Crown size={22} className={color} />;
+      case "Award":
+        return <Award size={22} className={color} />;
+      case "Trophy":
+        return <Trophy size={22} className={color} />;
+      case "Flame":
+        return <Flame size={22} className={color} />;
+      case "Zap":
+        return <Zap size={22} className={color} />;
+      default:
+        return <Sparkles size={22} className={color} />;
+    }
   };
 
   return (
@@ -215,56 +243,90 @@ export default function Dashboard() {
 
       {/* MAIN CONTAINER */}
       <main className="max-w-6xl mx-auto px-6 py-8">
-        {/* HERO STATUS CARD */}
-        <div
-          onClick={() => navigate("/profile")}
-          className="cursor-pointer bg-gradient-to-r from-violet-950/70 via-slate-900/90 to-amber-950/40 border border-violet-500/30 hover:border-amber-500/60 rounded-3xl p-6 sm:p-8 mb-6 flex flex-col md:flex-row md:items-center justify-between gap-6 shadow-2xl transition-all group hover:shadow-violet-900/20"
-        >
-          <div className="flex items-center gap-4">
-            <div className="w-16 h-16 rounded-2xl overflow-hidden border-2 border-amber-500/50 bg-slate-950 flex items-center justify-center shrink-0 shadow-lg shadow-amber-500/10 group-hover:scale-105 transition-transform">
-              {userData?.photoURL || currentUser?.photoURL ? (
-                <img
-                  src={userData?.photoURL || currentUser?.photoURL}
-                  alt="Avatar"
-                  className="w-full h-full object-cover"
-                />
-              ) : (
-                <User size={32} className="text-violet-400" />
-              )}
+        {/* HERO STATUS & PROGRESS CARD */}
+        <div className="bg-gradient-to-r from-violet-950/70 via-slate-900/90 to-amber-950/40 border border-violet-500/30 rounded-3xl p-6 sm:p-8 mb-6 shadow-2xl transition-all">
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-6">
+            <div
+              onClick={() => navigate("/profile")}
+              className="flex items-center gap-4 cursor-pointer group"
+            >
+              <div className="w-16 h-16 rounded-2xl overflow-hidden border-2 border-amber-500/50 bg-slate-950 flex items-center justify-center shrink-0 shadow-lg shadow-amber-500/10 group-hover:scale-105 transition-transform">
+                {userData?.photoURL || currentUser?.photoURL ? (
+                  <img
+                    src={userData?.photoURL || currentUser?.photoURL}
+                    alt="Avatar"
+                    className="w-full h-full object-cover"
+                  />
+                ) : (
+                  <User size={32} className="text-violet-400" />
+                )}
+              </div>
+
+              <div>
+                <div className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-amber-400 mb-1">
+                  <Sparkles size={14} className="text-amber-400" />
+                  <span>Current Status</span>
+                </div>
+                <h1 className="text-2xl sm:text-3xl font-black text-white group-hover:text-amber-300 transition-colors">
+                  Hello, {userData?.name || currentUser?.displayName || "Member"}
+                </h1>
+                <p className="text-xs text-slate-400 mt-1">
+                  Role:{" "}
+                  <span className="capitalize text-violet-300 font-semibold">
+                    {userData?.role || "Member"}
+                  </span>
+                  {userData?.username && ` • @${userData.username}`}
+                  <span className="text-amber-400 font-medium ml-2 underline">
+                    Edit Profile →
+                  </span>
+                </p>
+              </div>
             </div>
 
-            <div>
-              <div className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-amber-400 mb-1">
-                <Sparkles size={14} className="text-amber-400" />
-                <span>Current Status</span>
+            <div className="bg-slate-950/80 border border-amber-500/30 rounded-2xl p-4 sm:px-6 flex items-center gap-4 shadow-lg shadow-amber-500/5">
+              <div className="p-2.5 rounded-xl bg-amber-500/10 text-amber-400 border border-amber-500/20">
+                <Trophy size={20} />
               </div>
-              <h1 className="text-2xl sm:text-3xl font-black text-white group-hover:text-amber-300 transition-colors">
-                Hello, {userData?.name || currentUser?.displayName || "Member"}
-              </h1>
-              <p className="text-xs text-slate-400 mt-1">
-                Role: <span className="capitalize text-violet-300 font-semibold">{userData?.role || "Member"}</span>
-                {userData?.username && ` • @${userData.username}`}
-                <span className="text-amber-400 font-medium ml-2 underline">Edit Profile →</span>
-              </p>
+              <div>
+                <p className="text-[10px] text-amber-300/80 font-bold uppercase tracking-wider">
+                  Current Level
+                </p>
+                <p className="text-lg font-black text-amber-400 tracking-wide">
+                  {levelData.levelTitle}
+                </p>
+              </div>
             </div>
           </div>
 
-          <div className="bg-slate-950/80 border border-amber-500/30 rounded-2xl p-4 sm:px-6 flex items-center gap-4 shadow-lg shadow-amber-500/5">
-            <div className="p-2.5 rounded-xl bg-amber-500/10 text-amber-400 border border-amber-500/20">
-              <Trophy size={20} />
+          {/* ANIMATED LEVEL PROGRESS BAR */}
+          <div className="bg-slate-950/70 border border-violet-900/40 rounded-2xl p-4 sm:p-5">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between text-xs font-bold mb-2.5 gap-1">
+              <span className="text-amber-300 flex items-center gap-1.5">
+                <Zap size={14} className="text-amber-400" />
+                Level {levelData.currentLevel} Progress ({levelData.percentage}%)
+              </span>
+              <span className="text-slate-400 font-normal text-[11px]">
+                <strong className="text-amber-400 font-bold">{levelData.pointsNeeded} pts</strong> to unlock Level {levelData.nextLevel}
+              </span>
             </div>
-            <div>
-              <p className="text-[10px] text-amber-300/80 font-bold uppercase tracking-wider">
-                Current Level
-              </p>
-              <p className="text-lg font-black text-amber-400 tracking-wide">
-                {levelTitle}
-              </p>
+
+            {/* Progress Track */}
+            <div className="w-full h-3.5 bg-slate-900 rounded-full overflow-hidden border border-violet-900/50 p-0.5 shadow-inner">
+              <div
+                className="h-full rounded-full bg-gradient-to-r from-violet-600 via-amber-500 to-amber-300 transition-all duration-1000 ease-out shadow-lg shadow-amber-500/30"
+                style={{ width: `${levelData.percentage}%` }}
+              />
+            </div>
+
+            <div className="flex items-center justify-between text-[10px] text-slate-500 font-semibold mt-2">
+              <span>{levelData.levelFloor} pts (L{levelData.currentLevel})</span>
+              <span>{points} pts (Current)</span>
+              <span>{levelData.levelCap} pts (L{levelData.nextLevel})</span>
             </div>
           </div>
         </div>
 
-        {/* METRICS ROW */}
+        {/* METRICS ROW (WITH MONTHLY STREAK & BADGES COUNT) */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
           <div className="bg-slate-900/90 border border-violet-900/40 hover:border-amber-500/40 rounded-2xl p-5 shadow-xl transition">
             <div className="flex items-center gap-2 text-violet-300 text-xs font-semibold mb-2">
@@ -282,21 +344,31 @@ export default function Dashboard() {
             <p className="text-2xl sm:text-3xl font-black text-white">{userRank}</p>
           </div>
 
-          <div className="bg-slate-900/90 border border-violet-900/40 rounded-2xl p-5 shadow-xl">
+          {/* MONTHLY STREAK METRIC */}
+          <div className="bg-slate-900/90 border border-violet-900/40 hover:border-amber-500/40 rounded-2xl p-5 shadow-xl transition">
             <div className="flex items-center gap-2 text-violet-300 text-xs font-semibold mb-2">
-              <CheckCircle size={16} className="text-emerald-400" />
-              <span>Attendance Rate</span>
+              <Calendar size={16} className="text-amber-400" />
+              <span>Monthly Streak</span>
             </div>
-            <p className="text-2xl sm:text-3xl font-black text-white">100%</p>
+            <p className="text-2xl sm:text-3xl font-black text-amber-400 flex items-baseline gap-1">
+              {monthlyStreak}{" "}
+              <span className="text-xs text-slate-400 font-normal">
+                {monthlyStreak === 1 ? "month" : "months"}
+              </span>
+            </p>
           </div>
 
+          {/* BADGES COUNT */}
           <div className="bg-slate-900/90 border border-violet-900/40 rounded-2xl p-5 shadow-xl">
             <div className="flex items-center gap-2 text-violet-300 text-xs font-semibold mb-2">
               <Award size={16} className="text-amber-400" />
-              <span>Badges Earned</span>
+              <span>Badges Unlocked</span>
             </div>
             <p className="text-2xl sm:text-3xl font-black text-white">
-              {currentLevelNumber > 1 ? currentLevelNumber - 1 : 0}
+              {unlockedBadgesCount}{" "}
+              <span className="text-xs text-slate-500 font-normal">
+                / {memberBadges.length}
+              </span>
             </p>
           </div>
         </div>
@@ -343,6 +415,62 @@ export default function Dashboard() {
             <ChevronRight size={22} className="text-violet-400 group-hover:translate-x-1 transition-transform" />
           </button>
         </div>
+
+        {/* ACHIEVEMENT BADGES SHOWCASE */}
+        <section className="bg-slate-900/90 border border-violet-900/40 rounded-3xl p-6 sm:p-7 shadow-xl mb-6">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="font-extrabold text-base text-white flex items-center gap-2">
+              <Award size={18} className="text-amber-400" />
+              Achievement Badges
+            </h2>
+            <span className="text-xs font-bold text-amber-400/90 px-2.5 py-1 rounded-full bg-amber-500/10 border border-amber-500/20">
+              {unlockedBadgesCount} of {memberBadges.length} Earned
+            </span>
+          </div>
+
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+            {memberBadges.map((badge) => (
+              <div
+                key={badge.id}
+                className={`p-4 rounded-2xl border text-center flex flex-col items-center justify-between transition-all ${
+                  badge.unlocked
+                    ? "bg-gradient-to-b from-amber-500/10 via-slate-950 to-slate-950 border-amber-500/40 shadow-lg shadow-amber-500/5 hover:border-amber-400"
+                    : "bg-slate-950/40 border-slate-800/60 opacity-60 hover:opacity-80"
+                }`}
+              >
+                <div className="relative mb-2.5 mt-1">
+                  <div
+                    className={`w-12 h-12 rounded-2xl flex items-center justify-center ${
+                      badge.unlocked
+                        ? "bg-amber-500/15 border border-amber-500/30 shadow-md shadow-amber-500/20"
+                        : "bg-slate-900 border border-slate-800"
+                    }`}
+                  >
+                    {renderBadgeIcon(badge.icon, badge.unlocked)}
+                  </div>
+                  {!badge.unlocked && (
+                    <div className="absolute -bottom-1 -right-1 p-1 bg-slate-950 border border-slate-800 rounded-full text-slate-500">
+                      <Lock size={10} />
+                    </div>
+                  )}
+                </div>
+
+                <div>
+                  <h4
+                    className={`text-xs font-bold ${
+                      badge.unlocked ? "text-white" : "text-slate-500"
+                    }`}
+                  >
+                    {badge.title}
+                  </h4>
+                  <p className="text-[10px] text-slate-400 mt-1 leading-snug line-clamp-2">
+                    {badge.description}
+                  </p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </section>
 
         {/* ADMIN CONTROLS PANEL */}
         {showAdminPanel && (
