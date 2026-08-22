@@ -12,6 +12,8 @@ import {
   User,
   Crown,
   Sparkles,
+  Gift,
+  X,
 } from "lucide-react";
 import {
   collection,
@@ -30,12 +32,22 @@ export default function Dashboard() {
 
   const [recentActivities, setRecentActivities] = useState([]);
   const [userRank, setUserRank] = useState("-");
+  const [showWelcomeModal, setShowWelcomeModal] = useState(false);
 
-  // Level Logic: 0-100 = Level 1, 101-200 = Level 2, 201-300 = Level 3, ...
+  // 1-100: Level 1, 101-200: Level 2, 201-300: Level 3...
   const points = userData?.totalPoints || 0;
   const currentLevelNumber =
     points <= 0 ? 1 : Math.floor((points - 1) / 100) + 1;
   const levelTitle = `Level ${currentLevelNumber}`;
+
+  // Check for one-time welcome bonus popup
+  useEffect(() => {
+    const isNewUser = sessionStorage.getItem("showWelcomeReward");
+    if (isNewUser === "true") {
+      setShowWelcomeModal(true);
+      sessionStorage.removeItem("showWelcomeReward");
+    }
+  }, []);
 
   useEffect(() => {
     const unsubUsers = onSnapshot(collection(db, "users"), (snapshot) => {
@@ -86,21 +98,27 @@ export default function Dashboard() {
     <div className="min-h-screen bg-[#030014] text-white">
       {/* NAVBAR */}
       <nav className="border-b border-violet-900/40 bg-slate-950/80 backdrop-blur-md sticky top-0 z-50">
-        <div className="max-w-6xl mx-auto px-6 h-16 flex items-center justify-between">
+        <div className="max-w-6xl mx-auto px-6 h-20 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-violet-600 to-amber-500 flex items-center justify-center font-black text-white shadow-lg shadow-violet-600/30">
+            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-violet-600 to-amber-500 flex items-center justify-center font-black text-white shadow-lg shadow-violet-600/30 shrink-0">
               <Crown size={20} className="text-amber-200" />
             </div>
             <div>
-              <span className="font-extrabold tracking-tight text-lg text-violet-400">
-                Rota
-              </span>
-              <span className="font-extrabold tracking-tight text-lg text-amber-400">
-                Star
-              </span>
-              <span className="text-[10px] text-amber-300/70 block -mt-1 tracking-wider uppercase font-bold">
-                PSVPEC
-              </span>
+              <div className="flex items-center gap-1.5">
+                <span className="font-extrabold tracking-tight text-lg text-violet-400">
+                  Rota
+                </span>
+                <span className="font-extrabold tracking-tight text-lg text-amber-400">
+                  Star
+                </span>
+                <span className="text-[10px] text-amber-300/70 tracking-wider uppercase font-bold ml-1">
+                  • PSVPEC
+                </span>
+              </div>
+              {/* TAGLINE */}
+              <p className="text-[10px] text-amber-300/80 tracking-tight font-medium">
+                Engage in impactful service, earn rightful recognition
+              </p>
             </div>
           </div>
 
@@ -378,6 +396,41 @@ export default function Dashboard() {
           )}
         </section>
       </main>
+
+      {/* 50 STARTER POINTS WELCOME REWARD POPUP MODAL */}
+      {showWelcomeModal && (
+        <div className="fixed inset-0 z-50 bg-black/85 backdrop-blur-md flex items-center justify-center p-4">
+          <div className="bg-slate-900 border-2 border-amber-400/50 rounded-3xl p-6 sm:p-8 max-w-md w-full shadow-2xl shadow-violet-950 relative text-center animate-in fade-in zoom-in duration-200">
+            <button
+              onClick={() => setShowWelcomeModal(false)}
+              className="absolute top-4 right-4 p-2 rounded-full text-slate-400 hover:text-white hover:bg-slate-800 transition"
+            >
+              <X size={20} />
+            </button>
+
+            <div className="w-16 h-16 rounded-3xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-center text-amber-400 mx-auto mb-4 shadow-lg shadow-amber-500/10">
+              <Gift size={32} />
+            </div>
+
+            <h2 className="text-2xl font-black text-white mb-2">
+              Welcome to RotaStar!
+            </h2>
+
+            <p className="text-sm text-slate-300 leading-relaxed mb-6">
+              Congratulations! You have received{" "}
+              <strong className="text-amber-400 font-bold">+50 Bonus Points</strong>{" "}
+              as a welcome reward for creating your account.
+            </p>
+
+            <button
+              onClick={() => setShowWelcomeModal(false)}
+              className="w-full py-3.5 rounded-xl bg-gradient-to-r from-violet-700 via-purple-600 to-amber-600 hover:from-violet-600 hover:to-amber-500 text-white font-bold transition shadow-xl shadow-violet-950 border border-amber-400/30"
+            >
+              Claim & Explore Dashboard
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

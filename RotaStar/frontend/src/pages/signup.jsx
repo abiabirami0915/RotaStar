@@ -3,7 +3,7 @@ import { useNavigate, Link } from "react-router-dom";
 import { createUserWithEmailAndPassword, updateProfile } from "firebase/auth";
 import { doc, setDoc, addDoc, collection, serverTimestamp } from "firebase/firestore";
 import { auth, db } from "../firebase/firebase";
-import { Loader2, AlertCircle, Crown, Sparkles } from "lucide-react";
+import { Loader2, AlertCircle, Crown } from "lucide-react";
 
 export default function Signup() {
   const navigate = useNavigate();
@@ -58,7 +58,7 @@ export default function Signup() {
         email: email.trim().toLowerCase(),
         phoneNumber: phoneNumber.trim() || "",
         role: "Member",
-        totalPoints: 50, // <-- 50 Starter Points
+        totalPoints: 50,
         photoURL: "",
         createdAt: serverTimestamp(),
         lastUsernameChange: null,
@@ -74,7 +74,10 @@ export default function Signup() {
         awardedBy: "System",
       });
 
-      // 6. Navigate to Dashboard
+      // 6. Set one-time welcome trigger flag
+      sessionStorage.setItem("showWelcomeReward", "true");
+
+      // 7. Navigate to Dashboard
       navigate("/dashboard");
     } catch (err) {
       console.error("Signup error details:", err);
@@ -100,11 +103,18 @@ export default function Signup() {
             <Crown size={14} className="text-amber-400" />
             <span>Join RotaStar</span>
           </div>
+          
           <h1 className="text-2xl sm:text-3xl font-black">
             Create an <span className="text-violet-400">Account</span>
           </h1>
-          <p className="text-sm text-slate-400 mt-1">
-            Sign up and receive an instant <strong className="text-amber-400 font-bold">50 point</strong> starter bonus!
+
+          {/* TAGLINE */}
+          <p className="text-[11px] text-amber-400/90 font-medium tracking-wide uppercase mt-1">
+            "Engage in impactful service, earn rightful recognition"
+          </p>
+
+          <p className="text-xs text-slate-400 mt-1">
+            Sign up to claim your instant <strong className="text-amber-400 font-bold">50 point</strong> starter reward!
           </p>
         </div>
 
