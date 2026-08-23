@@ -52,9 +52,6 @@ import {
   calculateMonthlyStreak,
 } from "../utils/gamification";
 
-// Direct file import with exact filename rotastar-logo.png
-import rotaStarLogoImg from "../assets/rotastar-logo.png";
-
 const MOTIVATIONAL_QUOTES = [
   "“The best way to find yourself is to lose yourself in the service of others.” — Mahatma Gandhi",
   "“Great things are done by a series of small things brought together.” — Vincent van Gogh",
@@ -305,12 +302,16 @@ export default function Dashboard() {
       <nav className="border-b border-violet-900/40 bg-slate-950/80 backdrop-blur-md sticky top-0 z-50">
         <div className="max-w-6xl mx-auto px-6 h-20 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            {/* EXACT ROTASTAR-LOGO.PNG EMBED */}
-            <div className="w-11 h-11 rounded-2xl bg-slate-950 border border-violet-500/40 p-1 flex items-center justify-center shadow-lg shadow-violet-900/30 shrink-0 overflow-hidden">
+            {/* ROTASTAR BRAND EMBLEM */}
+            <div className="w-11 h-11 rounded-2xl bg-slate-950 border border-amber-500/40 p-1 flex items-center justify-center shadow-lg shadow-violet-900/30 shrink-0 overflow-hidden">
               <img
-                src={rotaStarLogoImg}
-                alt="RotaStar Official Logo"
+                src="/rotastar-logo.png"
+                alt="RotaStar Logo"
                 className="w-full h-full object-contain"
+                onError={(e) => {
+                  e.currentTarget.onerror = null;
+                  e.currentTarget.src = "/assets/rotastar-logo.png";
+                }}
               />
             </div>
 
