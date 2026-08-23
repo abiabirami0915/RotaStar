@@ -52,9 +52,6 @@ import {
   calculateMonthlyStreak,
 } from "../utils/gamification";
 
-// Safe dynamic asset resolver
-const getAssetUrl = (name) => new URL(`../assets/${name}`, import.meta.url).href;
-
 const MOTIVATIONAL_QUOTES = [
   "“The best way to find yourself is to lose yourself in the service of others.” — Mahatma Gandhi",
   "“Great things are done by a series of small things brought together.” — Vincent van Gogh",
@@ -107,9 +104,6 @@ export default function Dashboard() {
   const [levelUpData, setLevelUpData] = useState({ oldLevel: 1, newLevel: 1, quote: "" });
   const [unlockedBadgeModal, setUnlockedBadgeModal] = useState(null);
   const [hasInitializedBadges, setHasInitializedBadges] = useState(false);
-
-  // Fallback state for navbar RotaStar logo
-  const [rotaStarLogoError, setRotaStarLogoError] = useState(false);
 
   // Gamification Calculations
   const points = userData?.totalPoints || 0;
@@ -309,19 +303,16 @@ export default function Dashboard() {
         <div className="max-w-6xl mx-auto px-6 h-20 flex items-center justify-between">
           <div className="flex items-center gap-3">
             {/* ROTASTAR BRAND LOGO EMBED */}
-            <div className="w-11 h-11 rounded-2xl bg-slate-900 border border-violet-900/60 p-1 flex items-center justify-center shadow-lg shadow-violet-900/30 shrink-0 overflow-hidden">
-              {!rotaStarLogoError ? (
-                <img
-                  src={getAssetUrl("rotastar-logo.png")}
-                  alt="RotaStar Official Logo"
-                  className="w-full h-full object-contain"
-                  onError={() => setRotaStarLogoError(true)}
-                />
-              ) : (
-                <div className="w-full h-full rounded-xl bg-gradient-to-br from-violet-600 to-amber-500 flex items-center justify-center font-black text-amber-200 text-xs">
-                  RS
-                </div>
-              )}
+            <div className="w-11 h-11 rounded-2xl bg-gradient-to-br from-violet-900/40 to-slate-900 border border-violet-500/40 p-1 flex items-center justify-center shadow-lg shadow-violet-900/30 shrink-0 overflow-hidden">
+              <img
+                src="/rotastar-logo.png"
+                alt="RotaStar Logo"
+                className="w-full h-full object-contain"
+                onError={(e) => {
+                  e.currentTarget.onerror = null;
+                  e.currentTarget.src = "/assets/rotastar-logo.png";
+                }}
+              />
             </div>
 
             <div>
