@@ -1,26 +1,25 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import {
-  ArrowLeft,
-  Camera,
   User,
-  Loader2,
-  Check,
-  Phone,
-  Calendar,
-  Lock,
-  Sparkles,
-  AlertCircle,
-  Upload,
-  Crown,
-  Briefcase,
+  ArrowLeft,
+  Mail,
   Award,
+  Crown,
+  Sparkles,
+  Trophy,
   Flame,
   Zap,
-  Trophy,
+  Shield,
+  CreditCard,
+  X,
+  Camera,
+  Check,
+  AlertCircle,
+  Loader2,
+  Calendar,
 } from "lucide-react";
-import { updateProfile } from "firebase/auth";
-import { doc, setDoc, collection, query, where, onSnapshot, serverTimestamp } from "firebase/firestore";
+import { doc, updateDoc, collection, query, where, onSnapshot } from "firebase/firestore";
 import { db } from "../firebase/firebase";
 import { useAuth } from "../AuthContext";
 import {
@@ -33,241 +32,78 @@ export default function Profile() {
   const navigate = useNavigate();
   const { currentUser, userData } = useAuth();
 
-  const [fullName, setFullName] = useState("");
-  const [role, setRole] = useState("");
+  const [name, setName] = useState("");
   const [username, setUsername] = useState("");
-  const [phoneNumber, setPhoneNumber] = useState("");
-
-  const [newImageBase64, setNewImageBase64] = useState(null);
-  const [currentPhoto, setCurrentPhoto] = useState("");
-  const [photoUploading, setPhotoUploading] = useState(false);
-
-  const [savingForm, setSavingForm] = useState(false);
-  const [successMsg, setSuccessMsg] = useState("");
-  const [errorMsg, setErrorMsg] = useState("");
-
-  const [daysRemaining, setDaysRemaining] = useState(0);
-  const [canChangeUsername, setCanChangeUsername] = useState(true);
-
-  // Gamification states
-  const [userActivities, setUserActivities] = useState([]);
-
-  useEffect(() => {
-    if (currentUser) {
-      setFullName(userData?.name || currentUser.displayName || "");
-      setRole(userData?.role || "Member");
-      setUsername(userData?.username || userData?.name || "");
-      setPhoneNumber(userData?.phoneNumber || "");
-      setCurrentPhoto(userData?.photoURL || currentUser.photoURL || "");
-
-      if (userData?.lastUsernameChange) {
-        try {
-          const lastDate =
-            typeof userData.lastUsernameChange.toDate === "function"
-              ? userData.lastUsernameChange.toDate()
-              : new Date(userData.lastUsernameChange);
-
-          if (lastDate instanceof Date && !isNaN(lastDate)) {
-            const diffDays =
-              (new Date().getTime() - lastDate.getTime()) / (1000 * 60 * 60 * 24);
-
-            if (diffDays < 14) {
-              setCanChangeUsername(false);
-              setDaysRemaining(Math.ceil(14 - diffDays));
-            } else {
-              setCanChangeUsername(true);
-              setDaysRemaining(0);
-            }
-          }
-        } catch (e) {
-          setCanChangeUsername(true);
-        }
-      } else {
-        setCanChangeUsername(true);
-      }
-    }
-  }, [userData, currentUser]);
-
-  // Sync user activities for streak and badge evaluation
-  useEffect(() => {
-    if (!currentUser) return;
-    const q = query(
-      collection(db, "activities"),
-      where("userId", "==", currentUser.uid)
-    );
-    const unsub = onSnapshot(q, (snapshot) => {
-      const acts = snapshot.docs.map((docSnap) => docSnap.data());
-      setUserActivities(acts);
-    });
-    return () => unsub();
-  }, [currentUser]);
+  const [photoURL, setPhotoURL] = useState("");
+  const [allUserActivities, setAllUserActivities] = useState([]);
+  const [saving, setSaving] = useState(false);
+  const [toast, setToast] = useState({ text: "", type: "" });
+  const [showIdCardModal, setShowIdCardModal] = useState(false);
 
   const points = userData?.totalPoints || 0;
   const levelData = calculateLevelProgress(points);
-  const monthlyStreak = calculateMonthlyStreak(userActivities);
-  const badges = getMemberBadges(points, userActivities, monthlyStreak);
+  const monthlyStreak = calculateMonthlyStreak(allUserActivities);
+  const memberBadges = getMemberBadges(points, allUserActivities, monthlyStreak);
+  const unlockedBadges = memberBadges.filter((b) => b.unlocked);
 
-  const processImageFile = (file) => {
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onerror = () => reject(new Error("Failed to read image file."));
-      reader.onload = (readerEvent) => {
-        const image = new Image();
-        image.onerror = () => reject(new Error("Invalid image format."));
-        image.onload = () => {
-          const targetSize = 200;
-          const canvas = document.createElement("canvas");
-          canvas.width = targetSize;
-          canvas.height = targetSize;
-          const ctx = canvas.getContext("2d");
+  useEffect(() => {
+    if (userData) {
+      setName(userData.name || currentUser?.displayName || "");
+      setUsername(userData.username || "");
+      setPhotoURL(userData.photoURL || currentUser?.photoURL || "");
+    }
+  }, [userData, currentUser]);
 
-          const minDim = Math.min(image.width, image.height);
-          const startX = (image.width - minDim) / 2;
-          const startY = (image.height - minDim) / 2;
-
-          ctx.drawImage(
-            image,
-            startX,
-            startY,
-            minDim,
-            minDim,
-            0,
-            0,
-            targetSize,
-            targetSize
-          );
-
-          resolve(canvas.toDataURL("image/jpeg", 0.65));
-        };
-        image.src = readerEvent.target.result;
-      };
-      reader.readAsDataURL(file);
+  useEffect(() => {
+    if (!currentUser) return;
+    const q = query(collection(db, "activities"), where("userId", "==", currentUser.uid));
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      setAllUserActivities(snapshot.docs.map((d) => d.data()));
     });
-  };
+    return () => unsubscribe();
+  }, [currentUser]);
 
-  const handleFileSelect = async (e) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    setErrorMsg("");
-    setSuccessMsg("");
-
-    try {
-      const compressedDataUrl = await processImageFile(file);
-      setNewImageBase64(compressedDataUrl);
-      setCurrentPhoto(compressedDataUrl);
-    } catch (err) {
-      console.error("Image processing error:", err);
-      setErrorMsg("Could not process this image. Please choose another one.");
-    }
-  };
-
-  const handleSavePhotoOnly = async () => {
-    if (!newImageBase64 || !currentUser) return;
-
-    setPhotoUploading(true);
-    setErrorMsg("");
-    setSuccessMsg("");
-
-    try {
-      const userRef = doc(db, "users", currentUser.uid);
-      await setDoc(userRef, { photoURL: newImageBase64 }, { merge: true });
-
-      try {
-        await updateProfile(currentUser, { photoURL: newImageBase64 });
-      } catch (authErr) {
-        console.warn("Auth photo sync notice:", authErr);
-      }
-
-      setSuccessMsg("Profile picture updated successfully!");
-      setNewImageBase64(null);
-    } catch (err) {
-      console.error("Photo upload error:", err);
-      setErrorMsg(err.message || "Failed to save photo to database.");
-    } finally {
-      setPhotoUploading(false);
-    }
-  };
-
-  const handleUseFullName = () => {
-    if (!canChangeUsername) return;
-    const formatted = fullName
-      .toLowerCase()
-      .replace(/[^a-z0-9_]/g, "_")
-      .replace(/_+/g, "_")
-      .trim();
-    setUsername(formatted || fullName);
+  const showToast = (text, type = "success") => {
+    setToast({ text, type });
+    setTimeout(() => setToast({ text: "", type: "" }), 4000);
   };
 
   const handleSaveProfile = async (e) => {
     e.preventDefault();
     if (!currentUser) return;
 
-    setErrorMsg("");
-    setSuccessMsg("");
-    setSavingForm(true);
-
+    setSaving(true);
     try {
-      const userDocRef = doc(db, "users", currentUser.uid);
-      const updates = {
-        name: fullName.trim(),
-        role: role.trim() || "Member",
-        phoneNumber: phoneNumber.trim(),
-      };
-
-      const currentStoredUsername = userData?.username || userData?.name;
-      const isUsernameModified =
-        username.trim() !== currentStoredUsername && username.trim().length > 0;
-
-      if (isUsernameModified) {
-        if (!canChangeUsername) {
-          throw new Error(
-            `You can only change your username once every 14 days. Please wait ${daysRemaining} more day(s).`
-          );
-        }
-        updates.username = username.trim();
-        updates.lastUsernameChange = serverTimestamp();
-      }
-
-      if (newImageBase64) {
-        updates.photoURL = newImageBase64;
-      }
-
-      await setDoc(userDocRef, updates, { merge: true });
-
-      try {
-        await updateProfile(currentUser, {
-          displayName: fullName.trim(),
-        });
-      } catch (authErr) {
-        console.warn("Auth displayName update notice:", authErr);
-      }
-
-      setSuccessMsg("Profile and Club Role updated successfully!");
-      setNewImageBase64(null);
+      await updateDoc(doc(db, "users", currentUser.uid), {
+        name: name.trim(),
+        username: username.trim().toLowerCase().replace(/[^a-z0-9_]/g, ""),
+        photoURL: photoURL.trim(),
+      });
+      showToast("Profile details updated successfully!");
     } catch (err) {
       console.error("Profile save error:", err);
-      setErrorMsg(err.message || "Failed to update profile.");
+      showToast("Failed to save profile changes", "error");
     } finally {
-      setSavingForm(false);
+      setSaving(false);
     }
   };
 
-  const renderBadgeIcon = (iconName, unlocked) => {
-    const color = unlocked ? "text-amber-400" : "text-slate-600";
+  const renderBadgeIcon = (iconName) => {
     switch (iconName) {
       case "Crown":
-        return <Crown size={20} className={color} />;
+        return <Crown size={18} className="text-amber-400" />;
       case "Award":
-        return <Award size={20} className={color} />;
+        return <Award size={18} className="text-amber-400" />;
       case "Trophy":
-        return <Trophy size={20} className={color} />;
+        return <Trophy size={18} className="text-amber-400" />;
       case "Flame":
-        return <Flame size={20} className={color} />;
+        return <Flame size={18} className="text-amber-400" />;
+      case "Shield":
+        return <Shield size={18} className="text-amber-400" />;
       case "Zap":
-        return <Zap size={20} className={color} />;
+        return <Zap size={18} className="text-amber-400" />;
       default:
-        return <Sparkles size={20} className={color} />;
+        return <Sparkles size={18} className="text-amber-400" />;
     }
   };
 
@@ -275,308 +111,256 @@ export default function Profile() {
     <div className="min-h-screen bg-[#030014] text-white">
       {/* NAVBAR */}
       <nav className="border-b border-violet-900/40 bg-slate-950/80 backdrop-blur-md sticky top-0 z-50">
-        <div className="max-w-4xl mx-auto px-6 h-16 flex items-center justify-between">
+        <div className="max-w-4xl mx-auto px-6 h-20 flex items-center justify-between">
           <button
             onClick={() => navigate("/dashboard")}
             className="flex items-center gap-2 text-violet-300 hover:text-amber-300 transition text-sm font-semibold"
           >
             <ArrowLeft size={18} />
-            <span>Back to Dashboard</span>
+            <span>Dashboard</span>
           </button>
-          <div className="text-xl font-black tracking-tight">
-            <span className="text-violet-400">Rota</span>
-            <span className="text-amber-400">Star</span>
+          <div className="flex items-center gap-1.5">
+            <span className="font-extrabold text-lg text-violet-400">Rota</span>
+            <span className="font-extrabold text-lg text-amber-400">Star</span>
           </div>
         </div>
       </nav>
 
       {/* MAIN CONTAINER */}
-      <main className="max-w-xl mx-auto px-6 py-10 space-y-6">
-        {/* GAMIFICATION SUMMARY CARD */}
-        <div className="bg-gradient-to-r from-violet-950/60 via-slate-900/90 to-amber-950/40 border border-violet-900/50 rounded-3xl p-6 shadow-xl">
-          <div className="grid grid-cols-3 gap-2 text-center divide-x divide-violet-900/40">
-            <div>
-              <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1">
-                Level
-              </p>
-              <p className="text-lg font-black text-amber-400">
-                {levelData.levelTitle}
-              </p>
+      <main className="max-w-3xl mx-auto px-6 py-8">
+        {/* PROFILE HEADER & ID CARD TRIGGER */}
+        <div className="bg-gradient-to-r from-violet-950/70 via-slate-900/90 to-amber-950/40 border border-violet-500/30 rounded-3xl p-6 sm:p-8 mb-6 shadow-2xl flex flex-col sm:flex-row items-center justify-between gap-6">
+          <div className="flex items-center gap-4 text-center sm:text-left">
+            <div className="w-20 h-20 rounded-3xl overflow-hidden border-2 border-amber-400/60 bg-slate-950 flex items-center justify-center shadow-lg shadow-amber-500/20 shrink-0">
+              {photoURL ? (
+                <img src={photoURL} alt="Profile" className="w-full h-full object-cover" />
+              ) : (
+                <User size={38} className="text-violet-400" />
+              )}
             </div>
             <div>
-              <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1">
-                Total Points
-              </p>
-              <p className="text-lg font-black text-white">{points}</p>
-            </div>
-            <div>
-              <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1">
-                Streak
-              </p>
-              <p className="text-lg font-black text-amber-400 flex items-center justify-center gap-1">
-                <Flame size={16} className="text-amber-400" />
-                {monthlyStreak}m
+              <div className="inline-flex items-center gap-1 text-xs font-bold uppercase tracking-wider text-amber-400 mb-1">
+                <Sparkles size={13} />
+                <span>Member Profile</span>
+              </div>
+              <h1 className="text-2xl sm:text-3xl font-black text-white">
+                {userData?.name || currentUser?.displayName || "Member"}
+              </h1>
+              <p className="text-xs text-slate-400 mt-0.5">
+                <span className="capitalize text-violet-300 font-semibold">{userData?.role || "Member"}</span>
+                {userData?.username && ` • @${userData.username}`}
               </p>
             </div>
           </div>
+
+          <button
+            onClick={() => setShowIdCardModal(true)}
+            className="w-full sm:w-auto px-5 py-3 rounded-2xl bg-gradient-to-r from-amber-500 to-amber-400 hover:from-amber-400 hover:to-amber-300 text-slate-950 font-black text-xs uppercase tracking-wider flex items-center justify-center gap-2 shadow-xl shadow-amber-500/10 transition shrink-0 cursor-pointer"
+          >
+            <CreditCard size={18} />
+            <span>View Digital ID</span>
+          </button>
         </div>
 
-        {/* PROFILE EDIT FORM */}
-        <div className="bg-slate-900/90 border border-violet-900/50 rounded-3xl p-6 sm:p-8 shadow-2xl">
-          <div className="text-center mb-6">
-            <h1 className="text-2xl font-black text-white flex items-center justify-center gap-2">
-              <Crown size={22} className="text-amber-400" />
-              Member Profile
-            </h1>
-            <p className="text-sm text-slate-400 mt-1">
-              Manage your personal info, club designation, and contact details
-            </p>
+        {/* TOAST ALERT */}
+        {toast.text && (
+          <div
+            className={`p-4 rounded-2xl mb-6 flex items-center gap-3 text-sm border ${
+              toast.type === "error"
+                ? "bg-red-500/10 border-red-500/20 text-red-400"
+                : "bg-emerald-500/10 border-emerald-500/20 text-emerald-400"
+            }`}
+          >
+            {toast.type === "error" ? <AlertCircle size={18} /> : <Check size={18} />}
+            <span>{toast.text}</span>
           </div>
+        )}
 
-          {/* AVATAR */}
-          <div className="flex flex-col items-center mb-6">
-            <div className="relative w-32 h-32 mb-3">
-              <div className="w-32 h-32 rounded-full overflow-hidden border-4 border-amber-500/40 bg-slate-950 flex items-center justify-center shadow-xl shadow-violet-900/30">
-                {currentPhoto ? (
-                  <img
-                    src={currentPhoto}
-                    alt="Profile"
-                    className="w-full h-full object-cover"
-                  />
-                ) : (
-                  <User size={56} className="text-violet-400" />
-                )}
-              </div>
-
-              <input
-                type="file"
-                id="galleryInput"
-                accept="image/*"
-                className="hidden"
-                onChange={handleFileSelect}
-                disabled={photoUploading || savingForm}
-              />
-
-              <label
-                htmlFor="galleryInput"
-                className="absolute bottom-0 right-0 p-2.5 rounded-full bg-gradient-to-r from-violet-600 to-amber-600 hover:from-violet-500 hover:to-amber-500 text-white cursor-pointer shadow-lg transition hover:scale-105 active:scale-95 border border-amber-400/40"
-                title="Choose from Gallery"
-              >
-                <Camera size={16} />
-              </label>
-            </div>
-
-            {newImageBase64 && (
-              <button
-                type="button"
-                onClick={handleSavePhotoOnly}
-                disabled={photoUploading}
-                className="mt-2 px-4 py-2 rounded-xl bg-amber-600 hover:bg-amber-500 text-white text-xs font-bold flex items-center gap-1.5 shadow-lg transition animate-pulse"
-              >
-                {photoUploading ? (
-                  <>
-                    <Loader2 size={14} className="animate-spin" />
-                    <span>Saving Photo...</span>
-                  </>
-                ) : (
-                  <>
-                    <Upload size={14} />
-                    <span>Confirm & Save Photo</span>
-                  </>
-                )}
-              </button>
-            )}
-
-            <div className="mt-3">
-              <span className="inline-block px-3 py-1 rounded-full bg-violet-500/10 border border-violet-500/30 text-amber-300 text-xs font-bold uppercase tracking-wider">
-                {userData?.role || "Member"}
-              </span>
-            </div>
-          </div>
-
-          {/* STATUS NOTICES */}
-          {errorMsg && (
-            <div className="mb-4 p-3 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 text-sm flex items-center gap-2">
-              <AlertCircle size={16} className="shrink-0" />
-              <span>{errorMsg}</span>
-            </div>
-          )}
-
-          {successMsg && (
-            <div className="mb-4 p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-sm flex items-center justify-center gap-2">
-              <Check size={16} className="shrink-0" />
-              <span>{successMsg}</span>
-            </div>
-          )}
-
-          {/* FORM */}
+        {/* EDIT PROFILE FORM */}
+        <div className="bg-slate-900/90 border border-violet-900/40 rounded-3xl p-6 sm:p-8 shadow-2xl mb-6">
+          <h2 className="text-lg font-bold text-white mb-4">Edit Profile Information</h2>
           <form onSubmit={handleSaveProfile} className="space-y-4">
             <div>
-              <label className="block text-xs font-bold text-violet-300 uppercase tracking-wider mb-2">
+              <label className="block text-xs font-bold text-violet-300 uppercase tracking-wider mb-1">
                 Full Name
               </label>
               <input
                 type="text"
-                value={fullName}
-                onChange={(e) => setFullName(e.target.value)}
-                placeholder="Enter your full name"
                 required
-                className="w-full px-4 py-3 bg-slate-950 border border-violet-900/40 rounded-xl text-white outline-none focus:border-amber-400 transition text-sm"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                className="w-full px-4 py-2.5 bg-slate-950 border border-violet-900/40 rounded-xl text-white text-sm outline-none focus:border-amber-400 transition"
               />
             </div>
 
-            {/* EDITABLE ROLE */}
             <div>
-              <label className="block text-xs font-bold text-violet-300 uppercase tracking-wider mb-2 flex items-center gap-1.5">
-                <Briefcase size={14} className="text-amber-400" />
-                Club Designation / Role
-              </label>
-              <input
-                type="text"
-                value={role}
-                onChange={(e) => setRole(e.target.value)}
-                placeholder="e.g. Club Secretary, Director of Community Service, Member"
-                required
-                className="w-full px-4 py-3 bg-slate-950 border border-violet-900/40 rounded-xl text-white outline-none focus:border-amber-400 transition text-sm"
-              />
-              <p className="text-[11px] text-slate-500 mt-1">
-                This designation appears beneath your name across the entire platform.
-              </p>
-            </div>
-
-            <div>
-              <div className="flex items-center justify-between mb-2">
-                <label className="text-xs font-bold text-violet-300 uppercase tracking-wider flex items-center gap-1.5">
-                  Username
-                  {!canChangeUsername && (
-                    <Lock size={12} className="text-amber-400" />
-                  )}
-                </label>
-
-                {canChangeUsername && (
-                  <button
-                    type="button"
-                    onClick={handleUseFullName}
-                    className="text-xs text-amber-400 hover:text-amber-300 flex items-center gap-1 transition"
-                  >
-                    <Sparkles size={12} />
-                    Use Full Name
-                  </button>
-                )}
-              </div>
-
-              <input
-                type="text"
-                value={username}
-                onChange={(e) => setUsername(e.target.value)}
-                placeholder="Choose a username"
-                disabled={!canChangeUsername}
-                required
-                className={`w-full px-4 py-3 bg-slate-950 border rounded-xl text-sm outline-none transition ${
-                  canChangeUsername
-                    ? "border-violet-900/40 focus:border-amber-400 text-white"
-                    : "border-slate-800/60 bg-slate-950/50 text-slate-500 cursor-not-allowed"
-                }`}
-              />
-
-              {!canChangeUsername ? (
-                <p className="text-[11px] text-amber-400/90 mt-1.5 flex items-center gap-1">
-                  <Calendar size={12} />
-                  Username is locked. You can change it again in {daysRemaining}{" "}
-                  day{daysRemaining > 1 ? "s" : ""}.
-                </p>
-              ) : (
-                <p className="text-[11px] text-slate-500 mt-1.5">
-                  Note: Usernames can only be updated once every 14 days.
-                </p>
-              )}
-            </div>
-
-            <div>
-              <label className="block text-xs font-bold text-violet-300 uppercase tracking-wider mb-2">
-                Phone Number{" "}
-                <span className="text-slate-500 font-normal">(Optional)</span>
+              <label className="block text-xs font-bold text-violet-300 uppercase tracking-wider mb-1">
+                Username
               </label>
               <div className="relative">
+                <span className="absolute left-4 top-2.5 text-slate-500 text-sm">@</span>
                 <input
-                  type="tel"
-                  value={phoneNumber}
-                  onChange={(e) => setPhoneNumber(e.target.value)}
-                  placeholder="+91 98765 43210"
-                  className="w-full pl-10 pr-4 py-3 bg-slate-950 border border-violet-900/40 rounded-xl text-white outline-none focus:border-amber-400 transition text-sm"
-                />
-                <Phone
-                  size={16}
-                  className="absolute left-3.5 top-3.5 text-violet-400"
+                  type="text"
+                  placeholder="rotarian_id"
+                  value={username}
+                  onChange={(e) => setUsername(e.target.value)}
+                  className="w-full pl-8 pr-4 py-2.5 bg-slate-950 border border-violet-900/40 rounded-xl text-white text-sm outline-none focus:border-amber-400 transition"
                 />
               </div>
             </div>
 
             <div>
-              <label className="block text-xs font-bold text-violet-300 uppercase tracking-wider mb-2">
-                Email Address
+              <label className="block text-xs font-bold text-violet-300 uppercase tracking-wider mb-1">
+                Profile Photo Direct URL
+              </label>
+              <input
+                type="url"
+                placeholder="https://images.unsplash.com/..."
+                value={photoURL}
+                onChange={(e) => setPhotoURL(e.target.value)}
+                className="w-full px-4 py-2.5 bg-slate-950 border border-violet-900/40 rounded-xl text-white text-sm outline-none focus:border-amber-400 transition"
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs font-bold text-violet-300 uppercase tracking-wider mb-1">
+                Registered Email
               </label>
               <input
                 type="email"
-                value={currentUser?.email || ""}
                 disabled
-                className="w-full px-4 py-3 bg-slate-950/50 border border-slate-800/60 rounded-xl text-slate-500 text-sm cursor-not-allowed"
+                value={currentUser?.email || ""}
+                className="w-full px-4 py-2.5 bg-slate-950/50 border border-slate-800 rounded-xl text-slate-500 text-sm cursor-not-allowed"
               />
             </div>
 
             <button
               type="submit"
-              disabled={savingForm || photoUploading}
-              className="w-full !mt-6 py-3.5 rounded-xl bg-gradient-to-r from-violet-700 via-purple-600 to-amber-600 hover:from-violet-600 hover:to-amber-500 text-white font-bold flex items-center justify-center gap-2 shadow-xl shadow-violet-950 transition disabled:opacity-50 border border-amber-400/20"
+              disabled={saving}
+              className="w-full py-3 rounded-xl bg-gradient-to-r from-violet-700 to-amber-600 hover:from-violet-600 hover:to-amber-500 text-white font-bold text-sm flex items-center justify-center gap-2 shadow-xl transition disabled:opacity-50"
             >
-              {savingForm ? (
+              {saving ? (
                 <>
-                  <Loader2 size={18} className="animate-spin" />
-                  <span>Saving Changes...</span>
+                  <Loader2 size={16} className="animate-spin" />
+                  <span>Saving Updates...</span>
                 </>
               ) : (
-                <span>Save Changes</span>
+                <span>Save Profile Updates</span>
               )}
             </button>
           </form>
         </div>
+      </main>
 
-        {/* PROFILE BADGE SHOWCASE */}
-        <div className="bg-slate-900/90 border border-violet-900/50 rounded-3xl p-6 shadow-xl">
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="text-sm font-bold text-white flex items-center gap-2">
-              <Award size={16} className="text-amber-400" />
-              Badges Showcase
-            </h3>
-            <span className="text-[11px] text-slate-400">
-              {badges.filter((b) => b.unlocked).length} of {badges.length} Unlocked
-            </span>
-          </div>
+      {/* 🚀 DIGITAL MEMBER ID CARD MODAL */}
+      {showIdCardModal && (
+        <div className="fixed inset-0 z-50 bg-black/90 backdrop-blur-md flex items-center justify-center p-4 animate-in fade-in duration-200">
+          <div className="max-w-md w-full relative">
+            <button
+              onClick={() => setShowIdCardModal(false)}
+              className="absolute -top-12 right-0 p-2 rounded-full text-slate-400 hover:text-white transition"
+            >
+              <X size={24} />
+            </button>
 
-          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-            {badges.map((b) => (
-              <div
-                key={b.id}
-                className={`p-3 rounded-2xl border text-center flex flex-col items-center justify-center gap-1.5 ${
-                  b.unlocked
-                    ? "bg-slate-950 border-amber-500/30"
-                    : "bg-slate-950/40 border-slate-800/60 opacity-50"
-                }`}
-              >
-                <div className="p-2 rounded-xl bg-slate-900 border border-slate-800">
-                  {renderBadgeIcon(b.icon, b.unlocked)}
+            {/* THE PASS CARD */}
+            <div className="w-full bg-gradient-to-br from-violet-950 via-slate-950 to-slate-900 border-2 border-amber-400/70 rounded-3xl p-7 shadow-2xl shadow-violet-900/50 relative overflow-hidden text-center select-none">
+              {/* CARD ACCENT GLOW */}
+              <div className="absolute top-0 right-0 w-48 h-48 bg-amber-500/10 rounded-full blur-3xl pointer-events-none" />
+              <div className="absolute bottom-0 left-0 w-48 h-48 bg-violet-600/20 rounded-full blur-3xl pointer-events-none" />
+
+              {/* ROTARACT BADGE HEADER */}
+              <div className="flex items-center justify-between border-b border-violet-900/60 pb-4 mb-5">
+                <div className="flex items-center gap-2 text-left">
+                  <div className="w-9 h-9 rounded-xl bg-amber-500/20 border border-amber-500/40 flex items-center justify-center text-amber-400">
+                    <Crown size={18} />
+                  </div>
+                  <div>
+                    <h3 className="font-black text-sm text-white tracking-wide">ROTASTAR</h3>
+                    <p className="text-[9px] text-amber-300/90 uppercase font-semibold">RAC PSVPEC</p>
+                  </div>
                 </div>
-                <p className="text-xs font-bold text-white truncate max-w-full">
-                  {b.title}
-                </p>
-                <p className="text-[9px] text-amber-400 uppercase font-semibold">
-                  {b.category}
-                </p>
+
+                <div className="text-right">
+                  <span className="px-2.5 py-0.5 rounded-full bg-amber-500/10 border border-amber-500/30 text-amber-300 text-[10px] font-black uppercase">
+                    {levelData.levelTitle}
+                  </span>
+                </div>
               </div>
-            ))}
+
+              {/* MEMBER AVATAR */}
+              <div className="relative w-24 h-24 mx-auto mb-4">
+                <div className="w-full h-full rounded-3xl overflow-hidden border-2 border-amber-400 bg-slate-950 flex items-center justify-center shadow-xl shadow-amber-500/20">
+                  {photoURL ? (
+                    <img src={photoURL} alt="" className="w-full h-full object-cover" />
+                  ) : (
+                    <User size={44} className="text-violet-400" />
+                  )}
+                </div>
+                <div className="absolute -bottom-2 -right-1 p-1 bg-amber-500 text-slate-950 rounded-full shadow-md font-black text-[10px]">
+                  ★
+                </div>
+              </div>
+
+              {/* MEMBER IDENTITY */}
+              <h2 className="text-xl font-black text-white">{name || "Club Member"}</h2>
+              <p className="text-xs text-amber-400 font-semibold mt-0.5 capitalize">
+                {userData?.role || "Active Member"}
+              </p>
+              <p className="text-[11px] text-slate-400 mt-0.5">
+                {username ? `@${username}` : currentUser?.email}
+              </p>
+
+              {/* CARD METRICS */}
+              <div className="grid grid-cols-3 gap-2 bg-slate-950/80 border border-violet-900/50 rounded-2xl p-3 my-5">
+                <div>
+                  <span className="text-[10px] text-slate-500 block uppercase font-bold">Total Pts</span>
+                  <span className="text-base font-black text-amber-400">{points}</span>
+                </div>
+                <div className="border-x border-violet-900/40">
+                  <span className="text-[10px] text-slate-500 block uppercase font-bold">Level</span>
+                  <span className="text-base font-black text-white">{levelData.currentLevel}</span>
+                </div>
+                <div>
+                  <span className="text-[10px] text-slate-500 block uppercase font-bold">Streak</span>
+                  <span className="text-base font-black text-amber-400">{monthlyStreak}m</span>
+                </div>
+              </div>
+
+              {/* UNLOCKED BADGE ICONS SHOWCASE */}
+              <div className="mb-5">
+                <p className="text-[10px] text-slate-400 uppercase font-bold tracking-wider mb-2">
+                  Earned Milestone Badges
+                </p>
+                <div className="flex items-center justify-center gap-2 flex-wrap">
+                  {unlockedBadges.length === 0 ? (
+                    <span className="text-xs text-slate-500 italic">No badges unlocked yet</span>
+                  ) : (
+                    unlockedBadges.slice(0, 5).map((badge) => (
+                      <div
+                        key={badge.id}
+                        title={badge.title}
+                        className="w-8 h-8 rounded-xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-center shadow-sm"
+                      >
+                        {renderBadgeIcon(badge.icon)}
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
+
+              {/* FOOTER VERIFICATION */}
+              <div className="pt-3 border-t border-violet-900/50 text-[9px] text-slate-500 font-medium">
+                Official Digital Member Card • Rotaract Club of PSVPEC
+              </div>
+            </div>
+
+            <p className="text-center text-slate-400 text-xs mt-3">
+              Take a screenshot to share on LinkedIn, Instagram, or WhatsApp! 🌟
+            </p>
           </div>
         </div>
-      </main>
+      )}
     </div>
   );
 }

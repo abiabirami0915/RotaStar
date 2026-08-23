@@ -22,6 +22,7 @@ import {
   Check,
   AlertTriangle,
   Layers,
+  CalendarPlus,
 } from "lucide-react";
 import {
   collection,
@@ -50,7 +51,7 @@ const AVENUES = [
 const STATUS_CONFIG = {
   submitted: { label: "Under Review", color: "bg-amber-500/10 text-amber-400 border-amber-500/30" },
   reviewed: { label: "In Discussion", color: "bg-blue-500/10 text-blue-400 border-blue-500/30" },
-  approved: { label: "Approved for Calendar", color: "bg-emerald-500/10 text-emerald-400 border-emerald-500/30" },
+  approved: { label: "Approved & Scheduled", color: "bg-emerald-500/10 text-emerald-400 border-emerald-500/30" },
   archived: { label: "Archived", color: "bg-slate-800 text-slate-400 border-slate-700" },
 };
 
@@ -69,6 +70,7 @@ export default function EventIdeas() {
   const [viewingIdea, setViewingIdea] = useState(null);
   const [ideaToDelete, setIdeaToDelete] = useState(null);
   const [submitting, setSubmitting] = useState(false);
+  const [transferring, setTransferring] = useState(false);
   const [deleteLoading, setDeleteLoading] = useState(false);
   const [toast, setToast] = useState({ text: "", type: "" });
 
@@ -165,6 +167,38 @@ export default function EventIdeas() {
       showToast("Failed to post event idea", "error");
     } finally {
       setSubmitting(false);
+    }
+  };
+
+  // 🚀 AUTO-APPROVE & SCHEDULE DIRECTLY INTO EVENT CALENDAR
+  const handleApproveAndSchedule = async (idea) => {
+    if (!canManage || !idea) return;
+
+    setTransferring(true);
+    try {
+      // 1. Publish directly into 'events' collection
+      await addDoc(collection(db, "events"), {
+        title: idea.title,
+        avenue: idea.avenue || "General",
+        date: idea.tentativeDate && !isNaN(Date.parse(idea.tentativeDate)) ? idea.tentativeDate : "",
+        time: idea.mode === "Online" ? "Online (Google Meet/Zoom)" : "TBA",
+        venue: idea.mode === "Online" ? "Online" : "College Campus",
+        pointsReward: 35,
+        description: `Proposed by ${idea.submittedBy} (${idea.submittedByRole || "Member"}).\n\nConcept:\n${idea.description}\n\nChair: ${idea.chairperson || "TBD"} | Sec: ${idea.secretary || "TBD"}`,
+        createdBy: userData?.name || "Club Executive Board",
+        createdAt: serverTimestamp(),
+      });
+
+      // 2. Mark Idea status as 'approved'
+      await updateDoc(doc(db, "eventIdeas", idea.id), { status: "approved" });
+
+      showToast(`"${idea.title}" scheduled to Event Calendar!`);
+      setViewingIdea((prev) => (prev ? { ...prev, status: "approved" } : null));
+    } catch (err) {
+      console.error("Schedule event error:", err);
+      showToast("Failed to schedule event into calendar", "error");
+    } finally {
+      setTransferring(false);
     }
   };
 
@@ -268,11 +302,7 @@ export default function EventIdeas() {
                 : "bg-emerald-500/10 border-emerald-500/20 text-emerald-400"
             }`}
           >
-            {toast.type === "error" ? (
-              <AlertTriangle size={18} className="shrink-0" />
-            ) : (
-              <Check size={18} className="shrink-0" />
-            )}
+            {toast.type === "error" ? <AlertTriangle size={18} /> : <Check size={18} />}
             <span>{toast.text}</span>
           </div>
         )}
@@ -312,7 +342,7 @@ export default function EventIdeas() {
               <option value="all">All Statuses</option>
               <option value="submitted">Under Review</option>
               <option value="reviewed">In Discussion</option>
-              <option value="approved">Approved</option>
+              <option value="approved">Approved & Scheduled</option>
               <option value="archived">Archived</option>
             </select>
           </div>
@@ -422,7 +452,7 @@ export default function EventIdeas() {
         )}
       </main>
 
-      {/* 1. VIEW FULL IDEA MODAL */}
+      {/* 1. VIEW FULL IDEA MODAL (WITH ONE-CLICK SCHEDULE) */}
       {viewingIdea && (
         <div className="fixed inset-0 z-50 bg-black/85 backdrop-blur-md flex items-center justify-center p-4">
           <div className="bg-slate-900 border-2 border-violet-500/40 rounded-3xl p-6 sm:p-8 max-w-xl w-full shadow-2xl relative max-h-[90vh] flex flex-col">
@@ -468,7 +498,7 @@ export default function EventIdeas() {
               </div>
             </div>
 
-            {/* FULL DETAILS SCROLLABLE */}
+            {/* FULL DETAILS */}
             <div className="flex-1 overflow-y-auto pr-2 space-y-4 mb-6 text-sm text-slate-300 leading-relaxed bg-slate-950/60 p-5 rounded-2xl border border-violet-900/30">
               <div>
                 <h4 className="text-xs font-bold uppercase tracking-wider text-amber-400 mb-1">
@@ -498,26 +528,32 @@ export default function EventIdeas() {
               </div>
             </div>
 
-            {/* ADMIN ACTIONS */}
+            {/* ADMIN SCHEDULE & STATUS CONTROLS */}
             {canManage && (
-              <div className="pt-3 border-t border-violet-900/40 flex items-center justify-between gap-2">
-                <span className="text-xs text-slate-400 font-semibold">Change Status:</span>
-                <div className="flex items-center gap-2">
+              <div className="pt-3 border-t border-violet-900/40 flex flex-col sm:flex-row items-center justify-between gap-3">
+                <button
+                  onClick={() => handleApproveAndSchedule(viewingIdea)}
+                  disabled={transferring || viewingIdea.status === "approved"}
+                  className="w-full sm:w-auto px-4 py-2 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-bold text-xs flex items-center justify-center gap-1.5 shadow-lg disabled:opacity-50 transition"
+                >
+                  {transferring ? (
+                    <Loader2 size={14} className="animate-spin" />
+                  ) : (
+                    <CalendarPlus size={14} />
+                  )}
+                  <span>{viewingIdea.status === "approved" ? "Scheduled in Calendar" : "Approve & Schedule into Calendar"}</span>
+                </button>
+
+                <div className="flex items-center gap-1.5">
                   <button
                     onClick={() => handleUpdateStatus(viewingIdea.id, "reviewed")}
-                    className="px-2.5 py-1 rounded-xl bg-blue-500/20 text-blue-300 border border-blue-500/30 text-xs font-bold"
+                    className="px-2.5 py-1.5 rounded-xl bg-blue-500/20 text-blue-300 border border-blue-500/30 text-xs font-bold"
                   >
                     Discuss
                   </button>
                   <button
-                    onClick={() => handleUpdateStatus(viewingIdea.id, "approved")}
-                    className="px-2.5 py-1 rounded-xl bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 text-xs font-bold"
-                  >
-                    Approve
-                  </button>
-                  <button
                     onClick={() => handleUpdateStatus(viewingIdea.id, "archived")}
-                    className="px-2.5 py-1 rounded-xl bg-slate-800 text-slate-400 text-xs"
+                    className="px-2.5 py-1.5 rounded-xl bg-slate-800 text-slate-400 text-xs"
                   >
                     Archive
                   </button>
@@ -599,7 +635,7 @@ export default function EventIdeas() {
                 </label>
                 <input
                   type="text"
-                  placeholder="e.g. Mid September 2026 or 2026-09-15"
+                  placeholder="e.g. 2026-09-15 or Mid September"
                   value={tentativeDate}
                   onChange={(e) => setTentativeDate(e.target.value)}
                   className="w-full px-4 py-2.5 bg-slate-950 border border-violet-900/40 rounded-xl text-white text-sm outline-none focus:border-amber-400"
