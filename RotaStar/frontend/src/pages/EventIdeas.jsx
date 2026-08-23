@@ -53,7 +53,7 @@ const AVENUES = [
 const STATUS_CONFIG = {
   submitted: { label: "Under Review", color: "bg-amber-500/10 text-amber-400 border-amber-500/30" },
   reviewed: { label: "In Discussion", color: "bg-blue-500/10 text-blue-400 border-blue-500/30" },
-  approved: { label: "Approved & Scheduled", color: "bg-emerald-500/10 text-emerald-400 border-emerald-500/30" },
+  approved: { label: "Approved & Added to Calendar", color: "bg-emerald-500/10 text-emerald-400 border-emerald-500/30" },
   archived: { label: "Archived / Rejected", color: "bg-rose-500/10 text-rose-400 border-rose-500/30" },
 };
 
@@ -87,7 +87,6 @@ export default function EventIdeas() {
   const [description, setDescription] = useState("");
   const [resourcesNeeded, setResourcesNeeded] = useState("");
 
-  // Broadened role checking to prevent locking admins out
   const rawRole = (userData?.role || "").toString().toLowerCase().trim();
   const canManage =
     Boolean(isAdmin) ||
@@ -139,6 +138,7 @@ export default function EventIdeas() {
     setAdminNoteInput(idea.adminRemarks || "");
   };
 
+  // 1. Submit New Pitch
   const handleAddIdea = async (e) => {
     e.preventDefault();
     if (!title.trim() || !description.trim()) {
@@ -178,36 +178,73 @@ export default function EventIdeas() {
     }
   };
 
-  // Direct Status Update with Remarks
-  const handleUpdateStatus = async (id, newStatus, remarks = null) => {
+  // 2. Core Method: Automatically Add to Calendar upon Approval
+  const handleApproveAndSchedule = async (idea, remarks = null) => {
+    if (!idea) return;
+
+    setTransferring(true);
     try {
-      const updatePayload = {
-        status: newStatus,
+      // Step A: Transfer to official 'events' calendar collection
+      await addDoc(collection(db, "events"), {
+        title: idea.title,
+        avenue: idea.avenue || "General",
+        date: idea.tentativeDate && !isNaN(Date.parse(idea.tentativeDate)) ? idea.tentativeDate : "",
+        time: idea.mode === "Online" ? "Online (Google Meet / Zoom)" : "TBA",
+        venue: idea.mode === "Online" ? "Online" : "College Campus",
+        pointsReward: 35,
+        description: `Project proposed by ${idea.submittedBy} (${idea.submittedByRole || "Member"}).\n\nConcept:\n${idea.description}\n\nChair: ${idea.chairperson || "TBD"} | Sec: ${idea.secretary || "TBD"}\nRequirements: ${idea.resourcesNeeded || "None specified"}`,
+        createdBy: userData?.name || "Club Executive Board",
+        createdAt: serverTimestamp(),
+      });
+
+      // Step B: Update idea status to 'approved'
+      const finalRemarks = remarks !== null ? remarks.trim() : (idea.adminRemarks || "Approved and added to Event Calendar!");
+      await updateDoc(doc(db, "eventIdeas", idea.id), {
+        status: "approved",
+        adminRemarks: finalRemarks,
         reviewedBy: userData?.name || "Admin",
         reviewedAt: serverTimestamp(),
-      };
+      });
 
-      if (remarks !== null) {
-        updatePayload.adminRemarks = remarks.trim();
-      }
-
-      await updateDoc(doc(db, "eventIdeas", id), updatePayload);
-      showToast(`Status updated to "${STATUS_CONFIG[newStatus]?.label || newStatus}"`);
-
-      if (viewingIdea?.id === id) {
+      showToast(`"${idea.title}" approved & added to Event Calendar!`);
+      if (viewingIdea?.id === idea.id) {
         setViewingIdea((prev) => ({
           ...prev,
-          status: newStatus,
-          adminRemarks: remarks !== null ? remarks.trim() : prev.adminRemarks,
+          status: "approved",
+          adminRemarks: finalRemarks,
         }));
       }
     } catch (err) {
-      console.error("Update status error:", err);
-      showToast("Failed to update status", "error");
+      console.error("Auto calendar schedule error:", err);
+      showToast("Failed to add to Event Calendar", "error");
+    } finally {
+      setTransferring(false);
     }
   };
 
-  // Save Admin Review Notes
+  // 3. Status Switcher from Card Dropdown
+  const handleStatusChange = async (idea, newStatus) => {
+    if (newStatus === "approved") {
+      // If approved, trigger full calendar pipeline
+      await handleApproveAndSchedule(idea);
+    } else {
+      try {
+        await updateDoc(doc(db, "eventIdeas", idea.id), {
+          status: newStatus,
+          reviewedBy: userData?.name || "Admin",
+          reviewedAt: serverTimestamp(),
+        });
+        showToast(`Status updated to "${STATUS_CONFIG[newStatus]?.label || newStatus}"`);
+        if (viewingIdea?.id === idea.id) {
+          setViewingIdea((prev) => ({ ...prev, status: newStatus }));
+        }
+      } catch (err) {
+        showToast("Failed to update status", "error");
+      }
+    }
+  };
+
+  // Save Admin Review Remarks
   const handleSaveAdminRemarks = async () => {
     if (!viewingIdea) return;
     try {
@@ -223,50 +260,7 @@ export default function EventIdeas() {
     }
   };
 
-  // Auto-Approve & Schedule into Calendar
-  const handleApproveAndSchedule = async (idea) => {
-    if (!idea) return;
-
-    setTransferring(true);
-    try {
-      await addDoc(collection(db, "events"), {
-        title: idea.title,
-        avenue: idea.avenue || "General",
-        date: idea.tentativeDate && !isNaN(Date.parse(idea.tentativeDate)) ? idea.tentativeDate : "",
-        time: idea.mode === "Online" ? "Online (Google Meet / Zoom)" : "TBA",
-        venue: idea.mode === "Online" ? "Online" : "College Campus",
-        pointsReward: 35,
-        description: `Initiative proposed by ${idea.submittedBy} (${idea.submittedByRole || "Member"}).\n\nConcept:\n${idea.description}\n\nChair: ${idea.chairperson || "TBD"} | Sec: ${idea.secretary || "TBD"}`,
-        createdBy: userData?.name || "Club Executive Board",
-        createdAt: serverTimestamp(),
-      });
-
-      await updateDoc(doc(db, "eventIdeas", idea.id), {
-        status: "approved",
-        adminRemarks: adminNoteInput.trim() || "Approved and scheduled to official event calendar.",
-        reviewedBy: userData?.name || "Admin",
-        reviewedAt: serverTimestamp(),
-      });
-
-      showToast(`"${idea.title}" scheduled to Event Calendar!`);
-      setViewingIdea((prev) =>
-        prev
-          ? {
-              ...prev,
-              status: "approved",
-              adminRemarks: adminNoteInput.trim() || "Approved and scheduled to official event calendar.",
-            }
-          : null
-      );
-    } catch (err) {
-      console.error("Schedule event error:", err);
-      showToast("Failed to schedule event into calendar", "error");
-    } finally {
-      setTransferring(false);
-    }
-  };
-
-  // Delete Handler
+  // Delete Idea
   const handleDeleteIdea = async () => {
     if (!ideaToDelete) return;
     setDeleteLoading(true);
@@ -330,8 +324,8 @@ export default function EventIdeas() {
             </h1>
             <p className="text-xs text-slate-400 mt-1">
               {canManage
-                ? "Admin Mode: Review, discuss, approve, or schedule member ideas."
-                : "Have a project in mind? Pitch it here for RAC PSVPEC!"}
+                ? "Admin Mode: Approving an idea automatically schedules it into the Event Calendar."
+                : "Have an initiative in mind? Pitch it here for RAC PSVPEC!"}
             </p>
           </div>
 
@@ -382,9 +376,7 @@ export default function EventIdeas() {
             >
               <option value="all">All Avenues</option>
               {AVENUES.map((av) => (
-                <option key={av} value={av}>
-                  {av}
-                </option>
+                <option key={av} value={av}>{av}</option>
               ))}
             </select>
           </div>
@@ -398,7 +390,7 @@ export default function EventIdeas() {
               <option value="all">All Statuses</option>
               <option value="submitted">Under Review</option>
               <option value="reviewed">In Discussion</option>
-              <option value="approved">Approved & Scheduled</option>
+              <option value="approved">Approved & Added to Calendar</option>
               <option value="archived">Archived / Rejected</option>
             </select>
           </div>
@@ -434,12 +426,12 @@ export default function EventIdeas() {
                       {canManage ? (
                         <select
                           value={idea.status || "submitted"}
-                          onChange={(e) => handleUpdateStatus(idea.id, e.target.value)}
+                          onChange={(e) => handleStatusChange(idea, e.target.value)}
                           className={`px-2.5 py-1 rounded-xl text-[10px] font-bold border outline-none cursor-pointer bg-slate-950 ${statusInfo.color}`}
                         >
                           <option value="submitted" className="bg-slate-900 text-amber-400">Under Review</option>
                           <option value="reviewed" className="bg-slate-900 text-blue-400">In Discussion</option>
-                          <option value="approved" className="bg-slate-900 text-emerald-400">Approved</option>
+                          <option value="approved" className="bg-slate-900 text-emerald-400">Approve & Add to Calendar</option>
                           <option value="archived" className="bg-slate-900 text-rose-400">Archived</option>
                         </select>
                       ) : (
@@ -509,7 +501,7 @@ export default function EventIdeas() {
                         onClick={() => handleOpenIdeaModal(idea)}
                         className="px-3 py-1 rounded-xl bg-violet-600/20 hover:bg-violet-600/40 border border-violet-500/30 text-violet-200 text-xs font-semibold transition"
                       >
-                        {canManage ? "Review" : "Details"}
+                        {canManage ? "Review & Schedule" : "Details"}
                       </button>
 
                       {(canManage || isAuthor) && (
@@ -605,16 +597,16 @@ export default function EventIdeas() {
                 </div>
               </div>
 
-              {/* ADMIN REMARKS EDITOR */}
+              {/* ADMIN REMARKS BOX */}
               {canManage && (
                 <div className="pt-3 border-t border-violet-900/40">
                   <label className="block text-xs font-bold text-amber-400 uppercase tracking-wider mb-1.5 flex items-center gap-1.5">
                     <MessageSquare size={13} />
-                    <span>Board Review Remarks (Visible to Club)</span>
+                    <span>Board Review Remarks</span>
                   </label>
                   <textarea
                     rows={2}
-                    placeholder="Write official feedback or instructions for the proposer..."
+                    placeholder="Provide feedback or notes regarding approval/scheduling..."
                     value={adminNoteInput}
                     onChange={(e) => setAdminNoteInput(e.target.value)}
                     className="w-full px-3 py-2 bg-slate-900 border border-violet-900/50 rounded-xl text-xs text-white outline-none focus:border-amber-400 resize-none"
@@ -630,31 +622,35 @@ export default function EventIdeas() {
               )}
             </div>
 
-            {/* ADMIN SCHEDULE & STATUS CONTROLS */}
+            {/* ADMIN ACTIONS: APPROVE & SCHEDULE BUTTON */}
             {canManage && (
               <div className="pt-3 border-t border-violet-900/40 flex flex-col sm:flex-row items-center justify-between gap-3">
                 <button
-                  onClick={() => handleApproveAndSchedule(viewingIdea)}
+                  onClick={() => handleApproveAndSchedule(viewingIdea, adminNoteInput)}
                   disabled={transferring || viewingIdea.status === "approved"}
-                  className="w-full sm:w-auto px-4 py-2.5 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-bold text-xs flex items-center justify-center gap-1.5 shadow-lg disabled:opacity-50 transition"
+                  className="w-full sm:w-auto px-5 py-2.5 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-bold text-xs flex items-center justify-center gap-1.5 shadow-lg disabled:opacity-50 transition"
                 >
                   {transferring ? (
                     <Loader2 size={14} className="animate-spin" />
                   ) : (
                     <CalendarPlus size={14} />
                   )}
-                  <span>{viewingIdea.status === "approved" ? "Scheduled in Calendar" : "Approve & Schedule into Calendar"}</span>
+                  <span>
+                    {viewingIdea.status === "approved"
+                      ? "Added to Calendar ✓"
+                      : "Approve & Add to Event Calendar"}
+                  </span>
                 </button>
 
                 <div className="flex items-center gap-1.5 w-full sm:w-auto justify-end">
                   <button
-                    onClick={() => handleUpdateStatus(viewingIdea.id, "reviewed", adminNoteInput)}
+                    onClick={() => handleStatusChange(viewingIdea, "reviewed")}
                     className="px-3 py-2 rounded-xl bg-blue-500/20 text-blue-300 border border-blue-500/30 text-xs font-bold hover:bg-blue-500/30 transition"
                   >
                     Discuss
                   </button>
                   <button
-                    onClick={() => handleUpdateStatus(viewingIdea.id, "archived", adminNoteInput)}
+                    onClick={() => handleStatusChange(viewingIdea, "archived")}
                     className="px-3 py-2 rounded-xl bg-rose-500/20 text-rose-300 border border-rose-500/30 text-xs font-bold hover:bg-rose-500/30 transition"
                   >
                     Archive
