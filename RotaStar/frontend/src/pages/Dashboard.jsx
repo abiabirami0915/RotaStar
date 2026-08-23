@@ -28,7 +28,8 @@ import {
   AlertTriangle,
   Info,
   Trash2,
-  Loader2,
+  Compass,
+  Globe2,
 } from "lucide-react";
 import {
   collection,
@@ -289,68 +290,46 @@ export default function Dashboard() {
 
   return (
     <div className="min-h-screen bg-[#030014] text-white">
-      {/* 🏆 TOP NAVBAR WITH TRIPLE OFFICIAL LOGOS */}
+      {/* 🏆 HEADER NAVBAR */}
       <nav className="border-b border-violet-900/40 bg-slate-950/80 backdrop-blur-md sticky top-0 z-50">
         <div className="max-w-6xl mx-auto px-6 h-20 flex items-center justify-between">
-          <div className="flex items-center gap-3.5">
-            {/* LOGO GROUP: CLUB + AURA + DISTRICT */}
+          <div className="flex items-center gap-4">
+            {/* BRAND LOGOS DISPLAY */}
             <div className="flex items-center gap-2 p-1.5 rounded-2xl bg-slate-900/90 border border-violet-900/50 shadow-lg">
-              {/* Club Logo */}
-              <div className="w-9 h-9 rounded-xl overflow-hidden bg-slate-950 border border-amber-400/30 flex items-center justify-center shrink-0">
-                <img
-                  src="/assets/club-logo.png"
-                  alt="RAC PSVPEC Club Logo"
-                  className="w-full h-full object-contain p-0.5"
-                  onError={(e) => {
-                    e.target.style.display = "none";
-                    e.target.nextSibling.style.display = "flex";
-                  }}
-                />
-                <div className="hidden w-full h-full items-center justify-center font-black text-amber-300 text-xs">
-                  PSV
-                </div>
-              </div>
-
-              {/* AURA Theme Logo */}
-              <div className="w-9 h-9 rounded-xl overflow-hidden bg-slate-950 border border-violet-400/30 flex items-center justify-center shrink-0" title="AURA Theme">
-                <img
-                  src="/assets/aura-logo.png"
-                  alt="AURA Theme Logo"
-                  className="w-full h-full object-contain p-0.5"
-                  onError={(e) => {
-                    e.target.style.display = "none";
-                    e.target.nextSibling.style.display = "flex";
-                  }}
-                />
-                <div className="hidden w-full h-full items-center justify-center font-black text-violet-300 text-xs">
-                  AURA
-                </div>
-              </div>
-
-              {/* District Logo */}
-              <div className="w-9 h-9 rounded-xl overflow-hidden bg-slate-950 border border-amber-400/30 flex items-center justify-center shrink-0" title="Rotaract District">
-                <img
-                  src="/assets/district-logo.png"
-                  alt="Rotaract District Logo"
-                  className="w-full h-full object-contain p-0.5"
-                  onError={(e) => {
-                    e.target.style.display = "none";
-                    e.target.nextSibling.style.display = "flex";
-                  }}
-                />
-                <div className="hidden w-full h-full items-center justify-center font-black text-amber-400 text-xs">
-                  DIST
-                </div>
-              </div>
+              <img
+                src="/club-logo.png"
+                alt="RAC PSVPEC Logo"
+                className="h-9 w-auto object-contain rounded-lg"
+                onError={(e) => {
+                  e.target.src = "/assets/club-logo.png";
+                }}
+              />
+              <div className="h-6 w-px bg-violet-900/60" />
+              <img
+                src="/aura-logo.png"
+                alt="AURA Theme Logo"
+                className="h-8 w-auto object-contain rounded-lg"
+                onError={(e) => {
+                  e.target.src = "/assets/aura-logo.png";
+                }}
+              />
+              <div className="h-6 w-px bg-violet-900/60" />
+              <img
+                src="/district-logo.png"
+                alt="Rotaract District Logo"
+                className="h-7 w-auto object-contain rounded-lg"
+                onError={(e) => {
+                  e.target.src = "/assets/district-logo.png";
+                }}
+              />
             </div>
 
-            {/* PLATFORM TITLE */}
-            <div className="hidden sm:block">
+            <div className="hidden md:block">
               <div className="flex items-center gap-1">
-                <span className="font-extrabold tracking-tight text-lg text-violet-400">Rota</span>
-                <span className="font-extrabold tracking-tight text-lg text-amber-400">Star</span>
+                <span className="font-black text-xl text-violet-400">Rota</span>
+                <span className="font-black text-xl text-amber-400">Star</span>
               </div>
-              <p className="text-[10px] text-amber-300/80 tracking-tight font-medium">
+              <p className="text-[10px] text-amber-300/80 tracking-tight font-semibold uppercase">
                 RAC PSVPEC • AURA • RID 3234
               </p>
             </div>
@@ -602,7 +581,7 @@ export default function Dashboard() {
         </div>
 
         {/* PRIMARY ACTIONS GRID */}
-        <div className="grid grid-cols-2 lg:grid-cols-5 gap-3 mb-6">
+        <div className="grid grid-cols-2 lg:grid-cols-5 gap-3 mb-8">
           <button
             onClick={() => navigate("/events")}
             className="p-4 rounded-2xl bg-slate-900/90 border border-violet-900/50 hover:border-amber-500/50 text-left transition shadow-xl flex items-center justify-between group"
@@ -684,8 +663,109 @@ export default function Dashboard() {
           </button>
         </div>
 
+        {/* 🌟 PROMINENT INSTITUTIONAL SHOWCASE (ABOUT THE CLUB, AURA & DISTRICT) */}
+        <section className="mb-8">
+          <div className="flex items-center justify-between mb-4">
+            <div>
+              <h2 className="text-lg sm:text-xl font-black text-white flex items-center gap-2">
+                <Sparkles size={20} className="text-amber-400" />
+                Our Institutional Identity
+              </h2>
+              <p className="text-xs text-slate-400">
+                The governing pillars behind the Rotaract Club of PSVPEC
+              </p>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+            {/* 1. ABOUT THE CLUB */}
+            <div className="bg-gradient-to-b from-slate-900/95 to-slate-950 border border-amber-500/30 rounded-3xl p-6 shadow-2xl flex flex-col justify-between hover:border-amber-400/60 transition-all">
+              <div>
+                <div className="w-16 h-16 rounded-2xl bg-slate-950 p-2 border border-amber-400/40 mb-4 shadow-lg shadow-amber-500/10 flex items-center justify-center">
+                  <img
+                    src="/club-logo.png"
+                    alt="RAC PSVPEC Club Logo"
+                    className="w-full h-full object-contain"
+                    onError={(e) => {
+                      e.target.src = "/assets/club-logo.png";
+                    }}
+                  />
+                </div>
+                <div className="inline-block px-2.5 py-0.5 rounded-full bg-amber-500/10 border border-amber-500/30 text-amber-300 text-[10px] font-black uppercase mb-2">
+                  Institutional Club
+                </div>
+                <h3 className="text-lg font-black text-white mb-2">
+                  RAC PSVPEC
+                </h3>
+                <p className="text-xs text-slate-300 leading-relaxed">
+                  The Rotaract Club of Prince Shri Venkateshwara Padmavathy Engineering College is dedicated to youth leadership, community upliftment, and empowering students through service above self.
+                </p>
+              </div>
+              <div className="pt-4 mt-4 border-t border-violet-900/40 text-[11px] text-amber-400/90 font-bold flex items-center gap-1">
+                <span>College Club Charter</span>
+              </div>
+            </div>
+
+            {/* 2. ABOUT THE PRESIDENTIAL THEME: AURA */}
+            <div className="bg-gradient-to-b from-violet-950/60 to-slate-950 border border-violet-500/40 rounded-3xl p-6 shadow-2xl flex flex-col justify-between hover:border-violet-400/70 transition-all">
+              <div>
+                <div className="w-16 h-16 rounded-2xl bg-slate-950 p-2 border border-violet-400/40 mb-4 shadow-lg shadow-violet-500/20 flex items-center justify-center">
+                  <img
+                    src="/aura-logo.png"
+                    alt="AURA Theme Logo"
+                    className="w-full h-full object-contain"
+                    onError={(e) => {
+                      e.target.src = "/assets/aura-logo.png";
+                    }}
+                  />
+                </div>
+                <div className="inline-block px-2.5 py-0.5 rounded-full bg-violet-500/10 border border-violet-500/30 text-violet-300 text-[10px] font-black uppercase mb-2">
+                  Presidential Theme
+                </div>
+                <h3 className="text-lg font-black text-white mb-2">
+                  Theme AURA
+                </h3>
+                <p className="text-xs text-slate-300 leading-relaxed">
+                  Symbolizing radiance, positive energy, and purposeful action. AURA inspires each member to shine brightly through community service, high ethical standards, and fellowship.
+                </p>
+              </div>
+              <div className="pt-4 mt-4 border-t border-violet-900/40 text-[11px] text-violet-300 font-bold flex items-center gap-1">
+                <span>Radiance in Leadership</span>
+              </div>
+            </div>
+
+            {/* 3. ABOUT THE ROTARACT DISTRICT */}
+            <div className="bg-gradient-to-b from-slate-900/95 to-slate-950 border border-amber-500/30 rounded-3xl p-6 shadow-2xl flex flex-col justify-between hover:border-amber-400/60 transition-all">
+              <div>
+                <div className="w-16 h-16 rounded-2xl bg-slate-950 p-2 border border-amber-400/40 mb-4 shadow-lg shadow-amber-500/10 flex items-center justify-center">
+                  <img
+                    src="/district-logo.png"
+                    alt="Rotaract District Logo"
+                    className="w-full h-full object-contain"
+                    onError={(e) => {
+                      e.target.src = "/assets/district-logo.png";
+                    }}
+                  />
+                </div>
+                <div className="inline-block px-2.5 py-0.5 rounded-full bg-amber-500/10 border border-amber-500/30 text-amber-300 text-[10px] font-black uppercase mb-2">
+                  Rotary International District
+                </div>
+                <h3 className="text-lg font-black text-white mb-2">
+                  District Network (RID)
+                </h3>
+                <p className="text-xs text-slate-300 leading-relaxed">
+                  Connecting our club with hundreds of Rotaract bodies across the district, fostering multi-district projects, conferences, and global youth engagement initiatives.
+                </p>
+              </div>
+              <div className="pt-4 mt-4 border-t border-violet-900/40 text-[11px] text-amber-400/90 font-bold flex items-center gap-1">
+                <span>Rotary International Partner</span>
+              </div>
+            </div>
+          </div>
+        </section>
+
         {/* ACHIEVEMENT BADGES SHOWCASE */}
-        <section className="bg-slate-900/90 border border-violet-900/40 rounded-3xl p-6 sm:p-7 shadow-xl mb-6">
+        <section className="bg-slate-900/90 border border-violet-900/40 rounded-3xl p-6 sm:p-7 shadow-xl mb-8">
           <div className="flex items-center justify-between mb-4">
             <h2 className="font-extrabold text-base text-white flex items-center gap-2">
               <Award size={18} className="text-amber-400" />
@@ -742,7 +822,7 @@ export default function Dashboard() {
 
         {/* ADMIN CONTROLS PANEL */}
         {showAdminPanel && (
-          <section className="mb-6">
+          <section className="mb-8">
             <div className="bg-slate-900/90 border border-amber-500/30 rounded-3xl p-6 shadow-2xl">
               <div className="flex items-center gap-3 mb-5">
                 <div className="w-10 h-10 rounded-lg bg-amber-500/10 border border-amber-500/20 flex items-center justify-center">
@@ -824,7 +904,7 @@ export default function Dashboard() {
         )}
 
         {/* RECENT POINT ACTIVITY */}
-        <section className="bg-slate-900/90 border border-violet-900/40 rounded-3xl p-6 shadow-xl mb-6">
+        <section className="bg-slate-900/90 border border-violet-900/40 rounded-3xl p-6 shadow-xl mb-8">
           <h2 className="font-extrabold text-base mb-4 text-white flex items-center gap-2">
             <Sparkles size={16} className="text-amber-400" />
             Recent Point Activity
@@ -864,31 +944,7 @@ export default function Dashboard() {
           )}
         </section>
 
-        {/* VISION & PURPOSE */}
-        <section className="bg-gradient-to-r from-violet-950/70 via-slate-900/90 to-amber-950/40 border border-violet-900/50 rounded-3xl p-6 sm:p-8 shadow-2xl mb-6">
-          <div className="flex items-start gap-4">
-            <div className="p-3.5 bg-amber-500/10 border border-amber-500/30 rounded-2xl text-amber-400 shrink-0 shadow-lg shadow-amber-500/10">
-              <Target size={26} />
-            </div>
-            <div>
-              <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-amber-400 mb-1">
-                <Sparkles size={13} />
-                <span>Our Vision</span>
-              </div>
-              <h2 className="text-xl sm:text-2xl font-black text-white mb-2">
-                "Service with Purpose, Recognition with Merit."
-              </h2>
-              <p className="text-sm text-slate-300 leading-relaxed">
-                To inspire active community participation by ensuring that every effort, service hour, and leadership contribution made by our members translates into tangible recognition and personal growth at the{" "}
-                <strong className="text-white font-semibold">
-                  Rotaract Club of Prince Shri Venkateshwara Padmavathy Engineering College
-                </strong>.
-              </p>
-            </div>
-          </div>
-        </section>
-
-        {/* 🚀 ABOUT THIS PLATFORM & ATTRIBUTION */}
+        {/* 🚀 CREATOR FOOTER CARD */}
         <section className="bg-gradient-to-r from-violet-950/70 via-slate-900/90 to-amber-950/40 border border-violet-900/50 rounded-3xl p-6 sm:p-8 shadow-2xl">
           <div className="flex flex-col md:flex-row items-start gap-6">
             <div className="p-4 bg-amber-500/10 border border-amber-500/30 rounded-2xl text-amber-400 shrink-0 shadow-lg shadow-amber-500/10">
@@ -913,7 +969,6 @@ export default function Dashboard() {
                 </strong>
               </p>
 
-              {/* DEVELOPER CREDIT FOOTER */}
               <div className="pt-4 border-t border-violet-900/60 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                 <div className="flex items-center gap-3">
                   <div className="p-2.5 rounded-xl bg-violet-600/20 text-violet-300 border border-violet-500/30">
@@ -934,7 +989,7 @@ export default function Dashboard() {
 
                 <div className="flex items-center gap-1.5 text-xs text-slate-400 italic">
                   <Heart size={14} className="text-rose-400 shrink-0" />
-                  <span>AURA • RAC PSVPEC</span>
+                  <span>RAC PSVPEC • AURA</span>
                 </div>
               </div>
             </div>
@@ -942,7 +997,7 @@ export default function Dashboard() {
         </section>
       </main>
 
-      {/* 📢 ADMIN BROADCAST ANNOUNCEMENT MODAL */}
+      {/* ADMIN ANNOUNCEMENT MODAL */}
       {showAnnounceModal && (
         <div className="fixed inset-0 z-50 bg-black/85 backdrop-blur-md flex items-center justify-center p-4">
           <div className="bg-slate-900 border-2 border-amber-500/40 rounded-3xl p-6 sm:p-8 max-w-lg w-full shadow-2xl relative">
@@ -997,7 +1052,7 @@ export default function Dashboard() {
                 <textarea
                   rows={3}
                   required
-                  placeholder="Explain why, the new venue or meeting link, and next actions for members..."
+                  placeholder="Explain why, venue or link, and next actions..."
                   value={announceMessage}
                   onChange={(e) => setAnnounceMessage(e.target.value)}
                   className="w-full px-4 py-2.5 bg-slate-950 border border-violet-900/40 rounded-xl text-white text-sm outline-none focus:border-amber-400 resize-none"
