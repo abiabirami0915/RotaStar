@@ -76,7 +76,7 @@ export default function Events() {
     roleString.includes("secretary");
 
   useEffect(() => {
-    const q = query(collection(db, "events"), orderBy("date", "asc"));
+    const q = query(collection(db, "events"), orderBy("createdAt", "desc"));
     const unsubscribe = onSnapshot(
       q,
       (snapshot) => {
@@ -132,8 +132,8 @@ export default function Events() {
   // Add Event Handler
   const handleAddEvent = async (e) => {
     e.preventDefault();
-    if (!title.trim() || !date) {
-      showToast("Please provide event title and date", "error");
+    if (!title.trim()) {
+      showToast("Please provide event title", "error");
       return;
     }
 
@@ -142,7 +142,7 @@ export default function Events() {
       await addDoc(collection(db, "events"), {
         title: title.trim(),
         avenue,
-        date,
+        date: date.trim() || "",
         time: time.trim() || "TBA",
         venue: venue.trim() || "College Campus",
         pointsReward: Number(pointsReward) || 0,
@@ -162,13 +162,13 @@ export default function Events() {
     }
   };
 
-  // Update/Edit Event Handler
+  // Update Event Handler
   const handleUpdateEvent = async (e) => {
     e.preventDefault();
     if (!editingEventId) return;
 
-    if (!title.trim() || !date) {
-      showToast("Please provide event title and date", "error");
+    if (!title.trim()) {
+      showToast("Please provide event title", "error");
       return;
     }
 
@@ -178,7 +178,7 @@ export default function Events() {
       await updateDoc(eventRef, {
         title: title.trim(),
         avenue,
-        date,
+        date: date.trim() || "",
         time: time.trim() || "TBA",
         venue: venue.trim() || "College Campus",
         pointsReward: Number(pointsReward) || 0,
@@ -321,7 +321,7 @@ export default function Events() {
           </div>
         </div>
 
-        {/* EVENTS LIST / GRID */}
+        {/* EVENTS LIST */}
         {loading ? (
           <div className="bg-slate-900/90 border border-violet-900/40 rounded-3xl p-12 text-center text-slate-500">
             Loading events schedule...
@@ -373,19 +373,24 @@ export default function Events() {
                     </p>
                   )}
 
-                  <div className="space-y-2 text-xs text-slate-400 bg-slate-950/70 p-4 rounded-2xl border border-violet-900/40 mb-4">
+                  <div className="space-y-2.5 text-xs text-slate-400 bg-slate-950/70 p-4 rounded-2xl border border-violet-900/40 mb-4">
                     <div className="flex items-center gap-2">
                       <Calendar size={14} className="text-amber-400 shrink-0" />
-                      <span>
-                        {ev.date
-                          ? new Date(ev.date).toLocaleDateString(undefined, {
-                              weekday: "short",
-                              year: "numeric",
-                              month: "short",
-                              day: "numeric",
-                            })
-                          : "TBA"}
-                      </span>
+                      {ev.date ? (
+                        <span className="text-slate-200 font-medium">
+                          {new Date(ev.date).toLocaleDateString(undefined, {
+                            weekday: "short",
+                            year: "numeric",
+                            month: "short",
+                            day: "numeric",
+                          })}
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-amber-500/10 border border-amber-500/30 text-amber-300 text-[11px] font-semibold">
+                          <Sparkles size={11} className="text-amber-400" />
+                          Date will be announced soon
+                        </span>
+                      )}
                     </div>
 
                     <div className="flex items-center gap-2">
@@ -480,12 +485,12 @@ export default function Events() {
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs font-bold text-violet-300 uppercase tracking-wider mb-1">
-                    Date
+                  <label className="block text-xs font-bold text-violet-300 uppercase tracking-wider mb-1 flex items-center justify-between">
+                    <span>Date</span>
+                    <span className="text-[10px] text-slate-500 lowercase font-normal">(optional)</span>
                   </label>
                   <input
                     type="date"
-                    required
                     value={date}
                     onChange={(e) => setDate(e.target.value)}
                     className="w-full px-3 py-2.5 bg-slate-950 border border-violet-900/40 rounded-xl text-white text-sm outline-none focus:border-amber-400"
@@ -498,7 +503,7 @@ export default function Events() {
                   </label>
                   <input
                     type="text"
-                    placeholder="10:00 AM"
+                    placeholder="10:00 AM (or TBA)"
                     value={time}
                     onChange={(e) => setTime(e.target.value)}
                     className="w-full px-3 py-2.5 bg-slate-950 border border-violet-900/40 rounded-xl text-white text-sm outline-none focus:border-amber-400"
@@ -512,7 +517,7 @@ export default function Events() {
                 </label>
                 <input
                   type="text"
-                  placeholder="e.g. Auditorium / Online"
+                  placeholder="e.g. Auditorium / Campus / TBA"
                   value={venue}
                   onChange={(e) => setVenue(e.target.value)}
                   className="w-full px-4 py-2.5 bg-slate-950 border border-violet-900/40 rounded-xl text-white text-sm outline-none focus:border-amber-400"
@@ -620,12 +625,12 @@ export default function Events() {
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs font-bold text-violet-300 uppercase tracking-wider mb-1">
-                    Date
+                  <label className="block text-xs font-bold text-violet-300 uppercase tracking-wider mb-1 flex items-center justify-between">
+                    <span>Date</span>
+                    <span className="text-[10px] text-slate-500 lowercase font-normal">(optional)</span>
                   </label>
                   <input
                     type="date"
-                    required
                     value={date}
                     onChange={(e) => setDate(e.target.value)}
                     className="w-full px-3 py-2.5 bg-slate-950 border border-violet-900/40 rounded-xl text-white text-sm outline-none focus:border-amber-400"
