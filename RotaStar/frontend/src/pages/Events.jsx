@@ -8,6 +8,7 @@ import {
   ArrowLeft,
   Plus,
   Trash2,
+  Edit,
   Sparkles,
   X,
   Loader2,
@@ -22,6 +23,7 @@ import {
   orderBy,
   onSnapshot,
   addDoc,
+  updateDoc,
   deleteDoc,
   doc,
   serverTimestamp,
@@ -47,8 +49,10 @@ export default function Events() {
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedAvenue, setSelectedAvenue] = useState("all");
 
-  // Admin Modal States
+  // Modal States
   const [showAddModal, setShowAddModal] = useState(false);
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [editingEventId, setEditingEventId] = useState(null);
   const [submitting, setSubmitting] = useState(false);
   const [eventToDelete, setEventToDelete] = useState(null);
   const [deleteLoading, setDeleteLoading] = useState(false);
@@ -97,6 +101,35 @@ export default function Events() {
     setTimeout(() => setToast({ text: "", type: "" }), 4000);
   };
 
+  const resetForm = () => {
+    setTitle("");
+    setAvenue(AVENUES[0]);
+    setDate("");
+    setTime("");
+    setVenue("");
+    setDescription("");
+    setPointsReward("25");
+    setEditingEventId(null);
+  };
+
+  const handleOpenAddModal = () => {
+    resetForm();
+    setShowAddModal(true);
+  };
+
+  const handleOpenEditModal = (eventItem) => {
+    setEditingEventId(eventItem.id);
+    setTitle(eventItem.title || "");
+    setAvenue(eventItem.avenue || AVENUES[0]);
+    setDate(eventItem.date || "");
+    setTime(eventItem.time || "");
+    setVenue(eventItem.venue || "");
+    setDescription(eventItem.description || "");
+    setPointsReward((eventItem.pointsReward || 25).toString());
+    setShowEditModal(true);
+  };
+
+  // Add Event Handler
   const handleAddEvent = async (e) => {
     e.preventDefault();
     if (!title.trim() || !date) {
@@ -120,12 +153,7 @@ export default function Events() {
 
       showToast("Event published successfully!");
       setShowAddModal(false);
-      setTitle("");
-      setDate("");
-      setTime("");
-      setVenue("");
-      setDescription("");
-      setPointsReward("25");
+      resetForm();
     } catch (err) {
       console.error("Add event error:", err);
       showToast("Failed to publish event", "error");
@@ -134,6 +162,42 @@ export default function Events() {
     }
   };
 
+  // Update/Edit Event Handler
+  const handleUpdateEvent = async (e) => {
+    e.preventDefault();
+    if (!editingEventId) return;
+
+    if (!title.trim() || !date) {
+      showToast("Please provide event title and date", "error");
+      return;
+    }
+
+    setSubmitting(true);
+    try {
+      const eventRef = doc(db, "events", editingEventId);
+      await updateDoc(eventRef, {
+        title: title.trim(),
+        avenue,
+        date,
+        time: time.trim() || "TBA",
+        venue: venue.trim() || "College Campus",
+        pointsReward: Number(pointsReward) || 0,
+        description: description.trim(),
+        updatedAt: serverTimestamp(),
+      });
+
+      showToast("Event updated successfully!");
+      setShowEditModal(false);
+      resetForm();
+    } catch (err) {
+      console.error("Update event error:", err);
+      showToast("Failed to update event", "error");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  // Delete Event Handler
   const handleDeleteEvent = async () => {
     if (!eventToDelete) return;
     setDeleteLoading(true);
@@ -198,7 +262,7 @@ export default function Events() {
 
           {canManage && (
             <button
-              onClick={() => setShowAddModal(true)}
+              onClick={handleOpenAddModal}
               className="px-5 py-3 rounded-2xl bg-gradient-to-r from-violet-700 via-purple-600 to-amber-600 hover:from-violet-600 hover:to-amber-500 text-white font-bold text-sm flex items-center gap-2 shadow-xl shadow-violet-950 transition border border-amber-400/30"
             >
               <Plus size={18} />
@@ -280,13 +344,22 @@ export default function Events() {
                     </span>
 
                     {canManage && (
-                      <button
-                        onClick={() => setEventToDelete(ev)}
-                        className="p-1.5 rounded-xl bg-red-500/10 text-red-400 hover:bg-red-500/20 border border-red-500/20 transition"
-                        title="Delete Event"
-                      >
-                        <Trash2 size={15} />
-                      </button>
+                      <div className="flex items-center gap-1.5">
+                        <button
+                          onClick={() => handleOpenEditModal(ev)}
+                          className="p-1.5 rounded-xl bg-violet-500/10 text-violet-300 hover:bg-violet-500/20 border border-violet-500/20 transition"
+                          title="Edit Event"
+                        >
+                          <Edit size={15} />
+                        </button>
+                        <button
+                          onClick={() => setEventToDelete(ev)}
+                          className="p-1.5 rounded-xl bg-red-500/10 text-red-400 hover:bg-red-500/20 border border-red-500/20 transition"
+                          title="Delete Event"
+                        >
+                          <Trash2 size={15} />
+                        </button>
+                      </div>
                     )}
                   </div>
 
@@ -339,7 +412,7 @@ export default function Events() {
         )}
       </main>
 
-      {/* CREATE EVENT MODAL (ADMIN ONLY) */}
+      {/* 1. CREATE EVENT MODAL */}
       {showAddModal && (
         <div className="fixed inset-0 z-50 bg-black/85 backdrop-blur-md flex items-center justify-center p-4">
           <div className="bg-slate-900 border-2 border-violet-500/40 rounded-3xl p-6 sm:p-8 max-w-lg w-full shadow-2xl relative">
@@ -478,7 +551,144 @@ export default function Events() {
         </div>
       )}
 
-      {/* DELETE CONFIRMATION MODAL */}
+      {/* 2. EDIT EVENT MODAL */}
+      {showEditModal && (
+        <div className="fixed inset-0 z-50 bg-black/85 backdrop-blur-md flex items-center justify-center p-4">
+          <div className="bg-slate-900 border-2 border-amber-500/40 rounded-3xl p-6 sm:p-8 max-w-lg w-full shadow-2xl relative">
+            <button
+              onClick={() => {
+                setShowEditModal(false);
+                resetForm();
+              }}
+              className="absolute top-4 right-4 p-2 rounded-full text-slate-400 hover:text-white hover:bg-slate-800 transition"
+            >
+              <X size={20} />
+            </button>
+
+            <div className="flex items-center gap-3 mb-6">
+              <div className="p-2.5 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-400">
+                <Edit size={22} />
+              </div>
+              <h2 className="text-xl font-bold text-white">Edit Event Details</h2>
+            </div>
+
+            <form onSubmit={handleUpdateEvent} className="space-y-4">
+              <div>
+                <label className="block text-xs font-bold text-violet-300 uppercase tracking-wider mb-1">
+                  Event Title
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={title}
+                  onChange={(e) => setTitle(e.target.value)}
+                  className="w-full px-4 py-2.5 bg-slate-950 border border-violet-900/40 rounded-xl text-white text-sm outline-none focus:border-amber-400"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-bold text-violet-300 uppercase tracking-wider mb-1">
+                    Avenue
+                  </label>
+                  <select
+                    value={avenue}
+                    onChange={(e) => setAvenue(e.target.value)}
+                    className="w-full px-3 py-2.5 bg-slate-950 border border-violet-900/40 rounded-xl text-white text-sm outline-none focus:border-amber-400"
+                  >
+                    {AVENUES.map((av) => (
+                      <option key={av} value={av}>
+                        {av}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-violet-300 uppercase tracking-wider mb-1">
+                    Points Reward
+                  </label>
+                  <input
+                    type="number"
+                    min="0"
+                    value={pointsReward}
+                    onChange={(e) => setPointsReward(e.target.value)}
+                    className="w-full px-3 py-2.5 bg-slate-950 border border-violet-900/40 rounded-xl text-white text-sm outline-none focus:border-amber-400"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-bold text-violet-300 uppercase tracking-wider mb-1">
+                    Date
+                  </label>
+                  <input
+                    type="date"
+                    required
+                    value={date}
+                    onChange={(e) => setDate(e.target.value)}
+                    className="w-full px-3 py-2.5 bg-slate-950 border border-violet-900/40 rounded-xl text-white text-sm outline-none focus:border-amber-400"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-violet-300 uppercase tracking-wider mb-1">
+                    Time
+                  </label>
+                  <input
+                    type="text"
+                    value={time}
+                    onChange={(e) => setTime(e.target.value)}
+                    className="w-full px-3 py-2.5 bg-slate-950 border border-violet-900/40 rounded-xl text-white text-sm outline-none focus:border-amber-400"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-violet-300 uppercase tracking-wider mb-1">
+                  Venue / Location
+                </label>
+                <input
+                  type="text"
+                  value={venue}
+                  onChange={(e) => setVenue(e.target.value)}
+                  className="w-full px-4 py-2.5 bg-slate-950 border border-violet-900/40 rounded-xl text-white text-sm outline-none focus:border-amber-400"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-violet-300 uppercase tracking-wider mb-1">
+                  Description / Note
+                </label>
+                <textarea
+                  rows={3}
+                  value={description}
+                  onChange={(e) => setDescription(e.target.value)}
+                  className="w-full px-4 py-2.5 bg-slate-950 border border-violet-900/40 rounded-xl text-white text-sm outline-none focus:border-amber-400 resize-none"
+                />
+              </div>
+
+              <button
+                type="submit"
+                disabled={submitting}
+                className="w-full py-3 rounded-xl bg-gradient-to-r from-amber-600 via-amber-500 to-amber-400 hover:from-amber-500 hover:to-amber-300 text-slate-950 font-bold text-sm flex items-center justify-center gap-2 shadow-xl transition disabled:opacity-50"
+              >
+                {submitting ? (
+                  <>
+                    <Loader2 size={16} className="animate-spin text-slate-950" />
+                    <span>Saving Changes...</span>
+                  </>
+                ) : (
+                  <span>Save Changes</span>
+                )}
+              </button>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* 3. DELETE CONFIRMATION MODAL */}
       {eventToDelete && (
         <div className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4">
           <div className="bg-slate-900 border border-red-500/30 rounded-3xl p-6 max-w-sm w-full text-center">
