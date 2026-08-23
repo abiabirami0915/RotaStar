@@ -32,6 +32,9 @@ import {
   CalendarDays,
   UserCheck,
   Star,
+  Clock,
+  MapPin,
+  BellRing,
 } from "lucide-react";
 import {
   collection,
@@ -89,7 +92,9 @@ export default function Dashboard() {
   const [allUserActivities, setAllUserActivities] = useState([]);
   const [recentActivities, setRecentActivities] = useState([]);
   const [announcements, setAnnouncements] = useState([]);
+  const [upcomingEvents, setUpcomingEvents] = useState([]);
   const [dismissedIds, setDismissedIds] = useState([]);
+  const [dismissedEventReminder, setDismissedEventReminder] = useState(false);
   const [userRank, setUserRank] = useState("-");
 
   // Announcement Modal States
@@ -195,7 +200,45 @@ export default function Dashboard() {
     return () => unsubscribe();
   }, []);
 
-  // 4. Leaderboard Rank Sync
+  // 4. Live Events Sync with Reminders Calculation
+  useEffect(() => {
+    const eventsQuery = query(collection(db, "events"));
+    const unsubscribe = onSnapshot(eventsQuery, (snapshot) => {
+      const now = new Date();
+      const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+
+      const eventsList = snapshot.docs
+        .map((d) => {
+          const data = d.data();
+          let eventDateObj = null;
+
+          if (data.date?.toDate) {
+            eventDateObj = data.date.toDate();
+          } else if (data.date) {
+            eventDateObj = new Date(data.date);
+          }
+
+          const eventTimestamp = eventDateObj ? eventDateObj.getTime() : 0;
+          const diffDays = eventDateObj ? Math.ceil((eventTimestamp - todayStart) / (1000 * 60 * 60 * 24)) : null;
+
+          return {
+            id: d.id,
+            ...data,
+            eventDateObj,
+            eventTimestamp,
+            diffDays,
+          };
+        })
+        .filter((ev) => ev.diffDays !== null && ev.diffDays >= 0) // Future or today
+        .sort((a, b) => a.eventTimestamp - b.eventTimestamp);
+
+      setUpcomingEvents(eventsList);
+    });
+
+    return () => unsubscribe();
+  }, []);
+
+  // 5. Leaderboard Rank Sync
   useEffect(() => {
     const unsubUsers = onSnapshot(collection(db, "users"), (snapshot) => {
       const allUsers = snapshot.docs.map((docSnap) => ({
@@ -211,7 +254,7 @@ export default function Dashboard() {
     return () => unsubUsers();
   }, [currentUser]);
 
-  // 5. Activities Sync
+  // 6. Activities Sync
   useEffect(() => {
     if (!currentUser) return;
     const q = query(collection(db, "activities"), where("userId", "==", currentUser.uid));
@@ -296,13 +339,16 @@ export default function Dashboard() {
 
   const visibleAnnouncements = announcements.filter((a) => !dismissedIds.includes(a.id));
 
+  // Find nearest upcoming event happening within 7 days
+  const nearestEvent = upcomingEvents.length > 0 && upcomingEvents[0].diffDays <= 7 ? upcomingEvents[0] : null;
+
   return (
     <div className="min-h-screen bg-[#030014] text-white">
       {/* NAVBAR */}
       <nav className="border-b border-violet-900/40 bg-slate-950/80 backdrop-blur-md sticky top-0 z-50">
         <div className="max-w-6xl mx-auto px-6 h-20 flex items-center justify-between">
           <div className="flex items-center gap-3.5">
-            {/* 🌟 EMBEDDED ROTASTAR BRAND LOGO EMBLEM */}
+            {/* ROTASTAR BRAND LOGO */}
             <div className="w-11 h-11 rounded-2xl bg-gradient-to-br from-violet-600 via-indigo-600 to-amber-500 p-0.5 flex items-center justify-center shadow-lg shadow-violet-900/40 shrink-0">
               <div className="w-full h-full bg-slate-950 rounded-[14px] flex items-center justify-center relative overflow-hidden">
                 <div className="absolute inset-0 bg-gradient-to-br from-violet-500/20 via-transparent to-amber-500/20" />
@@ -375,7 +421,85 @@ export default function Dashboard() {
 
       {/* MAIN CONTAINER */}
       <main className="max-w-6xl mx-auto px-6 py-8">
-        {/* LIVE URGENT BROADCAST BANNERS */}
+        {/* ⏰ SMART UPCOMING EVENT REMINDER BANNER */}
+        {nearestEvent && !dismissedEventReminder && (
+          <div className="mb-6 p-4 sm:p-5 rounded-3xl bg-gradient-to-r from-amber-950/80 via-purple-950/80 to-slate-900/90 border border-amber-500/50 shadow-2xl backdrop-blur-md animate-in fade-in slide-in-from-top-3 duration-300">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div className="flex items-start gap-3.5">
+                <div className="p-3 rounded-2xl bg-amber-500/20 border border-amber-500/40 text-amber-300 shrink-0 animate-pulse">
+                  <BellRing size={22} />
+                </div>
+                <div>
+                  <div className="flex items-center gap-2 mb-1">
+                    <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider border ${
+                      nearestEvent.diffDays === 0
+                        ? "bg-rose-500/20 border-rose-500/40 text-rose-300"
+                        : nearestEvent.diffDays === 1
+                        ? "bg-amber-500/20 border-amber-500/40 text-amber-300"
+                        : "bg-violet-500/20 border-violet-500/40 text-violet-300"
+                    }`}>
+                      {nearestEvent.diffDays === 0 ? "Happening Today!" : nearestEvent.diffDays === 1 ? "Tomorrow" : `In ${nearestEvent.diffDays} Days`}
+                    </span>
+                    <span className="text-xs text-amber-200/90 font-bold">
+                      Upcoming Event Reminder
+                    </span>
+                  </div>
+
+                  <h3 className="text-base sm:text-lg font-black text-white">
+                    {nearestEvent.title || nearestEvent.name || "Club Event"}
+                  </h3>
+
+                  <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-slate-300 mt-1.5 font-medium">
+                    {nearestEvent.eventDateObj && (
+                      <span className="flex items-center gap-1 text-amber-300">
+                        <Calendar size={13} />
+                        {nearestEvent.eventDateObj.toLocaleDateString(undefined, {
+                          weekday: "short",
+                          month: "short",
+                          day: "numeric",
+                        })}
+                      </span>
+                    )}
+
+                    {nearestEvent.time && (
+                      <span className="flex items-center gap-1 text-violet-300">
+                        <Clock size={13} />
+                        {nearestEvent.time}
+                      </span>
+                    )}
+
+                    {nearestEvent.venue && (
+                      <span className="flex items-center gap-1 text-slate-400">
+                        <MapPin size={13} />
+                        {nearestEvent.venue}
+                      </span>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2.5 self-end sm:self-center shrink-0">
+                <button
+                  onClick={() => navigate("/events")}
+                  className="px-4 py-2 rounded-xl bg-gradient-to-r from-amber-500 to-amber-400 hover:from-amber-400 hover:to-amber-300 text-slate-950 font-bold text-xs transition shadow-lg flex items-center gap-1.5"
+                >
+                  <span>View Details</span>
+                  <ChevronRight size={14} />
+                </button>
+
+                <button
+                  onClick={() => setDismissedEventReminder(true)}
+                  className="p-2 rounded-xl bg-black/30 hover:bg-black/50 text-slate-400 hover:text-white transition"
+                  title="Dismiss Reminder"
+                >
+                  <X size={16} />
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* 📢 LIVE URGENT BROADCAST BANNERS */}
         {visibleAnnouncements.length > 0 && (
           <div className="space-y-3 mb-6">
             {visibleAnnouncements.map((ann) => {
