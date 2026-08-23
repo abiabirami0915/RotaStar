@@ -301,18 +301,16 @@ export default function Dashboard() {
       {/* NAVBAR */}
       <nav className="border-b border-violet-900/40 bg-slate-950/80 backdrop-blur-md sticky top-0 z-50">
         <div className="max-w-6xl mx-auto px-6 h-20 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            {/* ROTASTAR BRAND EMBLEM */}
-            <div className="w-11 h-11 rounded-2xl bg-slate-950 border border-amber-500/40 p-1 flex items-center justify-center shadow-lg shadow-violet-900/30 shrink-0 overflow-hidden">
-              <img
-                src="/rotastar-logo.png"
-                alt="RotaStar Logo"
-                className="w-full h-full object-contain"
-                onError={(e) => {
-                  e.currentTarget.onerror = null;
-                  e.currentTarget.src = "/assets/rotastar-logo.png";
-                }}
-              />
+          <div className="flex items-center gap-3.5">
+            {/* 🌟 EMBEDDED ROTASTAR BRAND LOGO EMBLEM */}
+            <div className="w-11 h-11 rounded-2xl bg-gradient-to-br from-violet-600 via-indigo-600 to-amber-500 p-0.5 flex items-center justify-center shadow-lg shadow-violet-900/40 shrink-0">
+              <div className="w-full h-full bg-slate-950 rounded-[14px] flex items-center justify-center relative overflow-hidden">
+                <div className="absolute inset-0 bg-gradient-to-br from-violet-500/20 via-transparent to-amber-500/20" />
+                <div className="relative z-10 flex items-center justify-center">
+                  <Star size={20} className="text-amber-400 fill-amber-400 drop-shadow-[0_0_8px_rgba(251,191,36,0.8)]" />
+                  <Sparkles size={11} className="text-violet-300 absolute -top-1 -right-1.5 animate-pulse" />
+                </div>
+              </div>
             </div>
 
             <div>
