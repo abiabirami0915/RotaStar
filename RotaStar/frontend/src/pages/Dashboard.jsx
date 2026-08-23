@@ -298,21 +298,32 @@ export default function Dashboard() {
 
   return (
     <div className="min-h-screen bg-[#030014] text-white">
-      {/* NAVBAR WITH ROTASTAR LOGO */}
+      {/* NAVBAR */}
       <nav className="border-b border-violet-900/40 bg-slate-950/80 backdrop-blur-md sticky top-0 z-50">
         <div className="max-w-6xl mx-auto px-6 h-20 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            {/* ROTASTAR BRAND LOGO EMBED */}
-            <div className="w-11 h-11 rounded-2xl bg-gradient-to-br from-violet-900/40 to-slate-900 border border-violet-500/40 p-1 flex items-center justify-center shadow-lg shadow-violet-900/30 shrink-0 overflow-hidden">
-              <img
-                src="/rotastar-logo.png"
-                alt="RotaStar Logo"
-                className="w-full h-full object-contain"
-                onError={(e) => {
-                  e.currentTarget.onerror = null;
-                  e.currentTarget.src = "/assets/rotastar-logo.png";
-                }}
-              />
+            {/* ROTASTAR OFFICIAL SVG LOGO EMBLEM */}
+            <div className="w-11 h-11 rounded-2xl bg-gradient-to-br from-violet-600 via-purple-600 to-amber-500 p-0.5 flex items-center justify-center shadow-lg shadow-violet-900/40 shrink-0">
+              <div className="w-full h-full bg-slate-950 rounded-[14px] flex items-center justify-center relative overflow-hidden">
+                <div className="absolute inset-0 bg-gradient-to-br from-violet-500/20 to-amber-500/20" />
+                <svg viewBox="0 0 40 40" className="w-7 h-7 relative z-10" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <defs>
+                    <linearGradient id="rsGoldGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                      <stop offset="0%" stopColor="#FDE68A" />
+                      <stop offset="50%" stopColor="#F59E0B" />
+                      <stop offset="100%" stopColor="#D97706" />
+                    </linearGradient>
+                    <linearGradient id="rsPurpleGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                      <stop offset="0%" stopColor="#C4B5FD" />
+                      <stop offset="100%" stopColor="#7C3AED" />
+                    </linearGradient>
+                  </defs>
+                  <circle cx="20" cy="20" r="17" stroke="url(#rsGoldGrad)" strokeWidth="1.5" strokeDasharray="3 2" />
+                  <path d="M20 4L23.5 13.5L33.5 14.5L25.5 21.5L28 31.5L20 26L12 31.5L14.5 21.5L6.5 14.5L16.5 13.5L20 4Z" fill="url(#rsGoldGrad)" opacity="0.9" />
+                  <circle cx="20" cy="20" r="7.5" fill="#030014" stroke="url(#rsPurpleGrad)" strokeWidth="1.5" />
+                  <text x="20" y="22.5" textAnchor="middle" fill="url(#rsGoldGrad)" fontSize="7" fontWeight="900" fontFamily="sans-serif">RS</text>
+                </svg>
+              </div>
             </div>
 
             <div>
