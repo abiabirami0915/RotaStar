@@ -29,6 +29,9 @@ import {
   Info,
   Trash2,
   Loader2,
+  CalendarDays,
+  UserCheck,
+  Star,
 } from "lucide-react";
 import {
   collection,
@@ -48,9 +51,6 @@ import {
   getMemberBadges,
   calculateMonthlyStreak,
 } from "../utils/gamification";
-
-// Safe dynamic asset resolution for Vite + Vercel
-const getAssetUrl = (name) => new URL(`../assets/${name}`, import.meta.url).href;
 
 const MOTIVATIONAL_QUOTES = [
   "“The best way to find yourself is to lose yourself in the service of others.” — Mahatma Gandhi",
@@ -105,11 +105,6 @@ export default function Dashboard() {
   const [unlockedBadgeModal, setUnlockedBadgeModal] = useState(null);
   const [hasInitializedBadges, setHasInitializedBadges] = useState(false);
 
-  // Image load fallback states
-  const [clubLogoError, setClubLogoError] = useState(false);
-  const [auraLogoError, setAuraLogoError] = useState(false);
-  const [districtLogoError, setDistrictLogoError] = useState(false);
-
   // Gamification Calculations
   const points = userData?.totalPoints || 0;
   const levelData = useMemo(() => calculateLevelProgress(points), [points]);
@@ -132,7 +127,7 @@ export default function Dashboard() {
     rawRole.includes("secretary") ||
     rawRole.includes("board");
 
-  // Level-Up detection
+  // 1. Level-Up detection
   useEffect(() => {
     if (!currentUser || !userData) return;
 
@@ -158,7 +153,7 @@ export default function Dashboard() {
     localStorage.setItem(storageKey, levelData.currentLevel.toString());
   }, [currentUser, userData, levelData.currentLevel]);
 
-  // Badge Unlock detection
+  // 2. Badge Unlock detection
   useEffect(() => {
     if (!currentUser || !userData || memberBadges.length === 0) return;
 
@@ -191,7 +186,7 @@ export default function Dashboard() {
     }
   }, [currentUser, userData, memberBadges, hasInitializedBadges]);
 
-  // Announcements Sync
+  // 3. Announcements Sync
   useEffect(() => {
     const q = query(collection(db, "announcements"), orderBy("createdAt", "desc"));
     const unsubscribe = onSnapshot(q, (snapshot) => {
@@ -200,7 +195,7 @@ export default function Dashboard() {
     return () => unsubscribe();
   }, []);
 
-  // Leaderboard Rank Sync
+  // 4. Leaderboard Rank Sync
   useEffect(() => {
     const unsubUsers = onSnapshot(collection(db, "users"), (snapshot) => {
       const allUsers = snapshot.docs.map((docSnap) => ({
@@ -216,7 +211,7 @@ export default function Dashboard() {
     return () => unsubUsers();
   }, [currentUser]);
 
-  // Activities Sync
+  // 5. Activities Sync
   useEffect(() => {
     if (!currentUser) return;
     const q = query(collection(db, "activities"), where("userId", "==", currentUser.uid));
@@ -303,56 +298,20 @@ export default function Dashboard() {
 
   return (
     <div className="min-h-screen bg-[#030014] text-white">
-      {/* NAVBAR */}
+      {/* 🏆 CLEAN HEADER NAVBAR (TOP LOGO BOX REMOVED) */}
       <nav className="border-b border-violet-900/40 bg-slate-950/80 backdrop-blur-md sticky top-0 z-50">
         <div className="max-w-6xl mx-auto px-6 h-20 flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <div className="flex items-center gap-2 p-1.5 rounded-2xl bg-slate-900/90 border border-violet-900/50 shadow-lg">
-              {!clubLogoError ? (
-                <img
-                  src={getAssetUrl("club-logo.png")}
-                  alt="RAC PSVPEC"
-                  className="h-8 w-auto object-contain rounded-lg"
-                  onError={() => setClubLogoError(true)}
-                />
-              ) : (
-                <span className="text-[10px] font-bold text-amber-400 px-1">PSV</span>
-              )}
-
-              <div className="h-5 w-px bg-violet-900/60" />
-
-              {!auraLogoError ? (
-                <img
-                  src={getAssetUrl("aura-logo.png")}
-                  alt="AURA"
-                  className="h-7 w-auto object-contain rounded-lg"
-                  onError={() => setAuraLogoError(true)}
-                />
-              ) : (
-                <span className="text-[10px] font-bold text-violet-400 px-1">AURA</span>
-              )}
-
-              <div className="h-5 w-px bg-violet-900/60" />
-
-              {!districtLogoError ? (
-                <img
-                  src={getAssetUrl("district-logo.png")}
-                  alt="District"
-                  className="h-6 w-auto object-contain rounded-lg"
-                  onError={() => setDistrictLogoError(true)}
-                />
-              ) : (
-                <span className="text-[10px] font-bold text-amber-400 px-1">RID</span>
-              )}
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-violet-600 to-amber-500 flex items-center justify-center font-black text-white shadow-lg shadow-violet-900/30">
+              <Crown size={20} className="text-amber-200" />
             </div>
-
-            <div className="hidden md:block">
+            <div>
               <div className="flex items-center gap-1">
                 <span className="font-black text-xl text-violet-400">Rota</span>
                 <span className="font-black text-xl text-amber-400">Star</span>
               </div>
               <p className="text-[10px] text-amber-300/80 tracking-tight font-semibold uppercase">
-                RAC PSVPEC • AURA • RID 3234
+                RAC PSVPEC • AURA • RID 3233
               </p>
             </div>
           </div>
@@ -685,7 +644,7 @@ export default function Dashboard() {
           </button>
         </div>
 
-        {/* INSTITUTIONAL SHOWCASE (CARDS) */}
+        {/* 🌟 UPDATED INSTITUTIONAL SHOWCASE (ABOUT CLUB, AURA & RID 3233) */}
         <section className="mb-8">
           <div className="flex items-center justify-between mb-4">
             <div>
@@ -694,99 +653,126 @@ export default function Dashboard() {
                 Our Institutional Identity
               </h2>
               <p className="text-xs text-slate-400">
-                The governing pillars behind the Rotaract Club of PSVPEC
+                The governing pillars and leadership behind RAC PSVPEC
               </p>
             </div>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-            {/* 1. CLUB CARD */}
+            {/* 1. RAC PSVPEC TAB */}
             <div className="bg-gradient-to-b from-slate-900/95 to-slate-950 border border-amber-500/30 rounded-3xl p-6 shadow-2xl flex flex-col justify-between hover:border-amber-400/60 transition-all">
               <div>
-                <div className="w-16 h-16 rounded-2xl bg-slate-950 p-2 border border-amber-400/40 mb-4 shadow-lg shadow-amber-500/10 flex items-center justify-center">
-                  {!clubLogoError ? (
-                    <img
-                      src={getAssetUrl("club-logo.png")}
-                      alt="RAC PSVPEC Club Logo"
-                      className="w-full h-full object-contain"
-                      onError={() => setClubLogoError(true)}
-                    />
-                  ) : (
-                    <span className="font-black text-amber-400 text-xs text-center">PSVPEC</span>
-                  )}
+                <div className="flex items-center justify-between mb-3">
+                  <div className="inline-block px-2.5 py-0.5 rounded-full bg-amber-500/10 border border-amber-500/30 text-amber-300 text-[10px] font-black uppercase">
+                    Institutional Club
+                  </div>
+                  <div className="flex items-center gap-1 text-[11px] text-amber-400 font-semibold bg-slate-950 px-2.5 py-0.5 rounded-full border border-violet-900/40">
+                    <CalendarDays size={12} />
+                    <span>Charter Date: 2024</span>
+                  </div>
                 </div>
-                <div className="inline-block px-2.5 py-0.5 rounded-full bg-amber-500/10 border border-amber-500/30 text-amber-300 text-[10px] font-black uppercase mb-2">
-                  Institutional Club
-                </div>
-                <h3 className="text-lg font-black text-white mb-2">
+
+                <h3 className="text-xl font-black text-white mb-2">
                   RAC PSVPEC
                 </h3>
-                <p className="text-xs text-slate-300 leading-relaxed">
-                  The Rotaract Club of Prince Shri Venkateshwara Padmavathy Engineering College is dedicated to youth leadership, community upliftment, and empowering students through service above self.
+                <p className="text-xs text-slate-300 leading-relaxed mb-4">
+                  Rotaract Club of Prince Shri Venkateshwara Padmavathy Engineering College is dedicated to youth leadership, community impact, and empowering students through service above self.
                 </p>
+
+                {/* LEADERSHIP ROSTER */}
+                <div className="bg-slate-950/80 rounded-2xl p-3.5 border border-violet-900/40 space-y-1.5 text-xs text-slate-300">
+                  <div className="text-[10px] uppercase font-extrabold text-amber-400 tracking-wider mb-1 flex items-center gap-1">
+                    <UserCheck size={12} />
+                    <span>Leadership Hierarchy</span>
+                  </div>
+                  <p><span className="text-slate-500 font-medium">Past President:</span> <strong className="text-white">Rtr. Dharsan Arunkumar V P</strong></p>
+                  <p><span className="text-slate-500 font-medium">Immediate Past President:</span> <strong className="text-white">Rtr. Adarsh G</strong></p>
+                  <p><span className="text-slate-500 font-medium">Secretary 25-26:</span> <strong className="text-white">Rtr. Adhithyan S</strong></p>
+                  <p><span className="text-amber-400 font-medium">President 26-27:</span> <strong className="text-amber-300">Rtr. Jeevanaa Y</strong></p>
+                  <p><span className="text-amber-400 font-medium">Secretary 26-27:</span> <strong className="text-amber-300">Rtr. Abirami G</strong></p>
+                </div>
               </div>
-              <div className="pt-4 mt-4 border-t border-violet-900/40 text-[11px] text-amber-400/90 font-bold flex items-center gap-1">
-                <span>College Club Charter</span>
+
+              <div className="pt-3 mt-4 border-t border-violet-900/40 text-[11px] text-amber-400/90 font-bold flex items-center justify-between">
+                <span>Chartered Institutional Club</span>
+                <span>RAC PSVPEC</span>
               </div>
             </div>
 
-            {/* 2. AURA CARD */}
+            {/* 2. THEME AURA TAB */}
             <div className="bg-gradient-to-b from-violet-950/60 to-slate-950 border border-violet-500/40 rounded-3xl p-6 shadow-2xl flex flex-col justify-between hover:border-violet-400/70 transition-all">
               <div>
-                <div className="w-16 h-16 rounded-2xl bg-slate-950 p-2 border border-violet-400/40 mb-4 shadow-lg shadow-violet-500/20 flex items-center justify-center">
-                  {!auraLogoError ? (
-                    <img
-                      src={getAssetUrl("aura-logo.png")}
-                      alt="AURA Theme Logo"
-                      className="w-full h-full object-contain"
-                      onError={() => setAuraLogoError(true)}
-                    />
-                  ) : (
-                    <span className="font-black text-violet-400 text-xs text-center">AURA</span>
-                  )}
-                </div>
-                <div className="inline-block px-2.5 py-0.5 rounded-full bg-violet-500/10 border border-violet-500/30 text-violet-300 text-[10px] font-black uppercase mb-2">
+                <div className="inline-block px-2.5 py-0.5 rounded-full bg-violet-500/10 border border-violet-500/30 text-violet-300 text-[10px] font-black uppercase mb-3">
                   Presidential Theme
                 </div>
-                <h3 className="text-lg font-black text-white mb-2">
+
+                <h3 className="text-xl font-black text-white mb-1">
                   Theme AURA
                 </h3>
-                <p className="text-xs text-slate-300 leading-relaxed">
-                  Symbolizing radiance, positive energy, and purposeful action. AURA inspires each member to shine brightly through community service, high ethical standards, and fellowship.
+                <p className="text-xs font-extrabold text-amber-400 mb-3 tracking-wide">
+                  "Activating unity, responsibilities and action"
                 </p>
+
+                <p className="text-xs text-slate-300 leading-relaxed mb-4">
+                  Symbolizing radiance, high ethical standards, and purposeful action. AURA ignites our club's commitment to community excellence, fellowship, and visionary leadership.
+                </p>
+
+                <div className="bg-slate-950/80 rounded-2xl p-3.5 border border-violet-900/40 text-xs text-slate-300 space-y-1.5">
+                  <div className="text-[10px] uppercase font-extrabold text-violet-400 tracking-wider mb-1 flex items-center gap-1">
+                    <Star size={12} />
+                    <span>Core Pillars</span>
+                  </div>
+                  <p>• <strong className="text-violet-200">A</strong>ctivating Collective Purpose</p>
+                  <p>• <strong className="text-violet-200">U</strong>nity in Every Initiative</p>
+                  <p>• <strong className="text-violet-200">R</strong>esponsibility Toward Society</p>
+                  <p>• <strong className="text-violet-200">A</strong>ction with Tangible Impact</p>
+                </div>
               </div>
-              <div className="pt-4 mt-4 border-t border-violet-900/40 text-[11px] text-violet-300 font-bold flex items-center gap-1">
+
+              <div className="pt-3 mt-4 border-t border-violet-900/40 text-[11px] text-violet-300 font-bold flex items-center justify-between">
                 <span>Radiance in Leadership</span>
+                <span>Tenure 2026–2027</span>
               </div>
             </div>
 
-            {/* 3. DISTRICT CARD */}
+            {/* 3. ROTARY INTERNATIONAL DISTRICT 3233 TAB */}
             <div className="bg-gradient-to-b from-slate-900/95 to-slate-950 border border-amber-500/30 rounded-3xl p-6 shadow-2xl flex flex-col justify-between hover:border-amber-400/60 transition-all">
               <div>
-                <div className="w-16 h-16 rounded-2xl bg-slate-950 p-2 border border-amber-400/40 mb-4 shadow-lg shadow-amber-500/10 flex items-center justify-center">
-                  {!districtLogoError ? (
-                    <img
-                      src={getAssetUrl("district-logo.png")}
-                      alt="Rotaract District Logo"
-                      className="w-full h-full object-contain"
-                      onError={() => setDistrictLogoError(true)}
-                    />
-                  ) : (
-                    <span className="font-black text-amber-400 text-xs text-center">RID 3234</span>
-                  )}
-                </div>
-                <div className="inline-block px-2.5 py-0.5 rounded-full bg-amber-500/10 border border-amber-500/30 text-amber-300 text-[10px] font-black uppercase mb-2">
+                <div className="inline-block px-2.5 py-0.5 rounded-full bg-amber-500/10 border border-amber-500/30 text-amber-300 text-[10px] font-black uppercase mb-3">
                   Rotary International District
                 </div>
-                <h3 className="text-lg font-black text-white mb-2">
-                  District Network (RID)
+
+                <h3 className="text-xl font-black text-white mb-1">
+                  Rotary International District 3233
                 </h3>
-                <p className="text-xs text-slate-300 leading-relaxed">
-                  Connecting our club with hundreds of Rotaract bodies across the district, fostering multi-district projects, conferences, and global youth engagement initiatives.
+                <p className="text-xs font-extrabold text-amber-400 mb-3 tracking-wide">
+                  V.I.B.E — Vision • Innovate • Believe • Evolve
                 </p>
+
+                <p className="text-xs text-slate-300 leading-relaxed mb-4">
+                  Governing and inspiring Rotaract clubs across RID 3233 to deliver impactful community service and cross-district collaborations.
+                </p>
+
+                {/* DISTRICT LEADERSHIP */}
+                <div className="bg-slate-950/80 rounded-2xl p-3.5 border border-violet-900/40 space-y-1.5 text-xs text-slate-300">
+                  <div className="text-[10px] uppercase font-extrabold text-amber-400 tracking-wider mb-1 flex items-center gap-1">
+                    <Crown size={12} />
+                    <span>District Leadership 26-27</span>
+                  </div>
+                  <p>
+                    <span className="text-slate-500 font-medium">District Rotaract Representative 26-27:</span><br />
+                    <strong className="text-white">Rtr. PP. PHF. HariVignesh M</strong>
+                  </p>
+                  <p className="pt-1">
+                    <span className="text-slate-500 font-medium">District Rotaract Secretary 26-27:</span><br />
+                    <strong className="text-white">Rtr. PP. Naveen Kumar A</strong>
+                  </p>
+                </div>
               </div>
-              <div className="pt-4 mt-4 border-t border-violet-900/40 text-[11px] text-amber-400/90 font-bold flex items-center gap-1">
-                <span>Rotary International Partner</span>
+
+              <div className="pt-3 mt-4 border-t border-violet-900/40 text-[11px] text-amber-400/90 font-bold flex items-center justify-between">
+                <span>RID 3233</span>
+                <span>Rotary International</span>
               </div>
             </div>
           </div>
@@ -972,7 +958,7 @@ export default function Dashboard() {
           )}
         </section>
 
-        {/* CREATOR FOOTER CARD */}
+        {/* 🚀 CREATOR FOOTER CARD */}
         <section className="bg-gradient-to-r from-violet-950/70 via-slate-900/90 to-amber-950/40 border border-violet-900/50 rounded-3xl p-6 sm:p-8 shadow-2xl">
           <div className="flex flex-col md:flex-row items-start gap-6">
             <div className="p-4 bg-amber-500/10 border border-amber-500/30 rounded-2xl text-amber-400 shrink-0 shadow-lg shadow-amber-500/10">
@@ -1017,7 +1003,7 @@ export default function Dashboard() {
 
                 <div className="flex items-center gap-1.5 text-xs text-slate-400 italic">
                   <Heart size={14} className="text-rose-400 shrink-0" />
-                  <span>RAC PSVPEC • AURA</span>
+                  <span>RAC PSVPEC • AURA • RID 3233</span>
                 </div>
               </div>
             </div>
@@ -1025,7 +1011,7 @@ export default function Dashboard() {
         </section>
       </main>
 
-      {/* ANNOUNCEMENT MODAL */}
+      {/* ADMIN ANNOUNCEMENT MODAL */}
       {showAnnounceModal && (
         <div className="fixed inset-0 z-50 bg-black/85 backdrop-blur-md flex items-center justify-center p-4">
           <div className="bg-slate-900 border-2 border-amber-500/40 rounded-3xl p-6 sm:p-8 max-w-lg w-full shadow-2xl relative">
