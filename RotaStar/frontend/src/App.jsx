@@ -11,11 +11,11 @@ import Login from "./pages/Login";
 import Dashboard from "./pages/Dashboard";
 import Leaderboard from "./pages/Leaderboard";
 import Profile from "./pages/Profile";
-import RequestPoints from "./pages/RequestPoints";
+import PointRequest from "./pages/PointRequest";
 import Feedback from "./pages/Feedback";
 
 // Admin Pages
-import Admin from "./pages/Admin";
+import AdminPoints from "./pages/AdminPoints";
 import AdminPointRequests from "./pages/AdminPointRequests";
 import AdminMembers from "./pages/AdminMembers";
 import AdminFeedback from "./pages/AdminFeedback";
@@ -57,7 +57,7 @@ export default function App() {
             path="/request-points"
             element={
               <ProtectedRoute>
-                <RequestPoints />
+                <PointRequest />
               </ProtectedRoute>
             }
           />
@@ -75,7 +75,7 @@ export default function App() {
             path="/admin"
             element={
               <AdminRoute>
-                <Admin />
+                <AdminPoints />
               </AdminRoute>
             }
           />
