@@ -1,5 +1,5 @@
 /**
- * Comprehensive Gamification & Badge Engine for RotaStar
+ * Gamification & Streak Engine for RotaStar
  */
 
 // 1. Level & Progress Calculator (1-100 = Level 1, 101-200 = Level 2, etc.)
@@ -27,7 +27,81 @@ export function calculateLevelProgress(rawPoints = 0) {
   };
 }
 
-// 2. High-Impact Rotary & Club Service Badge Definitions
+// 2. Continuous Point-Gain Monthly Streak Calculator
+export function calculateMonthlyStreak(activities = []) {
+  if (!Array.isArray(activities) || activities.length === 0) return 0;
+
+  // 1. Filter ONLY activities where points were actually gained (> 0)
+  const positivePointActivities = activities.filter(
+    (act) => act && Number(act.points) > 0
+  );
+
+  if (positivePointActivities.length === 0) return 0;
+
+  // 2. Extract unique "YYYY-MM" periods of point gains
+  const earnedMonths = new Set();
+
+  positivePointActivities.forEach((act) => {
+    let date = null;
+
+    if (act.createdAt?.toDate && typeof act.createdAt.toDate === "function") {
+      date = act.createdAt.toDate();
+    } else if (act.createdAt?.seconds) {
+      date = new Date(act.createdAt.seconds * 1000);
+    } else if (typeof act.createdAt === "string" || typeof act.createdAt === "number") {
+      date = new Date(act.createdAt);
+    }
+
+    if (date && !isNaN(date.getTime())) {
+      const y = date.getFullYear();
+      const m = String(date.getMonth() + 1).padStart(2, "0");
+      earnedMonths.add(`${y}-${m}`);
+    }
+  });
+
+  if (earnedMonths.size === 0) return 0;
+
+  const now = new Date();
+  let checkYear = now.getFullYear();
+  let checkMonth = now.getMonth() + 1;
+  let streak = 0;
+
+  // Check current month or last month (grace period)
+  let currentKey = `${checkYear}-${String(checkMonth).padStart(2, "0")}`;
+  if (!earnedMonths.has(currentKey)) {
+    // Check if points were earned in the preceding month
+    checkMonth -= 1;
+    if (checkMonth === 0) {
+      checkMonth = 12;
+      checkYear -= 1;
+    }
+    currentKey = `${checkYear}-${String(checkMonth).padStart(2, "0")}`;
+    
+    // If no points gained in the current OR previous month, the streak resets to 0
+    if (!earnedMonths.has(currentKey)) {
+      return 0;
+    }
+  }
+
+  // Count backwards consecutively for uninterrupted months of point gains
+  while (true) {
+    const key = `${checkYear}-${String(checkMonth).padStart(2, "0")}`;
+    if (earnedMonths.has(key)) {
+      streak += 1;
+      checkMonth -= 1;
+      if (checkMonth === 0) {
+        checkMonth = 12;
+        checkYear -= 1;
+      }
+    } else {
+      break;
+    }
+  }
+
+  return streak;
+}
+
+// 3. Badges System
 export const BADGE_DEFINITIONS = [
   {
     id: "starter_spark",
@@ -67,12 +141,20 @@ export const BADGE_DEFINITIONS = [
     description: "Completed 3 or more verified community service initiatives.",
     icon: "Trophy",
     category: "Community",
-    isUnlocked: (pts, acts) =>
-      acts.filter((a) =>
-        (a.activityName || "").toLowerCase().includes("community") ||
-        (a.activityName || "").toLowerCase().includes("service") ||
-        (a.activityName || "").toLowerCase().includes("donation")
-      ).length >= 3 || acts.length >= 3,
+    isUnlocked: (pts, acts) => {
+      const validActs = acts.filter((a) => Number(a.points) > 0);
+      return (
+        validActs.filter((a) => {
+          const name = (a.activityName || "").toLowerCase();
+          return (
+            name.includes("community") ||
+            name.includes("service") ||
+            name.includes("donation") ||
+            name.includes("drive")
+          );
+        }).length >= 3 || validActs.length >= 3
+      );
+    },
   },
   {
     id: "fellowship_anchor",
@@ -80,12 +162,13 @@ export const BADGE_DEFINITIONS = [
     description: "Participated in 3 or more club service or fellowship events.",
     icon: "Award",
     category: "Club Service",
-    isUnlocked: (pts, acts) => acts.length >= 4 || pts >= 200,
+    isUnlocked: (pts, acts) =>
+      acts.filter((a) => Number(a.points) > 0).length >= 4 || pts >= 200,
   },
   {
     id: "streak_titan",
     title: "Streak Titan",
-    description: "Maintained active club attendance across consecutive months.",
+    description: "Continuously gained club points across consecutive months.",
     icon: "Flame",
     category: "Dedication",
     isUnlocked: (pts, acts, streak) => streak >= 2,
@@ -99,12 +182,15 @@ export const BADGE_DEFINITIONS = [
     isUnlocked: (pts, acts) =>
       acts.some((a) => {
         const name = (a.activityName || "").toLowerCase();
-        return name.includes("blood") || name.includes("medical") || name.includes("health");
+        return (
+          Number(a.points) > 0 &&
+          (name.includes("blood") || name.includes("medical") || name.includes("health"))
+        );
       }),
   },
 ];
 
-// 3. Evaluates all badges safely
+// 4. Badges Evaluator
 export function getMemberBadges(rawPoints = 0, rawActivities = [], rawStreak = 0) {
   const points = Math.max(0, Number(rawPoints) || 0);
   const activities = Array.isArray(rawActivities) ? rawActivities : [];
@@ -125,68 +211,4 @@ export function getMemberBadges(rawPoints = 0, rawActivities = [], rawStreak = 0
       unlocked,
     };
   });
-}
-
-// 4. Monthly Participation Streak Calculator
-export function calculateMonthlyStreak(activities = []) {
-  if (!Array.isArray(activities) || activities.length === 0) return 0;
-
-  const activeMonths = new Set();
-
-  activities.forEach((act) => {
-    if (!act) return;
-    let date = null;
-
-    if (act.createdAt?.toDate && typeof act.createdAt.toDate === "function") {
-      date = act.createdAt.toDate();
-    } else if (act.createdAt?.seconds) {
-      date = new Date(act.createdAt.seconds * 1000);
-    } else if (typeof act.createdAt === "string" || typeof act.createdAt === "number") {
-      date = new Date(act.createdAt);
-    }
-
-    if (date && !isNaN(date.getTime())) {
-      const y = date.getFullYear();
-      const m = String(date.getMonth() + 1).padStart(2, "0");
-      activeMonths.add(`${y}-${m}`);
-    }
-  });
-
-  if (activeMonths.size === 0) {
-    return activities.length > 0 ? 1 : 0;
-  }
-
-  const now = new Date();
-  let checkYear = now.getFullYear();
-  let checkMonth = now.getMonth() + 1;
-  let streak = 0;
-
-  let currentKey = `${checkYear}-${String(checkMonth).padStart(2, "0")}`;
-  if (!activeMonths.has(currentKey)) {
-    checkMonth -= 1;
-    if (checkMonth === 0) {
-      checkMonth = 12;
-      checkYear -= 1;
-    }
-    currentKey = `${checkYear}-${String(checkMonth).padStart(2, "0")}`;
-    if (!activeMonths.has(currentKey)) {
-      return 1;
-    }
-  }
-
-  while (true) {
-    const key = `${checkYear}-${String(checkMonth).padStart(2, "0")}`;
-    if (activeMonths.has(key)) {
-      streak += 1;
-      checkMonth -= 1;
-      if (checkMonth === 0) {
-        checkMonth = 12;
-        checkYear -= 1;
-      }
-    } else {
-      break;
-    }
-  }
-
-  return Math.max(1, streak);
 }
