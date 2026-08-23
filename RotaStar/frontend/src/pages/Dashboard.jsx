@@ -311,7 +311,7 @@ export default function Dashboard() {
                 <span className="font-black text-xl text-amber-400">Star</span>
               </div>
               <p className="text-[10px] text-amber-300/80 tracking-tight font-semibold uppercase">
-                RAC PSVPEC • AURA • RID 3233
+                RAC PSVPEC • A.U.R.A • RID 3233
               </p>
             </div>
           </div>
@@ -699,7 +699,7 @@ export default function Dashboard() {
               </div>
             </div>
 
-            {/* 2. THEME AURA TAB */}
+            {/* 2. THEME A.U.R.A TAB */}
             <div className="bg-gradient-to-b from-violet-950/60 to-slate-950 border border-violet-500/40 rounded-3xl p-6 shadow-2xl flex flex-col justify-between hover:border-violet-400/70 transition-all">
               <div>
                 <div className="inline-block px-2.5 py-0.5 rounded-full bg-violet-500/10 border border-violet-500/30 text-violet-300 text-[10px] font-black uppercase mb-3">
@@ -707,14 +707,14 @@ export default function Dashboard() {
                 </div>
 
                 <h3 className="text-xl font-black text-white mb-1">
-                  Theme AURA
+                  Theme A.U.R.A
                 </h3>
                 <p className="text-xs font-extrabold text-amber-400 mb-3 tracking-wide">
-                  aura - Activating unity, responsibilities and action
+                  A.U.R.A - Activating unity, responsibilities and action
                 </p>
 
                 <p className="text-xs text-slate-300 leading-relaxed mb-4">
-                  Symbolizing radiance, high ethical standards, and purposeful action. AURA ignites our club's commitment to community excellence, fellowship, and visionary leadership.
+                  Symbolizing radiance, high ethical standards, and purposeful action. A.U.R.A ignites our club's commitment to community excellence, fellowship, and visionary leadership.
                 </p>
 
                 <div className="bg-slate-950/80 rounded-2xl p-3.5 border border-violet-900/40 text-xs text-slate-300 space-y-1.5">
@@ -1003,7 +1003,7 @@ export default function Dashboard() {
 
                 <div className="flex items-center gap-1.5 text-xs text-slate-400 italic">
                   <Heart size={14} className="text-rose-400 shrink-0" />
-                  <span>RAC PSVPEC • AURA • RID 3233</span>
+                  <span>RAC PSVPEC • A.U.R.A • RID 3233</span>
                 </div>
               </div>
             </div>
