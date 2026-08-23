@@ -3,7 +3,6 @@ import { useNavigate, Link } from "react-router-dom";
 import {
   Trophy,
   Flame,
-  CheckCircle,
   Award,
   FileText,
   ChevronRight,
@@ -124,7 +123,6 @@ export default function Dashboard() {
     const storedBadges = rawStored ? JSON.parse(rawStored) : null;
     const currentlyUnlockedIds = memberBadges.filter((b) => b.unlocked).map((b) => b.id);
 
-    // On first load/refresh: silently sync already unlocked badges without showing a popup
     if (!hasInitializedBadges) {
       if (!storedBadges) {
         localStorage.setItem(storageKey, JSON.stringify(currentlyUnlockedIds));
@@ -136,7 +134,6 @@ export default function Dashboard() {
       return;
     }
 
-    // After initial load: only show popup if a BRAND NEW badge is unlocked during this active session
     if (storedBadges) {
       const brandNewBadge = memberBadges.find(
         (b) => b.unlocked && !storedBadges.includes(b.id)
@@ -250,6 +247,13 @@ export default function Dashboard() {
           </div>
 
           <div className="flex items-center gap-3 sm:gap-4">
+            <button
+              onClick={() => navigate("/events")}
+              className="text-xs font-semibold text-violet-200/80 hover:text-amber-300 transition"
+            >
+              Events
+            </button>
+
             <button
               onClick={() => navigate("/leaderboard")}
               className="text-xs font-semibold text-violet-200/80 hover:text-amber-300 transition"
@@ -413,8 +417,24 @@ export default function Dashboard() {
           </div>
         </div>
 
-        {/* PRIMARY ACTIONS GRID */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
+        {/* PRIMARY ACTIONS GRID (NOW INCLUDES EVENTS) */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+          <button
+            onClick={() => navigate("/events")}
+            className="p-5 rounded-2xl bg-slate-900/90 border border-violet-900/50 hover:border-amber-500/50 text-left transition shadow-xl flex items-center justify-between group"
+          >
+            <div className="flex items-center gap-3">
+              <div className="p-2.5 bg-amber-500/10 text-amber-400 rounded-xl border border-amber-500/20">
+                <Calendar size={22} />
+              </div>
+              <div>
+                <h3 className="font-extrabold text-sm text-white">Event Calendar</h3>
+                <p className="text-[10px] text-slate-400 mt-0.5">Upcoming projects</p>
+              </div>
+            </div>
+            <ChevronRight size={16} className="text-amber-400 group-hover:translate-x-1 transition-transform" />
+          </button>
+
           <button
             onClick={() => navigate("/request-points")}
             className="p-5 rounded-2xl bg-gradient-to-r from-violet-700 to-amber-600 hover:from-violet-600 hover:to-amber-500 text-left transition shadow-xl shadow-violet-950 flex items-center justify-between group"
@@ -424,15 +444,11 @@ export default function Dashboard() {
                 <FileText size={22} />
               </div>
               <div>
-                <h3 className="font-extrabold text-base text-white">
-                  Request Points
-                </h3>
-                <p className="text-[11px] text-amber-100/90 mt-0.5">
-                  Submit service activity
-                </p>
+                <h3 className="font-extrabold text-sm text-white">Request Points</h3>
+                <p className="text-[10px] text-amber-100/90 mt-0.5">Claim club points</p>
               </div>
             </div>
-            <ChevronRight size={18} className="text-amber-200 group-hover:translate-x-1 transition-transform" />
+            <ChevronRight size={16} className="text-amber-200 group-hover:translate-x-1 transition-transform" />
           </button>
 
           <button
@@ -444,15 +460,11 @@ export default function Dashboard() {
                 <Crown size={22} />
               </div>
               <div>
-                <h3 className="font-extrabold text-base text-white">
-                  Leaderboard
-                </h3>
-                <p className="text-[11px] text-slate-400 mt-0.5">
-                  View standings & tiers
-                </p>
+                <h3 className="font-extrabold text-sm text-white">Leaderboard</h3>
+                <p className="text-[10px] text-slate-400 mt-0.5">View club ranks</p>
               </div>
             </div>
-            <ChevronRight size={18} className="text-violet-400 group-hover:translate-x-1 transition-transform" />
+            <ChevronRight size={16} className="text-violet-400 group-hover:translate-x-1 transition-transform" />
           </button>
 
           <button
@@ -464,15 +476,11 @@ export default function Dashboard() {
                 <MessageSquarePlus size={22} />
               </div>
               <div>
-                <h3 className="font-extrabold text-base text-white">
-                  Give Feedback
-                </h3>
-                <p className="text-[11px] text-slate-400 mt-0.5">
-                  Ideas & suggestions
-                </p>
+                <h3 className="font-extrabold text-sm text-white">Give Feedback</h3>
+                <p className="text-[10px] text-slate-400 mt-0.5">Share your voice</p>
               </div>
             </div>
-            <ChevronRight size={18} className="text-amber-400 group-hover:translate-x-1 transition-transform" />
+            <ChevronRight size={16} className="text-amber-400 group-hover:translate-x-1 transition-transform" />
           </button>
         </div>
 

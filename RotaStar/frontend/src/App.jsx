@@ -5,9 +5,10 @@ import { Routes, Route, Navigate } from "react-router-dom";
 import ProtectedRoute from "./components/ProtectedRoute";
 import AdminRoute from "./components/AdminRoute";
 
-// Pages
+// Member Pages
 import Login from "./pages/Login";
 import Dashboard from "./pages/Dashboard";
+import Events from "./pages/Events";
 import Leaderboard from "./pages/Leaderboard";
 import Profile from "./pages/Profile";
 import PointRequest from "./pages/PointRequest";
@@ -31,6 +32,14 @@ export default function App() {
         element={
           <ProtectedRoute>
             <Dashboard />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/events"
+        element={
+          <ProtectedRoute>
+            <Events />
           </ProtectedRoute>
         }
       />
