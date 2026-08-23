@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useMemo } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import {
   Trophy,
@@ -102,12 +102,18 @@ export default function Dashboard() {
   const [unlockedBadgeModal, setUnlockedBadgeModal] = useState(null);
   const [hasInitializedBadges, setHasInitializedBadges] = useState(false);
 
-  // Real-time Gamification Calculations
+  // Real-time Gamification Calculations (Memoized to prevent infinite renders)
   const points = userData?.totalPoints || 0;
-  const levelData = calculateLevelProgress(points);
-  const monthlyStreak = calculateMonthlyStreak(allUserActivities);
-  const memberBadges = getMemberBadges(points, allUserActivities, monthlyStreak);
-  const unlockedBadgesCount = memberBadges.filter((b) => b.unlocked).length;
+  const levelData = useMemo(() => calculateLevelProgress(points), [points]);
+  const monthlyStreak = useMemo(() => calculateMonthlyStreak(allUserActivities), [allUserActivities]);
+  const memberBadges = useMemo(
+    () => getMemberBadges(points, allUserActivities, monthlyStreak),
+    [points, allUserActivities, monthlyStreak]
+  );
+  const unlockedBadgesCount = useMemo(
+    () => memberBadges.filter((b) => b.unlocked).length,
+    [memberBadges]
+  );
 
   const rawRole = (userData?.role || "").toString().toLowerCase().trim();
   const showAdminPanel =
@@ -265,6 +271,12 @@ export default function Dashboard() {
     navigate("/login");
   };
 
+  // Safe Image Error Handler (Prevents recursive blinking loop)
+  const handleImageError = (e) => {
+    e.currentTarget.onerror = null;
+    e.currentTarget.style.display = "none";
+  };
+
   const renderBadgeIcon = (iconName, unlocked) => {
     const color = unlocked ? "text-amber-400" : "text-slate-600";
     switch (iconName) {
@@ -293,33 +305,26 @@ export default function Dashboard() {
       <nav className="border-b border-violet-900/40 bg-slate-950/80 backdrop-blur-md sticky top-0 z-50">
         <div className="max-w-6xl mx-auto px-6 h-20 flex items-center justify-between">
           <div className="flex items-center gap-4">
-            {/* BRAND LOGOS CONTAINER */}
             <div className="flex items-center gap-2 p-1.5 rounded-2xl bg-slate-900/90 border border-violet-900/50 shadow-lg">
               <img
                 src="/assets/club-logo.png"
                 alt="RAC PSVPEC Logo"
                 className="h-9 w-auto object-contain rounded-lg"
-                onError={(e) => {
-                  e.target.src = "/club-logo.png";
-                }}
+                onError={handleImageError}
               />
               <div className="h-6 w-px bg-violet-900/60" />
               <img
                 src="/assets/aura-logo.png"
                 alt="AURA Theme Logo"
                 className="h-8 w-auto object-contain rounded-lg"
-                onError={(e) => {
-                  e.target.src = "/aura-logo.png";
-                }}
+                onError={handleImageError}
               />
               <div className="h-6 w-px bg-violet-900/60" />
               <img
                 src="/assets/district-logo.png"
                 alt="Rotaract District Logo"
                 className="h-7 w-auto object-contain rounded-lg"
-                onError={(e) => {
-                  e.target.src = "/district-logo.png";
-                }}
+                onError={handleImageError}
               />
             </div>
 
@@ -685,9 +690,7 @@ export default function Dashboard() {
                     src="/assets/club-logo.png"
                     alt="RAC PSVPEC Club Logo"
                     className="w-full h-full object-contain"
-                    onError={(e) => {
-                      e.target.src = "/club-logo.png";
-                    }}
+                    onError={handleImageError}
                   />
                 </div>
                 <div className="inline-block px-2.5 py-0.5 rounded-full bg-amber-500/10 border border-amber-500/30 text-amber-300 text-[10px] font-black uppercase mb-2">
@@ -713,9 +716,7 @@ export default function Dashboard() {
                     src="/assets/aura-logo.png"
                     alt="AURA Theme Logo"
                     className="w-full h-full object-contain"
-                    onError={(e) => {
-                      e.target.src = "/aura-logo.png";
-                    }}
+                    onError={handleImageError}
                   />
                 </div>
                 <div className="inline-block px-2.5 py-0.5 rounded-full bg-violet-500/10 border border-violet-500/30 text-violet-300 text-[10px] font-black uppercase mb-2">
@@ -741,9 +742,7 @@ export default function Dashboard() {
                     src="/assets/district-logo.png"
                     alt="Rotaract District Logo"
                     className="w-full h-full object-contain"
-                    onError={(e) => {
-                      e.target.src = "/district-logo.png";
-                    }}
+                    onError={handleImageError}
                   />
                 </div>
                 <div className="inline-block px-2.5 py-0.5 rounded-full bg-amber-500/10 border border-amber-500/30 text-amber-300 text-[10px] font-black uppercase mb-2">
