@@ -20,6 +20,9 @@ import {
   PartyPopper,
   Calendar,
   Lock,
+  Code,
+  Rocket,
+  Heart,
 } from "lucide-react";
 import {
   collection,
@@ -52,7 +55,7 @@ export default function Dashboard() {
   const [recentActivities, setRecentActivities] = useState([]);
   const [userRank, setUserRank] = useState("-");
 
-  // Popups
+  // Modal Triggers
   const [showWelcomeModal, setShowWelcomeModal] = useState(false);
   const [showLevelUpModal, setShowLevelUpModal] = useState(false);
   const [levelUpData, setLevelUpData] = useState({ oldLevel: 1, newLevel: 1, quote: "" });
@@ -128,7 +131,6 @@ export default function Dashboard() {
       ];
       localStorage.setItem(storageKey, JSON.stringify([...new Set(updatedList)]));
     } else {
-      // Keep storage aligned
       const allUnlockedIds = memberBadges.filter((b) => b.unlocked).map((b) => b.id);
       localStorage.setItem(storageKey, JSON.stringify(allUnlockedIds));
     }
@@ -605,7 +607,7 @@ export default function Dashboard() {
         </section>
 
         {/* VISION & PURPOSE SECTION */}
-        <section className="bg-gradient-to-r from-violet-950/70 via-slate-900/90 to-amber-950/40 border border-violet-900/50 rounded-3xl p-6 sm:p-8 shadow-2xl">
+        <section className="bg-gradient-to-r from-violet-950/70 via-slate-900/90 to-amber-950/40 border border-violet-900/50 rounded-3xl p-6 sm:p-8 shadow-2xl mb-6">
           <div className="flex items-start gap-4">
             <div className="p-3.5 bg-amber-500/10 border border-amber-500/30 rounded-2xl text-amber-400 shrink-0 shadow-lg shadow-amber-500/10">
               <Target size={26} />
@@ -624,6 +626,63 @@ export default function Dashboard() {
                   Rotaract Club of Prince Shri Venkateshwara Padmavathy Engineering College
                 </strong>.
               </p>
+            </div>
+          </div>
+        </section>
+
+        {/* 🚀 ABOUT THIS PLATFORM & CREATOR CARD */}
+        <section className="bg-gradient-to-r from-violet-950/70 via-slate-900/90 to-amber-950/40 border border-violet-900/50 rounded-3xl p-6 sm:p-8 shadow-2xl">
+          <div className="flex flex-col md:flex-row items-start gap-6">
+            <div className="p-4 bg-amber-500/10 border border-amber-500/30 rounded-2xl text-amber-400 shrink-0 shadow-lg shadow-amber-500/10">
+              <Rocket size={28} />
+            </div>
+
+            <div className="flex-1 space-y-4">
+              <div>
+                <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-violet-500/10 border border-violet-500/30 text-amber-300 text-xs font-bold uppercase tracking-wider mb-2">
+                  <Crown size={13} className="text-amber-400" />
+                  <span>About This Platform</span>
+                </div>
+                <h2 className="text-xl sm:text-2xl font-black text-white">
+                  Why RotaStar Was Created
+                </h2>
+              </div>
+
+              <p className="text-sm text-slate-300 leading-relaxed">
+                RotaStar was initiated by the President and Secretary of RAC PSVPEC with a singular goal:{" "}
+                <strong className="text-amber-400 font-semibold">
+                  to inspire active member involvement and celebrate impactful service.
+                </strong>
+              </p>
+
+              <p className="text-sm text-slate-300 leading-relaxed">
+                Built from the ground up to turn everyday participation into measurable growth and recognition.
+              </p>
+
+              {/* DEVELOPER CREDIT FOOTER */}
+              <div className="pt-4 border-t border-violet-900/60 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div className="flex items-center gap-3">
+                  <div className="p-2.5 rounded-xl bg-violet-600/20 text-violet-300 border border-violet-500/30">
+                    <Code size={18} />
+                  </div>
+                  <div>
+                    <p className="text-xs text-slate-400 uppercase tracking-wider font-semibold">
+                      Developed & Designed with pride by:
+                    </p>
+                    <p className="text-sm font-bold text-amber-400 flex items-center gap-1 mt-0.5">
+                      👑 Rtr. Abirami G <span className="text-slate-400 font-normal">| Secretary (2026–2027)</span>
+                    </p>
+                    <p className="text-xs text-violet-300 font-medium">
+                      Rotaract Club of Prince Shri Venkateshwara Padmavathy Engineering College
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-1.5 text-xs text-slate-400 italic">
+                  <Heart size={14} className="text-rose-400 shrink-0" />
+                  <span>Built for RAC PSVPEC</span>
+                </div>
+              </div>
             </div>
           </div>
         </section>
