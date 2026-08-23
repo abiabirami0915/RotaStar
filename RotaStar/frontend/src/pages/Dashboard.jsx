@@ -28,8 +28,7 @@ import {
   AlertTriangle,
   Info,
   Trash2,
-  Compass,
-  Globe2,
+  Loader2,
 } from "lucide-react";
 import {
   collection,
@@ -49,6 +48,11 @@ import {
   getMemberBadges,
   calculateMonthlyStreak,
 } from "../utils/gamification";
+
+// Direct image imports from src/assets/
+import clubLogo from "../assets/club-logo.png";
+import auraLogo from "../assets/aura-logo.png";
+import districtLogo from "../assets/district-logo.png";
 
 const MOTIVATIONAL_QUOTES = [
   "“The best way to find yourself is to lose yourself in the service of others.” — Mahatma Gandhi",
@@ -290,37 +294,28 @@ export default function Dashboard() {
 
   return (
     <div className="min-h-screen bg-[#030014] text-white">
-      {/* 🏆 HEADER NAVBAR */}
+      {/* 🏆 HEADER NAVBAR WITH VISIBLE LOGOS */}
       <nav className="border-b border-violet-900/40 bg-slate-950/80 backdrop-blur-md sticky top-0 z-50">
         <div className="max-w-6xl mx-auto px-6 h-20 flex items-center justify-between">
           <div className="flex items-center gap-4">
             {/* BRAND LOGOS DISPLAY */}
-            <div className="flex items-center gap-2 p-1.5 rounded-2xl bg-slate-900/90 border border-violet-900/50 shadow-lg">
+            <div className="flex items-center gap-2.5 p-2 rounded-2xl bg-slate-900/90 border border-violet-900/50 shadow-lg">
               <img
-                src="/club-logo.png"
+                src={clubLogo}
                 alt="RAC PSVPEC Logo"
                 className="h-9 w-auto object-contain rounded-lg"
-                onError={(e) => {
-                  e.target.src = "/assets/club-logo.png";
-                }}
               />
               <div className="h-6 w-px bg-violet-900/60" />
               <img
-                src="/aura-logo.png"
+                src={auraLogo}
                 alt="AURA Theme Logo"
                 className="h-8 w-auto object-contain rounded-lg"
-                onError={(e) => {
-                  e.target.src = "/assets/aura-logo.png";
-                }}
               />
               <div className="h-6 w-px bg-violet-900/60" />
               <img
-                src="/district-logo.png"
+                src={districtLogo}
                 alt="Rotaract District Logo"
                 className="h-7 w-auto object-contain rounded-lg"
-                onError={(e) => {
-                  e.target.src = "/assets/district-logo.png";
-                }}
               />
             </div>
 
@@ -663,7 +658,7 @@ export default function Dashboard() {
           </button>
         </div>
 
-        {/* 🌟 PROMINENT INSTITUTIONAL SHOWCASE (ABOUT THE CLUB, AURA & DISTRICT) */}
+        {/* 🌟 INSTITUTIONAL SHOWCASE (ABOUT THE CLUB, AURA & DISTRICT) */}
         <section className="mb-8">
           <div className="flex items-center justify-between mb-4">
             <div>
@@ -683,12 +678,9 @@ export default function Dashboard() {
               <div>
                 <div className="w-16 h-16 rounded-2xl bg-slate-950 p-2 border border-amber-400/40 mb-4 shadow-lg shadow-amber-500/10 flex items-center justify-center">
                   <img
-                    src="/club-logo.png"
+                    src={clubLogo}
                     alt="RAC PSVPEC Club Logo"
                     className="w-full h-full object-contain"
-                    onError={(e) => {
-                      e.target.src = "/assets/club-logo.png";
-                    }}
                   />
                 </div>
                 <div className="inline-block px-2.5 py-0.5 rounded-full bg-amber-500/10 border border-amber-500/30 text-amber-300 text-[10px] font-black uppercase mb-2">
@@ -711,12 +703,9 @@ export default function Dashboard() {
               <div>
                 <div className="w-16 h-16 rounded-2xl bg-slate-950 p-2 border border-violet-400/40 mb-4 shadow-lg shadow-violet-500/20 flex items-center justify-center">
                   <img
-                    src="/aura-logo.png"
+                    src={auraLogo}
                     alt="AURA Theme Logo"
                     className="w-full h-full object-contain"
-                    onError={(e) => {
-                      e.target.src = "/assets/aura-logo.png";
-                    }}
                   />
                 </div>
                 <div className="inline-block px-2.5 py-0.5 rounded-full bg-violet-500/10 border border-violet-500/30 text-violet-300 text-[10px] font-black uppercase mb-2">
@@ -739,12 +728,9 @@ export default function Dashboard() {
               <div>
                 <div className="w-16 h-16 rounded-2xl bg-slate-950 p-2 border border-amber-400/40 mb-4 shadow-lg shadow-amber-500/10 flex items-center justify-center">
                   <img
-                    src="/district-logo.png"
+                    src={districtLogo}
                     alt="Rotaract District Logo"
                     className="w-full h-full object-contain"
-                    onError={(e) => {
-                      e.target.src = "/assets/district-logo.png";
-                    }}
                   />
                 </div>
                 <div className="inline-block px-2.5 py-0.5 rounded-full bg-amber-500/10 border border-amber-500/30 text-amber-300 text-[10px] font-black uppercase mb-2">
