@@ -24,12 +24,25 @@ import {
   MessageSquarePlus,
   MessageSquare,
   Lightbulb,
+  Megaphone,
+  Bell,
+  AlertTriangle,
+  Info,
+  CheckCircle,
+  Trash2,
+  Plus,
+  Loader2,
 } from "lucide-react";
 import {
   collection,
   query,
   where,
+  orderBy,
   onSnapshot,
+  addDoc,
+  deleteDoc,
+  doc,
+  serverTimestamp,
 } from "firebase/firestore";
 import { db } from "../firebase/firebase";
 import { useAuth } from "../AuthContext";
@@ -48,13 +61,43 @@ const MOTIVATIONAL_QUOTES = [
   "“Service to others is the rent you pay for your room here on earth.” — Muhammad Ali",
 ];
 
+const ANNOUNCEMENT_PRIORITIES = {
+  urgent: {
+    label: "Urgent Alert",
+    bg: "bg-rose-950/80 border-rose-500/50 text-rose-200",
+    badge: "bg-rose-500/20 text-rose-300 border-rose-500/40",
+    icon: <AlertTriangle size={18} className="text-rose-400 shrink-0" />,
+  },
+  event: {
+    label: "Event Update",
+    bg: "bg-amber-950/80 border-amber-500/50 text-amber-200",
+    badge: "bg-amber-500/20 text-amber-300 border-amber-500/40",
+    icon: <Calendar size={18} className="text-amber-400 shrink-0" />,
+  },
+  info: {
+    label: "Important Notice",
+    bg: "bg-violet-950/80 border-violet-500/50 text-violet-200",
+    badge: "bg-violet-500/20 text-violet-300 border-violet-500/40",
+    icon: <Info size={18} className="text-violet-400 shrink-0" />,
+  },
+};
+
 export default function Dashboard() {
   const navigate = useNavigate();
   const { currentUser, userData, isAdmin, isSuperAdmin, logout } = useAuth();
 
   const [allUserActivities, setAllUserActivities] = useState([]);
   const [recentActivities, setRecentActivities] = useState([]);
+  const [announcements, setAnnouncements] = useState([]);
+  const [dismissedIds, setDismissedIds] = useState([]);
   const [userRank, setUserRank] = useState("-");
+
+  // Announcement Modal States
+  const [showAnnounceModal, setShowAnnounceModal] = useState(false);
+  const [announceTitle, setAnnounceTitle] = useState("");
+  const [announceMessage, setAnnounceMessage] = useState("");
+  const [announceType, setAnnounceType] = useState("urgent");
+  const [announceSubmitting, setAnnounceSubmitting] = useState(false);
 
   // Popups & Modal States
   const [showLevelUpModal, setShowLevelUpModal] = useState(false);
@@ -69,16 +112,17 @@ export default function Dashboard() {
   const memberBadges = getMemberBadges(points, allUserActivities, monthlyStreak);
   const unlockedBadgesCount = memberBadges.filter((b) => b.unlocked).length;
 
-  // Admin access validation
-  const roleString = (userData?.role || "").toLowerCase();
+  // Role validation
+  const rawRole = (userData?.role || "").toString().toLowerCase().trim();
   const showAdminPanel =
-    isAdmin ||
-    isSuperAdmin ||
-    roleString.includes("admin") ||
-    roleString.includes("president") ||
-    roleString.includes("secretary");
+    Boolean(isAdmin) ||
+    Boolean(isSuperAdmin) ||
+    rawRole.includes("admin") ||
+    rawRole.includes("president") ||
+    rawRole.includes("secretary") ||
+    rawRole.includes("board");
 
-  // 1. Level-Up detection and popup trigger
+  // 1. Level-Up detection
   useEffect(() => {
     if (!currentUser || !userData) return;
 
@@ -104,7 +148,7 @@ export default function Dashboard() {
     localStorage.setItem(storageKey, levelData.currentLevel.toString());
   }, [currentUser, userData, levelData.currentLevel]);
 
-  // 2. Robust Badge Unlock detection (prevents repeating popup on refresh)
+  // 2. Badge Unlock detection
   useEffect(() => {
     if (!currentUser || !userData || memberBadges.length === 0) return;
 
@@ -137,7 +181,25 @@ export default function Dashboard() {
     }
   }, [currentUser, userData, memberBadges, hasInitializedBadges]);
 
-  // 3. Leaderboard rank calculation
+  // 3. Live Announcements Sync
+  useEffect(() => {
+    const q = query(
+      collection(db, "announcements"),
+      orderBy("createdAt", "desc")
+    );
+
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const list = snapshot.docs.map((d) => ({
+        id: d.id,
+        ...d.data(),
+      }));
+      setAnnouncements(list);
+    });
+
+    return () => unsubscribe();
+  }, []);
+
+  // 4. Leaderboard rank calculation
   useEffect(() => {
     const unsubUsers = onSnapshot(collection(db, "users"), (snapshot) => {
       const allUsers = snapshot.docs.map((docSnap) => ({
@@ -153,7 +215,7 @@ export default function Dashboard() {
     return () => unsubUsers();
   }, [currentUser]);
 
-  // 4. Activities Sync (Streak & Feed)
+  // 5. Activities Sync
   useEffect(() => {
     if (!currentUser) return;
 
@@ -187,6 +249,43 @@ export default function Dashboard() {
     return () => unsubActivities();
   }, [currentUser]);
 
+  // Create Announcement
+  const handleCreateAnnouncement = async (e) => {
+    e.preventDefault();
+    if (!announceTitle.trim() || !announceMessage.trim()) return;
+
+    setAnnounceSubmitting(true);
+    try {
+      await addDoc(collection(db, "announcements"), {
+        title: announceTitle.trim(),
+        message: announceMessage.trim(),
+        type: announceType,
+        publishedBy: userData?.name || "Executive Board",
+        createdAt: serverTimestamp(),
+      });
+      setShowAnnounceModal(false);
+      setAnnounceTitle("");
+      setAnnounceMessage("");
+    } catch (err) {
+      console.error("Create announcement error:", err);
+    } finally {
+      setAnnounceSubmitting(false);
+    }
+  };
+
+  // Delete Announcement
+  const handleDeleteAnnouncement = async (id) => {
+    try {
+      await deleteDoc(doc(db, "announcements", id));
+    } catch (err) {
+      console.error("Delete announcement error:", err);
+    }
+  };
+
+  const handleDismiss = (id) => {
+    setDismissedIds((prev) => [...prev, id]);
+  };
+
   const handleLogout = async () => {
     await logout();
     navigate("/login");
@@ -211,6 +310,8 @@ export default function Dashboard() {
         return <Sparkles size={22} className={color} />;
     }
   };
+
+  const visibleAnnouncements = announcements.filter((a) => !dismissedIds.includes(a.id));
 
   return (
     <div className="min-h-screen bg-[#030014] text-white">
@@ -287,6 +388,61 @@ export default function Dashboard() {
 
       {/* MAIN CONTAINER */}
       <main className="max-w-6xl mx-auto px-6 py-8">
+        {/* 📢 LIVE URGENT BROADCAST BANNERS */}
+        {visibleAnnouncements.length > 0 && (
+          <div className="space-y-3 mb-6">
+            {visibleAnnouncements.map((ann) => {
+              const style = ANNOUNCEMENT_PRIORITIES[ann.type] || ANNOUNCEMENT_PRIORITIES.info;
+
+              return (
+                <div
+                  key={ann.id}
+                  className={`p-4 sm:p-5 rounded-2xl border backdrop-blur-md shadow-xl flex items-start justify-between gap-4 animate-in fade-in slide-in-from-top-2 duration-300 ${style.bg}`}
+                >
+                  <div className="flex items-start gap-3.5">
+                    <div className="mt-0.5">{style.icon}</div>
+                    <div>
+                      <div className="flex items-center gap-2 mb-1">
+                        <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider border ${style.badge}`}>
+                          {style.label}
+                        </span>
+                        <span className="text-[10px] text-slate-400">
+                          by {ann.publishedBy || "Executive Board"}
+                        </span>
+                      </div>
+                      <h4 className="font-extrabold text-sm text-white">
+                        {ann.title}
+                      </h4>
+                      <p className="text-xs text-slate-300 mt-1 leading-relaxed">
+                        {ann.message}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-2 shrink-0">
+                    {showAdminPanel && (
+                      <button
+                        onClick={() => handleDeleteAnnouncement(ann.id)}
+                        className="p-1.5 rounded-xl bg-black/20 hover:bg-black/40 text-slate-400 hover:text-rose-400 transition"
+                        title="Delete Announcement"
+                      >
+                        <Trash2 size={14} />
+                      </button>
+                    )}
+                    <button
+                      onClick={() => handleDismiss(ann.id)}
+                      className="p-1.5 rounded-xl bg-black/20 hover:bg-black/40 text-slate-400 hover:text-white transition"
+                      title="Dismiss"
+                    >
+                      <X size={14} />
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+
         {/* HERO STATUS CARD */}
         <div className="bg-gradient-to-r from-violet-950/70 via-slate-900/90 to-amber-950/40 border border-violet-500/30 rounded-3xl p-6 sm:p-8 mb-6 shadow-2xl transition-all">
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-6">
@@ -327,17 +483,29 @@ export default function Dashboard() {
               </div>
             </div>
 
-            <div className="bg-slate-950/80 border border-amber-500/30 rounded-2xl p-4 sm:px-6 flex items-center gap-4 shadow-lg shadow-amber-500/5">
-              <div className="p-2.5 rounded-xl bg-amber-500/10 text-amber-400 border border-amber-500/20">
-                <Trophy size={20} />
-              </div>
-              <div>
-                <p className="text-[10px] text-amber-300/80 font-bold uppercase tracking-wider">
-                  Current Level
-                </p>
-                <p className="text-lg font-black text-amber-400 tracking-wide">
-                  {levelData.levelTitle}
-                </p>
+            <div className="flex items-center gap-3">
+              {showAdminPanel && (
+                <button
+                  onClick={() => setShowAnnounceModal(true)}
+                  className="px-4 py-3 rounded-2xl bg-amber-500/15 border border-amber-500/30 hover:bg-amber-500/25 text-amber-300 font-bold text-xs flex items-center gap-2 transition shadow-lg shrink-0"
+                >
+                  <Megaphone size={16} className="text-amber-400" />
+                  <span>Broadcast Notice</span>
+                </button>
+              )}
+
+              <div className="bg-slate-950/80 border border-amber-500/30 rounded-2xl p-4 sm:px-6 flex items-center gap-4 shadow-lg shadow-amber-500/5 shrink-0">
+                <div className="p-2.5 rounded-xl bg-amber-500/10 text-amber-400 border border-amber-500/20">
+                  <Trophy size={20} />
+                </div>
+                <div>
+                  <p className="text-[10px] text-amber-300/80 font-bold uppercase tracking-wider">
+                    Current Level
+                  </p>
+                  <p className="text-lg font-black text-amber-400 tracking-wide">
+                    {levelData.levelTitle}
+                  </p>
+                </div>
               </div>
             </div>
           </div>
@@ -757,6 +925,87 @@ export default function Dashboard() {
           </div>
         </section>
       </main>
+
+      {/* 📢 ADMIN BROADCAST ANNOUNCEMENT MODAL */}
+      {showAnnounceModal && (
+        <div className="fixed inset-0 z-50 bg-black/85 backdrop-blur-md flex items-center justify-center p-4">
+          <div className="bg-slate-900 border-2 border-amber-500/40 rounded-3xl p-6 sm:p-8 max-w-lg w-full shadow-2xl relative">
+            <button
+              onClick={() => setShowAnnounceModal(false)}
+              className="absolute top-4 right-4 p-2 rounded-full text-slate-400 hover:text-white hover:bg-slate-800 transition"
+            >
+              <X size={20} />
+            </button>
+
+            <div className="flex items-center gap-3 mb-6">
+              <div className="p-2.5 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-400">
+                <Megaphone size={22} />
+              </div>
+              <h2 className="text-xl font-bold text-white">Broadcast Urgent Notice</h2>
+            </div>
+
+            <form onSubmit={handleCreateAnnouncement} className="space-y-4">
+              <div>
+                <label className="block text-xs font-bold text-violet-300 uppercase tracking-wider mb-1">
+                  Notice Priority
+                </label>
+                <select
+                  value={announceType}
+                  onChange={(e) => setAnnounceType(e.target.value)}
+                  className="w-full px-4 py-2.5 bg-slate-950 border border-violet-900/40 rounded-xl text-white text-sm outline-none focus:border-amber-400"
+                >
+                  <option value="urgent">Urgent Alert (Red Banner)</option>
+                  <option value="event">Event Update (Gold Banner)</option>
+                  <option value="info">Important Notice (Violet Banner)</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-violet-300 uppercase tracking-wider mb-1">
+                  Headline / Title
+                </label>
+                <input
+                  type="text"
+                  required
+                  placeholder="e.g. GBM Postponed to Friday 4:00 PM"
+                  value={announceTitle}
+                  onChange={(e) => setAnnounceTitle(e.target.value)}
+                  className="w-full px-4 py-2.5 bg-slate-950 border border-violet-900/40 rounded-xl text-white text-sm outline-none focus:border-amber-400"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-violet-300 uppercase tracking-wider mb-1">
+                  Detailed Message
+                </label>
+                <textarea
+                  rows={3}
+                  required
+                  placeholder="Explain why, the new venue or meeting link, and next actions for members..."
+                  value={announceMessage}
+                  onChange={(e) => setAnnounceMessage(e.target.value)}
+                  className="w-full px-4 py-2.5 bg-slate-950 border border-violet-900/40 rounded-xl text-white text-sm outline-none focus:border-amber-400 resize-none"
+                />
+              </div>
+
+              <button
+                type="submit"
+                disabled={announceSubmitting}
+                className="w-full py-3.5 rounded-xl bg-gradient-to-r from-amber-600 via-amber-500 to-amber-400 hover:from-amber-500 hover:to-amber-300 text-slate-950 font-bold text-sm flex items-center justify-center gap-2 shadow-xl transition disabled:opacity-50"
+              >
+                {announceSubmitting ? (
+                  <>
+                    <Loader2 size={16} className="animate-spin text-slate-950" />
+                    <span>Broadcasting...</span>
+                  </>
+                ) : (
+                  <span>Publish Notice to All Dashboards</span>
+                )}
+              </button>
+            </form>
+          </div>
+        </div>
+      )}
 
       {/* LEVEL-UP MODAL */}
       {showLevelUpModal && (
