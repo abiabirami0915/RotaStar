@@ -2,29 +2,37 @@ import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   ArrowLeft,
-  Search,
   Users,
-  User,
-  Phone,
-  Mail,
+  Search,
   Trash2,
-  Loader2,
-  AlertTriangle,
-  Check,
   Crown,
+  Shield,
+  User,
+  AlertTriangle,
+  Loader2,
+  Check,
+  Mail,
+  Trophy,
+  Download,
+  FileSpreadsheet,
 } from "lucide-react";
 import {
   collection,
   onSnapshot,
   doc,
   deleteDoc,
-  updateDoc,
-  getDocs,
   query,
+  orderBy,
+  getDocs,
   where,
 } from "firebase/firestore";
 import { db } from "../firebase/firebase";
 import { useAuth } from "../AuthContext";
+import {
+  calculateLevelProgress,
+  getMemberBadges,
+  calculateMonthlyStreak,
+} from "../utils/gamification";
 
 export default function AdminMembers() {
   const navigate = useNavigate();
@@ -35,34 +43,34 @@ export default function AdminMembers() {
   const [searchTerm, setSearchTerm] = useState("");
   const [roleFilter, setRoleFilter] = useState("all");
 
-  const [userToDelete, setUserToDelete] = useState(null);
+  // Deletion States
+  const [memberToDelete, setMemberToDelete] = useState(null);
   const [deleteLoading, setDeleteLoading] = useState(false);
-  const [message, setMessage] = useState({ text: "", type: "" });
+  const [exportLoading, setExportLoading] = useState(false);
+  const [toast, setToast] = useState({ text: "", type: "" });
 
-  // Flexible admin verification
-  const currentRoleStr = (userData?.role || "").toLowerCase();
-  const canManageMembers =
+  const roleString = (userData?.role || "").toLowerCase();
+  const canManage =
     isAdmin ||
     isSuperAdmin ||
-    currentRoleStr.includes("admin") ||
-    currentRoleStr.includes("president") ||
-    currentRoleStr.includes("secretary");
+    roleString.includes("admin") ||
+    roleString.includes("president") ||
+    roleString.includes("secretary");
 
   useEffect(() => {
+    const q = query(collection(db, "users"), orderBy("totalPoints", "desc"));
     const unsubscribe = onSnapshot(
-      collection(db, "users"),
+      q,
       (snapshot) => {
-        const userList = snapshot.docs.map((docSnap) => ({
-          id: docSnap.id,
-          ...docSnap.data(),
+        const list = snapshot.docs.map((d) => ({
+          id: d.id,
+          ...d.data(),
         }));
-
-        userList.sort((a, b) => (a.name || "").localeCompare(b.name || ""));
-        setMembers(userList);
+        setMembers(list);
         setLoading(false);
       },
-      (error) => {
-        console.error("Error fetching members:", error);
+      (err) => {
+        console.error("Members sync error:", err);
         setLoading(false);
       }
     );
@@ -71,90 +79,129 @@ export default function AdminMembers() {
   }, []);
 
   const showToast = (text, type = "success") => {
-    setMessage({ text, type });
-    setTimeout(() => setMessage({ text: "", type: "" }), 5000);
+    setToast({ text, type });
+    setTimeout(() => setToast({ text: "", type: "" }), 4000);
   };
 
-  const handleRoleChange = async (memberId, newRole) => {
-    if (!canManageMembers) return;
+  // ONE-CLICK CSV EXPORT FUNCTION
+  const handleExportCSV = async () => {
+    if (members.length === 0) {
+      showToast("No members available to export", "error");
+      return;
+    }
+
+    setExportLoading(true);
     try {
-      await updateDoc(doc(db, "users", memberId), { role: newRole });
-      showToast(`Role updated to ${newRole}`);
+      // 1. Fetch all activities to calculate badges & streak for export accurately
+      const activitiesSnapshot = await getDocs(collection(db, "activities"));
+      const activitiesByUser = {};
+
+      activitiesSnapshot.docs.forEach((docSnap) => {
+        const data = docSnap.data();
+        if (data.userId) {
+          if (!activitiesByUser[data.userId]) {
+            activitiesByUser[data.userId] = [];
+          }
+          activitiesByUser[data.userId].push(data);
+        }
+      });
+
+      // 2. Build CSV header rows
+      const headers = [
+        "Rank",
+        "Full Name",
+        "Email",
+        "Role / Designation",
+        "Total Points",
+        "Current Level",
+        "Monthly Streak (Months)",
+        "Badges Unlocked",
+        "Account Created Date",
+      ];
+
+      const csvRows = [];
+      csvRows.push(headers.join(","));
+
+      // 3. Map member data
+      members.forEach((member, index) => {
+        const userActivities = activitiesByUser[member.id] || [];
+        const userPoints = member.totalPoints || 0;
+        const levelInfo = calculateLevelProgress(userPoints);
+        const streak = calculateMonthlyStreak(userActivities);
+        const badges = getMemberBadges(userPoints, userActivities, streak);
+        const unlockedBadges = badges.filter((b) => b.unlocked).length;
+
+        const joinedDate = member.createdAt?.toDate
+          ? member.createdAt.toDate().toLocaleDateString()
+          : "N/A";
+
+        // Escape fields to prevent comma conflicts
+        const escapeCSV = (field) => `"${String(field || "").replace(/"/g, '""')}"`;
+
+        const row = [
+          index + 1,
+          escapeCSV(member.name || member.displayName || "Member"),
+          escapeCSV(member.email || "N/A"),
+          escapeCSV(member.role || "Member"),
+          userPoints,
+          escapeCSV(`Level ${levelInfo.currentLevel}`),
+          streak,
+          escapeCSV(`${unlockedBadges} / ${badges.length}`),
+          escapeCSV(joinedDate),
+        ];
+
+        csvRows.push(row.join(","));
+      });
+
+      // 4. Create Blob & Trigger Download
+      const csvString = "\uFEFF" + csvRows.join("\n"); // UTF-8 BOM for Excel support
+      const blob = new Blob([csvString], { type: "text/csv;charset=utf-8;" });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      const timestamp = new Date().toISOString().split("T")[0];
+
+      link.setAttribute("href", url);
+      link.setAttribute("download", `RAC_PSVPEC_RotaStar_Roster_${timestamp}.csv`);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+
+      showToast("Roster CSV exported successfully!");
     } catch (err) {
-      console.error("Error updating role:", err);
-      showToast("Failed to update role", "error");
+      console.error("Export error:", err);
+      showToast("Failed to generate CSV export", "error");
+    } finally {
+      setExportLoading(false);
     }
   };
 
+  // Delete Member Handler
   const handleDeleteMember = async () => {
-    if (!userToDelete) return;
+    if (!memberToDelete || !canManage) return;
 
     setDeleteLoading(true);
     try {
-      const memberId = userToDelete.id;
-
-      // 1. Delete user from Firestore
-      await deleteDoc(doc(db, "users", memberId));
-
-      // 2. Cascade delete from activities
-      const actQuery = query(
-        collection(db, "activities"),
-        where("userId", "==", memberId)
-      );
-      const actSnap = await getDocs(actQuery);
-      const actDeletes = actSnap.docs.map((d) =>
-        deleteDoc(doc(db, "activities", d.id))
-      );
-
-      // 3. Cascade delete from point requests
-      const reqQuery = query(
-        collection(db, "pointRequests"),
-        where("userId", "==", memberId)
-      );
-      const reqSnap = await getDocs(reqQuery);
-      const reqDeletes = reqSnap.docs.map((d) =>
-        deleteDoc(doc(db, "pointRequests", d.id))
-      );
-
-      // 4. Cascade delete from point ledger
-      const ptsQuery = query(
-        collection(db, "points"),
-        where("userId", "==", memberId)
-      );
-      const ptsSnap = await getDocs(ptsQuery);
-      const ptsDeletes = ptsSnap.docs.map((d) =>
-        deleteDoc(doc(db, "points", d.id))
-      );
-
-      await Promise.all([...actDeletes, ...reqDeletes, ...ptsDeletes]);
-
-      showToast(
-        `Member ${userToDelete.name || userToDelete.email} was permanently deleted.`
-      );
-      setUserToDelete(null);
+      await deleteDoc(doc(db, "users", memberToDelete.id));
+      showToast(`Member profile "${memberToDelete.name || "User"}" deleted.`);
+      setMemberToDelete(null);
     } catch (err) {
-      console.error("Error deleting member:", err);
-      showToast(`Delete failed: ${err.message || "Check Firestore permissions"}`, "error");
+      console.error("Delete user error:", err);
+      showToast("Failed to delete member", "error");
     } finally {
       setDeleteLoading(false);
     }
   };
 
-  const filteredMembers = members.filter((member) => {
+  const filteredMembers = members.filter((m) => {
     const term = searchTerm.toLowerCase();
     const matchesSearch =
-      member.name?.toLowerCase().includes(term) ||
-      member.email?.toLowerCase().includes(term) ||
-      member.username?.toLowerCase().includes(term) ||
-      member.phoneNumber?.includes(term);
+      m.name?.toLowerCase().includes(term) ||
+      m.email?.toLowerCase().includes(term) ||
+      m.role?.toLowerCase().includes(term);
 
-    const normRole = (member.role || "member").toLowerCase();
     const matchesRole =
       roleFilter === "all" ||
-      (roleFilter === "superadmin" &&
-        (normRole === "super admin" || normRole === "superadmin")) ||
-      (roleFilter === "admin" && normRole === "admin") ||
-      (roleFilter === "member" && normRole === "member");
+      (m.role || "").toLowerCase() === roleFilter.toLowerCase();
 
     return matchesSearch && matchesRole;
   });
@@ -166,68 +213,69 @@ export default function AdminMembers() {
         <div className="max-w-6xl mx-auto px-6 h-20 flex items-center justify-between">
           <button
             onClick={() => navigate("/dashboard")}
-            className="flex items-center gap-2 text-violet-300 hover:text-amber-300 transition-colors text-sm font-semibold"
+            className="flex items-center gap-2 text-violet-300 hover:text-amber-300 transition text-sm font-semibold"
           >
             <ArrowLeft size={18} />
             <span>Dashboard</span>
           </button>
-
-          <div className="flex flex-col items-end">
-            <div className="flex items-center gap-1.5 text-amber-400 font-bold">
-              <Crown size={18} />
-              <span>Admin Directory</span>
-            </div>
-            <p className="text-[10px] text-amber-300/80 tracking-tight font-medium">
-              Service with Purpose, Recognition with Merit.
-            </p>
+          <div className="flex items-center gap-1.5 text-amber-400 font-bold">
+            <Crown size={18} />
+            <span>Member Directory</span>
           </div>
         </div>
       </nav>
 
-      {/* MAIN */}
+      {/* MAIN CONTENT */}
       <main className="max-w-6xl mx-auto px-6 py-8">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">
           <div>
-            <h1 className="text-2xl font-black flex items-center gap-2.5">
-              <Users className="text-amber-400" size={26} />
-              Club Directory
+            <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-violet-500/10 border border-violet-500/30 text-amber-300 text-xs font-bold uppercase tracking-wider mb-2">
+              <Users size={13} className="text-amber-400" />
+              <span>Administrative Roster</span>
+            </div>
+            <h1 className="text-2xl sm:text-3xl font-black text-white">
+              Manage Club Members
             </h1>
-            <p className="text-sm text-slate-400 mt-0.5">
-              Total registered users:{" "}
-              <span className="text-amber-400 font-bold">{members.length}</span>
+            <p className="text-xs text-slate-400 mt-1">
+              View official point standings, ranks, and export reports for RAC PSVPEC.
             </p>
           </div>
 
-          <div className="flex items-center flex-wrap gap-2">
-            <button
-              onClick={() => navigate("/admin")}
-              className="px-3.5 py-2 rounded-xl bg-slate-900/90 border border-violet-900/50 hover:border-amber-500/50 text-amber-400 text-xs font-bold transition shadow-md shadow-violet-950/50"
-            >
-              Points Panel
-            </button>
-            <button
-              onClick={() => navigate("/admin/requests")}
-              className="px-3.5 py-2 rounded-xl bg-slate-900/90 border border-violet-900/50 hover:border-amber-500/50 text-amber-400 text-xs font-bold transition shadow-md shadow-violet-950/50"
-            >
-              Point Requests
-            </button>
-          </div>
+          {/* EXPORT CSV BUTTON */}
+          <button
+            onClick={handleExportCSV}
+            disabled={exportLoading || loading}
+            className="px-5 py-3 rounded-2xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-bold text-sm flex items-center gap-2.5 shadow-xl shadow-emerald-950 transition border border-emerald-400/30 disabled:opacity-50 cursor-pointer shrink-0"
+          >
+            {exportLoading ? (
+              <>
+                <Loader2 size={18} className="animate-spin" />
+                <span>Exporting...</span>
+              </>
+            ) : (
+              <>
+                <Download size={18} />
+                <span>Export Roster (CSV)</span>
+              </>
+            )}
+          </button>
         </div>
 
-        {message.text && (
+        {/* TOAST NOTIFICATION */}
+        {toast.text && (
           <div
             className={`p-4 rounded-2xl mb-6 flex items-center gap-3 text-sm border ${
-              message.type === "error"
+              toast.type === "error"
                 ? "bg-red-500/10 border-red-500/20 text-red-400"
                 : "bg-emerald-500/10 border-emerald-500/20 text-emerald-400"
             }`}
           >
-            {message.type === "error" ? (
+            {toast.type === "error" ? (
               <AlertTriangle size={18} className="shrink-0" />
             ) : (
               <Check size={18} className="shrink-0" />
             )}
-            <span>{message.text}</span>
+            <span>{toast.text}</span>
           </div>
         )}
 
@@ -236,15 +284,12 @@ export default function AdminMembers() {
           <div className="sm:col-span-2 relative">
             <input
               type="text"
-              placeholder="Search by name, email, @username, or phone..."
+              placeholder="Search member by name, email, or designation..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               className="w-full pl-11 pr-4 py-3 bg-slate-900/90 border border-violet-900/40 rounded-xl text-white placeholder-slate-500 text-sm outline-none focus:border-amber-400 transition"
             />
-            <Search
-              size={18}
-              className="absolute left-4 top-3.5 text-slate-500"
-            />
+            <Search size={18} className="absolute left-4 top-3.5 text-slate-500" />
           </div>
 
           <div>
@@ -254,143 +299,150 @@ export default function AdminMembers() {
               className="w-full px-4 py-3 bg-slate-900/90 border border-violet-900/40 rounded-xl text-white text-sm outline-none focus:border-amber-400 transition"
             >
               <option value="all">All Roles</option>
-              <option value="member">Members Only</option>
-              <option value="admin">Admins Only</option>
-              <option value="superadmin">Super Admins Only</option>
+              <option value="President">President</option>
+              <option value="Secretary">Secretary</option>
+              <option value="Admin">Admin</option>
+              <option value="Member">Member</option>
             </select>
           </div>
         </div>
 
-        {/* MEMBERS GRID */}
-        {loading ? (
-          <div className="bg-slate-900/90 border border-violet-900/40 rounded-3xl p-12 text-center text-slate-500">
-            Loading directory...
-          </div>
-        ) : filteredMembers.length === 0 ? (
-          <div className="bg-slate-900/90 border border-violet-900/40 rounded-3xl p-12 text-center text-slate-500">
-            No matching members found.
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {filteredMembers.map((member) => (
-              <div
-                key={member.id}
-                className="bg-slate-900/90 border border-violet-900/50 hover:border-amber-500/50 rounded-3xl p-5 shadow-xl flex flex-col justify-between transition"
-              >
-                <div>
-                  <div className="flex items-center gap-3 mb-4">
-                    <div className="w-12 h-12 rounded-full overflow-hidden border-2 border-amber-500/40 bg-slate-950 flex items-center justify-center shrink-0 shadow-md">
-                      {member.photoURL ? (
-                        <img
-                          src={member.photoURL}
-                          alt={member.name}
-                          className="w-full h-full object-cover"
-                        />
-                      ) : (
-                        <User size={22} className="text-violet-300" />
-                      )}
-                    </div>
+        {/* ROSTER TABLE */}
+        <div className="bg-slate-900/90 border border-violet-900/40 rounded-3xl overflow-hidden shadow-2xl">
+          {loading ? (
+            <div className="p-12 text-center text-slate-500">
+              Loading member records...
+            </div>
+          ) : filteredMembers.length === 0 ? (
+            <div className="p-12 text-center text-slate-500">
+              No matching members found.
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-left border-collapse">
+                <thead>
+                  <tr className="border-b border-violet-900/50 bg-slate-950/70 text-violet-300 text-xs font-bold uppercase tracking-wider">
+                    <th className="py-4 px-6">Rank</th>
+                    <th className="py-4 px-6">Member</th>
+                    <th className="py-4 px-6">Role</th>
+                    <th className="py-4 px-6">Level</th>
+                    <th className="py-4 px-6">Total Points</th>
+                    {canManage && <th className="py-4 px-6 text-right">Actions</th>}
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-violet-950/60 text-sm">
+                  {filteredMembers.map((member, index) => {
+                    const levelData = calculateLevelProgress(member.totalPoints || 0);
 
-                    <div className="overflow-hidden">
-                      <h2 className="font-bold text-white text-base truncate">
-                        {member.name || "Unnamed"}
-                      </h2>
-                      {/* ROLE UNDER NAME */}
-                      <p className="text-xs text-amber-400 font-semibold truncate">
-                        {member.role || "Member"}
-                      </p>
-                      {member.username && (
-                        <p className="text-[11px] text-slate-500 truncate">
-                          @{member.username}
-                        </p>
-                      )}
-                    </div>
-                  </div>
-
-                  <div className="space-y-2 text-xs text-slate-400 border-t border-violet-950 pt-3 mb-4">
-                    <div className="flex items-center gap-2 truncate">
-                      <Mail size={14} className="text-slate-500 shrink-0" />
-                      <span className="truncate">
-                        {member.email || "No email"}
-                      </span>
-                    </div>
-
-                    <div className="flex items-center gap-2">
-                      <Phone size={14} className="text-slate-500 shrink-0" />
-                      <span>{member.phoneNumber || "No phone added"}</span>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="flex items-center justify-between pt-3 border-t border-violet-950">
-                  <span className="px-2.5 py-1 rounded-full bg-slate-950 border border-violet-900/40 text-violet-300 text-[11px] font-bold uppercase">
-                    {member.role || "Member"}
-                  </span>
-
-                  <div className="flex items-center gap-3">
-                    <div className="text-right">
-                      <span className="text-sm font-black text-amber-400">
-                        {member.totalPoints || 0}
-                      </span>
-                      <span className="text-[10px] text-slate-500 ml-1 font-bold">pts</span>
-                    </div>
-
-                    {/* DELETE MEMBER BUTTON */}
-                    {canManageMembers && (
-                      <button
-                        onClick={() => setUserToDelete(member)}
-                        className="p-2 rounded-xl bg-red-500/10 text-red-400 hover:bg-red-500/20 border border-red-500/20 transition"
-                        title="Delete Member"
+                    return (
+                      <tr
+                        key={member.id}
+                        className="hover:bg-violet-950/20 transition-colors"
                       >
-                        <Trash2 size={16} />
-                      </button>
-                    )}
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
+                        <td className="py-4 px-6 font-bold text-amber-400">
+                          #{index + 1}
+                        </td>
+
+                        <td className="py-4 px-6">
+                          <div className="flex items-center gap-3">
+                            <div className="w-10 h-10 rounded-full overflow-hidden border border-amber-500/30 bg-slate-950 flex items-center justify-center shrink-0">
+                              {member.photoURL ? (
+                                <img
+                                  src={member.photoURL}
+                                  alt=""
+                                  className="w-full h-full object-cover"
+                                />
+                              ) : (
+                                <User size={18} className="text-violet-300" />
+                              )}
+                            </div>
+                            <div>
+                              <p className="font-bold text-white">
+                                {member.name || member.displayName || "Member"}
+                              </p>
+                              <p className="text-xs text-slate-400 flex items-center gap-1 mt-0.5">
+                                <Mail size={12} />
+                                <span>{member.email || "No email registered"}</span>
+                              </p>
+                            </div>
+                          </div>
+                        </td>
+
+                        <td className="py-4 px-6">
+                          <span
+                            className={`inline-block px-3 py-1 rounded-full text-xs font-bold ${
+                              (member.role || "").toLowerCase().includes("president") ||
+                              (member.role || "").toLowerCase().includes("secretary") ||
+                              (member.role || "").toLowerCase().includes("admin")
+                                ? "bg-amber-500/15 border border-amber-500/30 text-amber-300"
+                                : "bg-violet-500/10 border border-violet-500/30 text-violet-300"
+                            }`}
+                          >
+                            {member.role || "Member"}
+                          </span>
+                        </td>
+
+                        <td className="py-4 px-6">
+                          <span className="text-xs font-semibold text-slate-300">
+                            {levelData.levelTitle}
+                          </span>
+                        </td>
+
+                        <td className="py-4 px-6 font-black text-amber-400">
+                          {member.totalPoints || 0} pts
+                        </td>
+
+                        {canManage && (
+                          <td className="py-4 px-6 text-right">
+                            <button
+                              onClick={() => setMemberToDelete(member)}
+                              className="p-2 rounded-xl bg-red-500/10 text-red-400 hover:bg-red-500/20 border border-red-500/20 transition"
+                              title="Delete Member"
+                            >
+                              <Trash2 size={16} />
+                            </button>
+                          </td>
+                        )}
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
       </main>
 
       {/* DELETE CONFIRMATION MODAL */}
-      {userToDelete && (
-        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-slate-900 border border-red-500/30 rounded-3xl p-6 sm:p-8 max-w-md w-full shadow-2xl">
-            <div className="w-12 h-12 rounded-2xl bg-red-500/10 border border-red-500/20 flex items-center justify-center text-red-400 mb-4">
-              <Trash2 size={24} />
+      {memberToDelete && (
+        <div className="fixed inset-0 z-50 bg-black/85 backdrop-blur-md flex items-center justify-center p-4">
+          <div className="bg-slate-900 border border-red-500/30 rounded-3xl p-6 sm:p-8 max-w-sm w-full text-center">
+            <div className="w-14 h-14 rounded-2xl bg-red-500/10 border border-red-500/30 flex items-center justify-center text-red-400 mx-auto mb-4">
+              <AlertTriangle size={28} />
             </div>
 
-            <h2 className="text-xl font-bold text-white mb-2">Delete Member?</h2>
-            <p className="text-sm text-slate-400 mb-6 leading-relaxed">
-              Are you sure you want to permanently delete{" "}
+            <h3 className="text-xl font-bold text-white mb-2">Delete Member?</h3>
+            <p className="text-xs text-slate-300 mb-6 leading-relaxed">
+              Are you sure you want to remove{" "}
               <strong className="text-white">
-                {userToDelete.name || userToDelete.email}
-              </strong>
-              ? This removes their account profile, total points, and all related records.
+                {memberToDelete.name || memberToDelete.email}
+              </strong>{" "}
+              from the RotaStar ledger?
             </p>
 
-            <div className="flex items-center justify-end gap-3">
+            <div className="flex justify-end gap-3">
               <button
-                onClick={() => setUserToDelete(null)}
-                disabled={deleteLoading}
-                className="px-4 py-2.5 rounded-xl text-slate-400 hover:text-white transition text-sm"
+                onClick={() => setMemberToDelete(null)}
+                className="px-4 py-2.5 rounded-xl bg-slate-800 text-slate-300 text-xs font-bold hover:bg-slate-700 transition"
               >
                 Cancel
               </button>
               <button
                 onClick={handleDeleteMember}
                 disabled={deleteLoading}
-                className="px-5 py-2.5 rounded-xl bg-red-600 hover:bg-red-500 text-white font-bold transition flex items-center gap-2 text-sm"
+                className="px-5 py-2.5 bg-red-600 hover:bg-red-500 text-white rounded-xl text-xs font-bold transition disabled:opacity-50"
               >
-                {deleteLoading ? (
-                  <>
-                    <Loader2 size={16} className="animate-spin" />
-                    <span>Deleting...</span>
-                  </>
-                ) : (
-                  <span>Yes, Delete Member</span>
-                )}
+                {deleteLoading ? "Deleting..." : "Delete Member"}
               </button>
             </div>
           </div>
