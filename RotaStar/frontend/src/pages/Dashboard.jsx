@@ -49,6 +49,9 @@ import {
   calculateMonthlyStreak,
 } from "../utils/gamification";
 
+// Safe dynamic asset resolution for Vite + Vercel
+const getAssetUrl = (name) => new URL(`../assets/${name}`, import.meta.url).href;
+
 const MOTIVATIONAL_QUOTES = [
   "“The best way to find yourself is to lose yourself in the service of others.” — Mahatma Gandhi",
   "“Great things are done by a series of small things brought together.” — Vincent van Gogh",
@@ -102,7 +105,12 @@ export default function Dashboard() {
   const [unlockedBadgeModal, setUnlockedBadgeModal] = useState(null);
   const [hasInitializedBadges, setHasInitializedBadges] = useState(false);
 
-  // Real-time Gamification Calculations (Memoized to prevent infinite renders)
+  // Image load fallback states
+  const [clubLogoError, setClubLogoError] = useState(false);
+  const [auraLogoError, setAuraLogoError] = useState(false);
+  const [districtLogoError, setDistrictLogoError] = useState(false);
+
+  // Gamification Calculations
   const points = userData?.totalPoints || 0;
   const levelData = useMemo(() => calculateLevelProgress(points), [points]);
   const monthlyStreak = useMemo(() => calculateMonthlyStreak(allUserActivities), [allUserActivities]);
@@ -124,7 +132,7 @@ export default function Dashboard() {
     rawRole.includes("secretary") ||
     rawRole.includes("board");
 
-  // 1. Level-Up detection
+  // Level-Up detection
   useEffect(() => {
     if (!currentUser || !userData) return;
 
@@ -150,7 +158,7 @@ export default function Dashboard() {
     localStorage.setItem(storageKey, levelData.currentLevel.toString());
   }, [currentUser, userData, levelData.currentLevel]);
 
-  // 2. Badge Unlock detection
+  // Badge Unlock detection
   useEffect(() => {
     if (!currentUser || !userData || memberBadges.length === 0) return;
 
@@ -183,7 +191,7 @@ export default function Dashboard() {
     }
   }, [currentUser, userData, memberBadges, hasInitializedBadges]);
 
-  // 3. Live Announcements Sync
+  // Announcements Sync
   useEffect(() => {
     const q = query(collection(db, "announcements"), orderBy("createdAt", "desc"));
     const unsubscribe = onSnapshot(q, (snapshot) => {
@@ -192,7 +200,7 @@ export default function Dashboard() {
     return () => unsubscribe();
   }, []);
 
-  // 4. Leaderboard rank calculation
+  // Leaderboard Rank Sync
   useEffect(() => {
     const unsubUsers = onSnapshot(collection(db, "users"), (snapshot) => {
       const allUsers = snapshot.docs.map((docSnap) => ({
@@ -208,7 +216,7 @@ export default function Dashboard() {
     return () => unsubUsers();
   }, [currentUser]);
 
-  // 5. Activities Sync
+  // Activities Sync
   useEffect(() => {
     if (!currentUser) return;
     const q = query(collection(db, "activities"), where("userId", "==", currentUser.uid));
@@ -271,12 +279,6 @@ export default function Dashboard() {
     navigate("/login");
   };
 
-  // Safe Image Error Handler (Prevents recursive blinking loop)
-  const handleImageError = (e) => {
-    e.currentTarget.onerror = null;
-    e.currentTarget.style.display = "none";
-  };
-
   const renderBadgeIcon = (iconName, unlocked) => {
     const color = unlocked ? "text-amber-400" : "text-slate-600";
     switch (iconName) {
@@ -301,31 +303,47 @@ export default function Dashboard() {
 
   return (
     <div className="min-h-screen bg-[#030014] text-white">
-      {/* 🏆 HEADER NAVBAR */}
+      {/* NAVBAR */}
       <nav className="border-b border-violet-900/40 bg-slate-950/80 backdrop-blur-md sticky top-0 z-50">
         <div className="max-w-6xl mx-auto px-6 h-20 flex items-center justify-between">
           <div className="flex items-center gap-4">
             <div className="flex items-center gap-2 p-1.5 rounded-2xl bg-slate-900/90 border border-violet-900/50 shadow-lg">
-              <img
-                src="/assets/club-logo.png"
-                alt="RAC PSVPEC Logo"
-                className="h-9 w-auto object-contain rounded-lg"
-                onError={handleImageError}
-              />
-              <div className="h-6 w-px bg-violet-900/60" />
-              <img
-                src="/assets/aura-logo.png"
-                alt="AURA Theme Logo"
-                className="h-8 w-auto object-contain rounded-lg"
-                onError={handleImageError}
-              />
-              <div className="h-6 w-px bg-violet-900/60" />
-              <img
-                src="/assets/district-logo.png"
-                alt="Rotaract District Logo"
-                className="h-7 w-auto object-contain rounded-lg"
-                onError={handleImageError}
-              />
+              {!clubLogoError ? (
+                <img
+                  src={getAssetUrl("club-logo.png")}
+                  alt="RAC PSVPEC"
+                  className="h-8 w-auto object-contain rounded-lg"
+                  onError={() => setClubLogoError(true)}
+                />
+              ) : (
+                <span className="text-[10px] font-bold text-amber-400 px-1">PSV</span>
+              )}
+
+              <div className="h-5 w-px bg-violet-900/60" />
+
+              {!auraLogoError ? (
+                <img
+                  src={getAssetUrl("aura-logo.png")}
+                  alt="AURA"
+                  className="h-7 w-auto object-contain rounded-lg"
+                  onError={() => setAuraLogoError(true)}
+                />
+              ) : (
+                <span className="text-[10px] font-bold text-violet-400 px-1">AURA</span>
+              )}
+
+              <div className="h-5 w-px bg-violet-900/60" />
+
+              {!districtLogoError ? (
+                <img
+                  src={getAssetUrl("district-logo.png")}
+                  alt="District"
+                  className="h-6 w-auto object-contain rounded-lg"
+                  onError={() => setDistrictLogoError(true)}
+                />
+              ) : (
+                <span className="text-[10px] font-bold text-amber-400 px-1">RID</span>
+              )}
             </div>
 
             <div className="hidden md:block">
@@ -390,7 +408,7 @@ export default function Dashboard() {
 
       {/* MAIN CONTAINER */}
       <main className="max-w-6xl mx-auto px-6 py-8">
-        {/* 📢 LIVE URGENT BROADCAST BANNERS */}
+        {/* LIVE URGENT BROADCAST BANNERS */}
         {visibleAnnouncements.length > 0 && (
           <div className="space-y-3 mb-6">
             {visibleAnnouncements.map((ann) => {
@@ -512,7 +530,7 @@ export default function Dashboard() {
             </div>
           </div>
 
-          {/* ANIMATED LEVEL PROGRESS BAR */}
+          {/* PROGRESS BAR */}
           <div className="bg-slate-950/70 border border-violet-900/40 rounded-2xl p-4 sm:p-5">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between text-xs font-bold mb-2.5 gap-1">
               <span className="text-amber-300 flex items-center gap-1.5">
@@ -667,7 +685,7 @@ export default function Dashboard() {
           </button>
         </div>
 
-        {/* 🌟 INSTITUTIONAL SHOWCASE */}
+        {/* INSTITUTIONAL SHOWCASE (CARDS) */}
         <section className="mb-8">
           <div className="flex items-center justify-between mb-4">
             <div>
@@ -686,12 +704,16 @@ export default function Dashboard() {
             <div className="bg-gradient-to-b from-slate-900/95 to-slate-950 border border-amber-500/30 rounded-3xl p-6 shadow-2xl flex flex-col justify-between hover:border-amber-400/60 transition-all">
               <div>
                 <div className="w-16 h-16 rounded-2xl bg-slate-950 p-2 border border-amber-400/40 mb-4 shadow-lg shadow-amber-500/10 flex items-center justify-center">
-                  <img
-                    src="/assets/club-logo.png"
-                    alt="RAC PSVPEC Club Logo"
-                    className="w-full h-full object-contain"
-                    onError={handleImageError}
-                  />
+                  {!clubLogoError ? (
+                    <img
+                      src={getAssetUrl("club-logo.png")}
+                      alt="RAC PSVPEC Club Logo"
+                      className="w-full h-full object-contain"
+                      onError={() => setClubLogoError(true)}
+                    />
+                  ) : (
+                    <span className="font-black text-amber-400 text-xs text-center">PSVPEC</span>
+                  )}
                 </div>
                 <div className="inline-block px-2.5 py-0.5 rounded-full bg-amber-500/10 border border-amber-500/30 text-amber-300 text-[10px] font-black uppercase mb-2">
                   Institutional Club
@@ -712,12 +734,16 @@ export default function Dashboard() {
             <div className="bg-gradient-to-b from-violet-950/60 to-slate-950 border border-violet-500/40 rounded-3xl p-6 shadow-2xl flex flex-col justify-between hover:border-violet-400/70 transition-all">
               <div>
                 <div className="w-16 h-16 rounded-2xl bg-slate-950 p-2 border border-violet-400/40 mb-4 shadow-lg shadow-violet-500/20 flex items-center justify-center">
-                  <img
-                    src="/assets/aura-logo.png"
-                    alt="AURA Theme Logo"
-                    className="w-full h-full object-contain"
-                    onError={handleImageError}
-                  />
+                  {!auraLogoError ? (
+                    <img
+                      src={getAssetUrl("aura-logo.png")}
+                      alt="AURA Theme Logo"
+                      className="w-full h-full object-contain"
+                      onError={() => setAuraLogoError(true)}
+                    />
+                  ) : (
+                    <span className="font-black text-violet-400 text-xs text-center">AURA</span>
+                  )}
                 </div>
                 <div className="inline-block px-2.5 py-0.5 rounded-full bg-violet-500/10 border border-violet-500/30 text-violet-300 text-[10px] font-black uppercase mb-2">
                   Presidential Theme
@@ -738,12 +764,16 @@ export default function Dashboard() {
             <div className="bg-gradient-to-b from-slate-900/95 to-slate-950 border border-amber-500/30 rounded-3xl p-6 shadow-2xl flex flex-col justify-between hover:border-amber-400/60 transition-all">
               <div>
                 <div className="w-16 h-16 rounded-2xl bg-slate-950 p-2 border border-amber-400/40 mb-4 shadow-lg shadow-amber-500/10 flex items-center justify-center">
-                  <img
-                    src="/assets/district-logo.png"
-                    alt="Rotaract District Logo"
-                    className="w-full h-full object-contain"
-                    onError={handleImageError}
-                  />
+                  {!districtLogoError ? (
+                    <img
+                      src={getAssetUrl("district-logo.png")}
+                      alt="Rotaract District Logo"
+                      className="w-full h-full object-contain"
+                      onError={() => setDistrictLogoError(true)}
+                    />
+                  ) : (
+                    <span className="font-black text-amber-400 text-xs text-center">RID 3234</span>
+                  )}
                 </div>
                 <div className="inline-block px-2.5 py-0.5 rounded-full bg-amber-500/10 border border-amber-500/30 text-amber-300 text-[10px] font-black uppercase mb-2">
                   Rotary International District
@@ -942,7 +972,7 @@ export default function Dashboard() {
           )}
         </section>
 
-        {/* 🚀 CREATOR FOOTER CARD */}
+        {/* CREATOR FOOTER CARD */}
         <section className="bg-gradient-to-r from-violet-950/70 via-slate-900/90 to-amber-950/40 border border-violet-900/50 rounded-3xl p-6 sm:p-8 shadow-2xl">
           <div className="flex flex-col md:flex-row items-start gap-6">
             <div className="p-4 bg-amber-500/10 border border-amber-500/30 rounded-2xl text-amber-400 shrink-0 shadow-lg shadow-amber-500/10">
@@ -995,7 +1025,7 @@ export default function Dashboard() {
         </section>
       </main>
 
-      {/* ADMIN ANNOUNCEMENT MODAL */}
+      {/* ANNOUNCEMENT MODAL */}
       {showAnnounceModal && (
         <div className="fixed inset-0 z-50 bg-black/85 backdrop-blur-md flex items-center justify-center p-4">
           <div className="bg-slate-900 border-2 border-amber-500/40 rounded-3xl p-6 sm:p-8 max-w-lg w-full shadow-2xl relative">
