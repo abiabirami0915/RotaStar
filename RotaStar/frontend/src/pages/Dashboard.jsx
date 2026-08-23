@@ -298,7 +298,7 @@ export default function Dashboard() {
 
   return (
     <div className="min-h-screen bg-[#030014] text-white">
-      {/* 🏆 CLEAN HEADER NAVBAR (TOP LOGO BOX REMOVED) */}
+      {/* NAVBAR */}
       <nav className="border-b border-violet-900/40 bg-slate-950/80 backdrop-blur-md sticky top-0 z-50">
         <div className="max-w-6xl mx-auto px-6 h-20 flex items-center justify-between">
           <div className="flex items-center gap-3">
@@ -644,7 +644,7 @@ export default function Dashboard() {
           </button>
         </div>
 
-        {/* 🌟 UPDATED INSTITUTIONAL SHOWCASE (ABOUT CLUB, AURA & RID 3233) */}
+        {/* 🌟 INSTITUTIONAL SHOWCASE */}
         <section className="mb-8">
           <div className="flex items-center justify-between mb-4">
             <div>
@@ -664,11 +664,11 @@ export default function Dashboard() {
               <div>
                 <div className="flex items-center justify-between mb-3">
                   <div className="inline-block px-2.5 py-0.5 rounded-full bg-amber-500/10 border border-amber-500/30 text-amber-300 text-[10px] font-black uppercase">
-                    Institutional Club
+                    College Based Club
                   </div>
                   <div className="flex items-center gap-1 text-[11px] text-amber-400 font-semibold bg-slate-950 px-2.5 py-0.5 rounded-full border border-violet-900/40">
                     <CalendarDays size={12} />
-                    <span>Charter Date: 2024</span>
+                    <span>Charter Date : 20th August 2020</span>
                   </div>
                 </div>
 
@@ -694,7 +694,7 @@ export default function Dashboard() {
               </div>
 
               <div className="pt-3 mt-4 border-t border-violet-900/40 text-[11px] text-amber-400/90 font-bold flex items-center justify-between">
-                <span>Chartered Institutional Club</span>
+                <span>College Based Club</span>
                 <span>RAC PSVPEC</span>
               </div>
             </div>
@@ -703,14 +703,14 @@ export default function Dashboard() {
             <div className="bg-gradient-to-b from-violet-950/60 to-slate-950 border border-violet-500/40 rounded-3xl p-6 shadow-2xl flex flex-col justify-between hover:border-violet-400/70 transition-all">
               <div>
                 <div className="inline-block px-2.5 py-0.5 rounded-full bg-violet-500/10 border border-violet-500/30 text-violet-300 text-[10px] font-black uppercase mb-3">
-                  Presidential Theme
+                  Leadership Theme
                 </div>
 
                 <h3 className="text-xl font-black text-white mb-1">
                   Theme AURA
                 </h3>
                 <p className="text-xs font-extrabold text-amber-400 mb-3 tracking-wide">
-                  "Activating unity, responsibilities and action"
+                  aura - Activating unity, responsibilities and action
                 </p>
 
                 <p className="text-xs text-slate-300 leading-relaxed mb-4">
@@ -746,7 +746,7 @@ export default function Dashboard() {
                   Rotary International District 3233
                 </h3>
                 <p className="text-xs font-extrabold text-amber-400 mb-3 tracking-wide">
-                  V.I.B.E — Vision • Innovate • Believe • Evolve
+                  V.I.B.E - Vision.Innovate.Believe.Evolve
                 </p>
 
                 <p className="text-xs text-slate-300 leading-relaxed mb-4">
