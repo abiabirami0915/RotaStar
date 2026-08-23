@@ -23,6 +23,8 @@ import {
   AlertTriangle,
   Layers,
   CalendarPlus,
+  MessageSquare,
+  ShieldCheck,
 } from "lucide-react";
 import {
   collection,
@@ -52,7 +54,7 @@ const STATUS_CONFIG = {
   submitted: { label: "Under Review", color: "bg-amber-500/10 text-amber-400 border-amber-500/30" },
   reviewed: { label: "In Discussion", color: "bg-blue-500/10 text-blue-400 border-blue-500/30" },
   approved: { label: "Approved & Scheduled", color: "bg-emerald-500/10 text-emerald-400 border-emerald-500/30" },
-  archived: { label: "Archived", color: "bg-slate-800 text-slate-400 border-slate-700" },
+  archived: { label: "Archived / Rejected", color: "bg-rose-500/10 text-rose-400 border-rose-500/30" },
 };
 
 export default function EventIdeas() {
@@ -65,10 +67,11 @@ export default function EventIdeas() {
   const [selectedAvenue, setSelectedAvenue] = useState("all");
   const [statusFilter, setStatusFilter] = useState("all");
 
-  // Modals
+  // Modals & Active State
   const [showAddModal, setShowAddModal] = useState(false);
   const [viewingIdea, setViewingIdea] = useState(null);
   const [ideaToDelete, setIdeaToDelete] = useState(null);
+  const [adminNoteInput, setAdminNoteInput] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [transferring, setTransferring] = useState(false);
   const [deleteLoading, setDeleteLoading] = useState(false);
@@ -83,15 +86,16 @@ export default function EventIdeas() {
   const [secretary, setSecretary] = useState("");
   const [description, setDescription] = useState("");
   const [resourcesNeeded, setResourcesNeeded] = useState("");
-  const [seekingFeedback, setSeekingFeedback] = useState("Yes");
 
-  const roleString = (userData?.role || "").toLowerCase();
+  // Broadened role checking to prevent locking admins out
+  const rawRole = (userData?.role || "").toString().toLowerCase().trim();
   const canManage =
-    isAdmin ||
-    isSuperAdmin ||
-    roleString.includes("admin") ||
-    roleString.includes("president") ||
-    roleString.includes("secretary");
+    Boolean(isAdmin) ||
+    Boolean(isSuperAdmin) ||
+    rawRole.includes("admin") ||
+    rawRole.includes("president") ||
+    rawRole.includes("secretary") ||
+    rawRole.includes("board");
 
   useEffect(() => {
     const q = query(collection(db, "eventIdeas"), orderBy("createdAt", "desc"));
@@ -128,7 +132,11 @@ export default function EventIdeas() {
     setSecretary("");
     setDescription("");
     setResourcesNeeded("");
-    setSeekingFeedback("Yes");
+  };
+
+  const handleOpenIdeaModal = (idea) => {
+    setViewingIdea(idea);
+    setAdminNoteInput(idea.adminRemarks || "");
   };
 
   const handleAddIdea = async (e) => {
@@ -149,13 +157,13 @@ export default function EventIdeas() {
         secretary: secretary.trim() || "None / Open",
         description: description.trim(),
         resourcesNeeded: resourcesNeeded.trim() || "Standard venue/materials",
-        seekingFeedback,
         submittedBy: userData?.name || currentUser?.displayName || "Member",
         submittedByEmail: currentUser?.email || "",
         submittedByPhoto: userData?.photoURL || currentUser?.photoURL || "",
         submittedByRole: userData?.role || "Member",
         userId: currentUser?.uid || "anonymous",
         status: "submitted",
+        adminRemarks: "",
         createdAt: serverTimestamp(),
       });
 
@@ -170,30 +178,86 @@ export default function EventIdeas() {
     }
   };
 
-  // 🚀 AUTO-APPROVE & SCHEDULE DIRECTLY INTO EVENT CALENDAR
+  // Direct Status Update with Remarks
+  const handleUpdateStatus = async (id, newStatus, remarks = null) => {
+    try {
+      const updatePayload = {
+        status: newStatus,
+        reviewedBy: userData?.name || "Admin",
+        reviewedAt: serverTimestamp(),
+      };
+
+      if (remarks !== null) {
+        updatePayload.adminRemarks = remarks.trim();
+      }
+
+      await updateDoc(doc(db, "eventIdeas", id), updatePayload);
+      showToast(`Status updated to "${STATUS_CONFIG[newStatus]?.label || newStatus}"`);
+
+      if (viewingIdea?.id === id) {
+        setViewingIdea((prev) => ({
+          ...prev,
+          status: newStatus,
+          adminRemarks: remarks !== null ? remarks.trim() : prev.adminRemarks,
+        }));
+      }
+    } catch (err) {
+      console.error("Update status error:", err);
+      showToast("Failed to update status", "error");
+    }
+  };
+
+  // Save Admin Review Notes
+  const handleSaveAdminRemarks = async () => {
+    if (!viewingIdea) return;
+    try {
+      await updateDoc(doc(db, "eventIdeas", viewingIdea.id), {
+        adminRemarks: adminNoteInput.trim(),
+        reviewedBy: userData?.name || "Admin",
+        reviewedAt: serverTimestamp(),
+      });
+      showToast("Review remarks saved!");
+      setViewingIdea((prev) => ({ ...prev, adminRemarks: adminNoteInput.trim() }));
+    } catch (err) {
+      showToast("Failed to save remarks", "error");
+    }
+  };
+
+  // Auto-Approve & Schedule into Calendar
   const handleApproveAndSchedule = async (idea) => {
-    if (!canManage || !idea) return;
+    if (!idea) return;
 
     setTransferring(true);
     try {
-      // 1. Publish directly into 'events' collection
       await addDoc(collection(db, "events"), {
         title: idea.title,
         avenue: idea.avenue || "General",
         date: idea.tentativeDate && !isNaN(Date.parse(idea.tentativeDate)) ? idea.tentativeDate : "",
-        time: idea.mode === "Online" ? "Online (Google Meet/Zoom)" : "TBA",
+        time: idea.mode === "Online" ? "Online (Google Meet / Zoom)" : "TBA",
         venue: idea.mode === "Online" ? "Online" : "College Campus",
         pointsReward: 35,
-        description: `Proposed by ${idea.submittedBy} (${idea.submittedByRole || "Member"}).\n\nConcept:\n${idea.description}\n\nChair: ${idea.chairperson || "TBD"} | Sec: ${idea.secretary || "TBD"}`,
+        description: `Initiative proposed by ${idea.submittedBy} (${idea.submittedByRole || "Member"}).\n\nConcept:\n${idea.description}\n\nChair: ${idea.chairperson || "TBD"} | Sec: ${idea.secretary || "TBD"}`,
         createdBy: userData?.name || "Club Executive Board",
         createdAt: serverTimestamp(),
       });
 
-      // 2. Mark Idea status as 'approved'
-      await updateDoc(doc(db, "eventIdeas", idea.id), { status: "approved" });
+      await updateDoc(doc(db, "eventIdeas", idea.id), {
+        status: "approved",
+        adminRemarks: adminNoteInput.trim() || "Approved and scheduled to official event calendar.",
+        reviewedBy: userData?.name || "Admin",
+        reviewedAt: serverTimestamp(),
+      });
 
       showToast(`"${idea.title}" scheduled to Event Calendar!`);
-      setViewingIdea((prev) => (prev ? { ...prev, status: "approved" } : null));
+      setViewingIdea((prev) =>
+        prev
+          ? {
+              ...prev,
+              status: "approved",
+              adminRemarks: adminNoteInput.trim() || "Approved and scheduled to official event calendar.",
+            }
+          : null
+      );
     } catch (err) {
       console.error("Schedule event error:", err);
       showToast("Failed to schedule event into calendar", "error");
@@ -202,19 +266,7 @@ export default function EventIdeas() {
     }
   };
 
-  const handleUpdateStatus = async (id, newStatus) => {
-    if (!canManage) return;
-    try {
-      await updateDoc(doc(db, "eventIdeas", id), { status: newStatus });
-      showToast(`Status updated to ${newStatus}`);
-      if (viewingIdea?.id === id) {
-        setViewingIdea((prev) => ({ ...prev, status: newStatus }));
-      }
-    } catch (err) {
-      showToast("Failed to update status", "error");
-    }
-  };
-
+  // Delete Handler
   const handleDeleteIdea = async () => {
     if (!ideaToDelete) return;
     setDeleteLoading(true);
@@ -277,7 +329,9 @@ export default function EventIdeas() {
               Event Ideas & Suggestions
             </h1>
             <p className="text-xs text-slate-400 mt-1">
-              Have a visionary project in mind? Pitch it here for RAC PSVPEC!
+              {canManage
+                ? "Admin Mode: Review, discuss, approve, or schedule member ideas."
+                : "Have a project in mind? Pitch it here for RAC PSVPEC!"}
             </p>
           </div>
 
@@ -286,7 +340,7 @@ export default function EventIdeas() {
               resetForm();
               setShowAddModal(true);
             }}
-            className="px-5 py-3 rounded-2xl bg-gradient-to-r from-violet-700 via-purple-600 to-amber-600 hover:from-violet-600 hover:to-amber-500 text-white font-bold text-sm flex items-center gap-2 shadow-xl shadow-violet-950 transition border border-amber-400/30"
+            className="px-5 py-3 rounded-2xl bg-gradient-to-r from-violet-700 via-purple-600 to-amber-600 hover:from-violet-600 hover:to-amber-500 text-white font-bold text-sm flex items-center gap-2 shadow-xl shadow-violet-950 transition border border-amber-400/30 shrink-0"
           >
             <Plus size={18} />
             <span>Pitch an Event Idea</span>
@@ -328,7 +382,9 @@ export default function EventIdeas() {
             >
               <option value="all">All Avenues</option>
               {AVENUES.map((av) => (
-                <option key={av} value={av}>{av}</option>
+                <option key={av} value={av}>
+                  {av}
+                </option>
               ))}
             </select>
           </div>
@@ -343,7 +399,7 @@ export default function EventIdeas() {
               <option value="submitted">Under Review</option>
               <option value="reviewed">In Discussion</option>
               <option value="approved">Approved & Scheduled</option>
-              <option value="archived">Archived</option>
+              <option value="archived">Archived / Rejected</option>
             </select>
           </div>
         </div>
@@ -375,13 +431,26 @@ export default function EventIdeas() {
                         {idea.avenue || "General"}
                       </span>
 
-                      <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold border ${statusInfo.color}`}>
-                        {statusInfo.label}
-                      </span>
+                      {canManage ? (
+                        <select
+                          value={idea.status || "submitted"}
+                          onChange={(e) => handleUpdateStatus(idea.id, e.target.value)}
+                          className={`px-2.5 py-1 rounded-xl text-[10px] font-bold border outline-none cursor-pointer bg-slate-950 ${statusInfo.color}`}
+                        >
+                          <option value="submitted" className="bg-slate-900 text-amber-400">Under Review</option>
+                          <option value="reviewed" className="bg-slate-900 text-blue-400">In Discussion</option>
+                          <option value="approved" className="bg-slate-900 text-emerald-400">Approved</option>
+                          <option value="archived" className="bg-slate-900 text-rose-400">Archived</option>
+                        </select>
+                      ) : (
+                        <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold border ${statusInfo.color}`}>
+                          {statusInfo.label}
+                        </span>
+                      )}
                     </div>
 
                     <h3
-                      onClick={() => setViewingIdea(idea)}
+                      onClick={() => handleOpenIdeaModal(idea)}
                       className="text-lg font-black text-white mb-2 cursor-pointer hover:text-amber-300 transition-colors"
                     >
                       {idea.title}
@@ -390,6 +459,15 @@ export default function EventIdeas() {
                     <p className="text-xs text-slate-300 mb-4 line-clamp-3 leading-relaxed">
                       {idea.description}
                     </p>
+
+                    {idea.adminRemarks && (
+                      <div className="mb-4 p-3 bg-violet-950/60 border border-violet-500/30 rounded-2xl text-[11px] text-amber-300">
+                        <strong className="block text-[10px] uppercase tracking-wider text-amber-400 font-bold mb-0.5">
+                          Board Feedback:
+                        </strong>
+                        {idea.adminRemarks}
+                      </div>
+                    )}
 
                     <div className="space-y-2 bg-slate-950/70 p-3.5 rounded-2xl border border-violet-900/40 text-xs text-slate-400 mb-4">
                       <div className="flex items-center justify-between">
@@ -428,10 +506,10 @@ export default function EventIdeas() {
 
                     <div className="flex items-center gap-1.5">
                       <button
-                        onClick={() => setViewingIdea(idea)}
+                        onClick={() => handleOpenIdeaModal(idea)}
                         className="px-3 py-1 rounded-xl bg-violet-600/20 hover:bg-violet-600/40 border border-violet-500/30 text-violet-200 text-xs font-semibold transition"
                       >
-                        Details
+                        {canManage ? "Review" : "Details"}
                       </button>
 
                       {(canManage || isAuthor) && (
@@ -452,7 +530,7 @@ export default function EventIdeas() {
         )}
       </main>
 
-      {/* 1. VIEW FULL IDEA MODAL (WITH ONE-CLICK SCHEDULE) */}
+      {/* 1. REVIEW & DETAILS MODAL */}
       {viewingIdea && (
         <div className="fixed inset-0 z-50 bg-black/85 backdrop-blur-md flex items-center justify-center p-4">
           <div className="bg-slate-900 border-2 border-violet-500/40 rounded-3xl p-6 sm:p-8 max-w-xl w-full shadow-2xl relative max-h-[90vh] flex flex-col">
@@ -498,8 +576,8 @@ export default function EventIdeas() {
               </div>
             </div>
 
-            {/* FULL DETAILS */}
-            <div className="flex-1 overflow-y-auto pr-2 space-y-4 mb-6 text-sm text-slate-300 leading-relaxed bg-slate-950/60 p-5 rounded-2xl border border-violet-900/30">
+            {/* FULL DETAILS SCROLLABLE */}
+            <div className="flex-1 overflow-y-auto pr-2 space-y-4 mb-4 text-sm text-slate-300 leading-relaxed bg-slate-950/60 p-5 rounded-2xl border border-violet-900/30">
               <div>
                 <h4 className="text-xs font-bold uppercase tracking-wider text-amber-400 mb-1">
                   Full Project Concept
@@ -526,6 +604,30 @@ export default function EventIdeas() {
                   <span className="text-white font-medium">{viewingIdea.secretary || "None / Open"}</span>
                 </div>
               </div>
+
+              {/* ADMIN REMARKS EDITOR */}
+              {canManage && (
+                <div className="pt-3 border-t border-violet-900/40">
+                  <label className="block text-xs font-bold text-amber-400 uppercase tracking-wider mb-1.5 flex items-center gap-1.5">
+                    <MessageSquare size={13} />
+                    <span>Board Review Remarks (Visible to Club)</span>
+                  </label>
+                  <textarea
+                    rows={2}
+                    placeholder="Write official feedback or instructions for the proposer..."
+                    value={adminNoteInput}
+                    onChange={(e) => setAdminNoteInput(e.target.value)}
+                    className="w-full px-3 py-2 bg-slate-900 border border-violet-900/50 rounded-xl text-xs text-white outline-none focus:border-amber-400 resize-none"
+                  />
+                  <button
+                    type="button"
+                    onClick={handleSaveAdminRemarks}
+                    className="mt-1.5 px-3 py-1 bg-violet-600/30 hover:bg-violet-600/50 border border-violet-500/30 rounded-lg text-xs font-bold text-violet-200 transition"
+                  >
+                    Save Remarks
+                  </button>
+                </div>
+              )}
             </div>
 
             {/* ADMIN SCHEDULE & STATUS CONTROLS */}
@@ -534,7 +636,7 @@ export default function EventIdeas() {
                 <button
                   onClick={() => handleApproveAndSchedule(viewingIdea)}
                   disabled={transferring || viewingIdea.status === "approved"}
-                  className="w-full sm:w-auto px-4 py-2 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-bold text-xs flex items-center justify-center gap-1.5 shadow-lg disabled:opacity-50 transition"
+                  className="w-full sm:w-auto px-4 py-2.5 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-bold text-xs flex items-center justify-center gap-1.5 shadow-lg disabled:opacity-50 transition"
                 >
                   {transferring ? (
                     <Loader2 size={14} className="animate-spin" />
@@ -544,16 +646,16 @@ export default function EventIdeas() {
                   <span>{viewingIdea.status === "approved" ? "Scheduled in Calendar" : "Approve & Schedule into Calendar"}</span>
                 </button>
 
-                <div className="flex items-center gap-1.5">
+                <div className="flex items-center gap-1.5 w-full sm:w-auto justify-end">
                   <button
-                    onClick={() => handleUpdateStatus(viewingIdea.id, "reviewed")}
-                    className="px-2.5 py-1.5 rounded-xl bg-blue-500/20 text-blue-300 border border-blue-500/30 text-xs font-bold"
+                    onClick={() => handleUpdateStatus(viewingIdea.id, "reviewed", adminNoteInput)}
+                    className="px-3 py-2 rounded-xl bg-blue-500/20 text-blue-300 border border-blue-500/30 text-xs font-bold hover:bg-blue-500/30 transition"
                   >
                     Discuss
                   </button>
                   <button
-                    onClick={() => handleUpdateStatus(viewingIdea.id, "archived")}
-                    className="px-2.5 py-1.5 rounded-xl bg-slate-800 text-slate-400 text-xs"
+                    onClick={() => handleUpdateStatus(viewingIdea.id, "archived", adminNoteInput)}
+                    className="px-3 py-2 rounded-xl bg-rose-500/20 text-rose-300 border border-rose-500/30 text-xs font-bold hover:bg-rose-500/30 transition"
                   >
                     Archive
                   </button>
