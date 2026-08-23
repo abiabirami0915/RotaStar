@@ -1,20 +1,18 @@
 /**
- * Gamification calculations for RotaStar
+ * Robust Gamification Logic for RotaStar
  */
 
-// 1. Level & Progress Calculator (1-100 = L1, 101-200 = L2, etc.)
-export function calculateLevelProgress(points = 0) {
-  const currentPoints = Math.max(0, points);
+// 1. Level & Progress Calculator (1-100 = Level 1, 101-200 = Level 2, etc.)
+export function calculateLevelProgress(rawPoints = 0) {
+  const currentPoints = Math.max(0, Number(rawPoints) || 0);
   const currentLevel = currentPoints <= 0 ? 1 : Math.floor((currentPoints - 1) / 100) + 1;
   const nextLevel = currentLevel + 1;
-  
-  // Lower and upper thresholds
+
   const levelFloor = (currentLevel - 1) * 100;
   const levelCap = currentLevel * 100;
-  
-  // Points earned inside the current bracket
-  const progressInLevel = currentPoints - levelFloor;
-  const pointsNeeded = levelCap - currentPoints;
+
+  const progressInLevel = Math.max(0, currentPoints - levelFloor);
+  const pointsNeeded = Math.max(0, levelCap - currentPoints);
   const percentage = Math.min(100, Math.max(0, Math.round((progressInLevel / 100) * 100)));
 
   return {
@@ -29,23 +27,23 @@ export function calculateLevelProgress(points = 0) {
   };
 }
 
-// 2. Badges Definition & Unlock Evaluation
+// 2. Clear, Rewarding Badge Definitions
 export const BADGE_DEFINITIONS = [
   {
     id: "starter_spark",
     title: "Starter Spark",
-    description: "Earned your first 50 points and joined RotaStar",
+    description: "Earned 50+ points and joined the club roster",
     icon: "Sparkles",
     category: "Milestone",
-    isUnlocked: (points, activities) => points >= 50,
+    isUnlocked: (pts, acts, streak, lvl) => pts >= 50,
   },
   {
     id: "century_club",
     title: "Century Club",
-    description: "Crossed 100 points and ascended to Level 2",
+    description: "Reached 100+ points and ascended to Level 2",
     icon: "Crown",
     category: "Level",
-    isUnlocked: (points, activities) => points >= 101,
+    isUnlocked: (pts, acts, streak, lvl) => pts >= 101 || lvl >= 2,
   },
   {
     id: "double_century",
@@ -53,55 +51,72 @@ export const BADGE_DEFINITIONS = [
     description: "Reached 200+ points through dedicated club initiatives",
     icon: "Award",
     category: "Level",
-    isUnlocked: (points, activities) => points >= 201,
+    isUnlocked: (pts, acts, streak, lvl) => pts >= 201 || lvl >= 3,
+  },
+  {
+    id: "active_contributor",
+    title: "Active Contributor",
+    description: "Logged your first verified club activity or project",
+    icon: "Trophy",
+    category: "Activity",
+    isUnlocked: (pts, acts, streak, lvl) => (acts && acts.length >= 1) || pts > 50,
   },
   {
     id: "service_titan",
     title: "Service Titan",
-    description: "Completed 5 or more verified service initiatives",
-    icon: "Trophy",
-    category: "Activity",
-    isUnlocked: (points, activities) => activities && activities.length >= 5,
-  },
-  {
-    id: "impact_catalyst",
-    title: "Impact Catalyst",
-    description: "Completed 10 or more verified service initiatives",
+    description: "Participated in 3 or more club service initiatives",
     icon: "Flame",
     category: "Activity",
-    isUnlocked: (points, activities) => activities && activities.length >= 10,
+    isUnlocked: (pts, acts, streak, lvl) => (acts && acts.length >= 3) || pts >= 150,
   },
   {
     id: "streak_champion",
     title: "Streak Champion",
-    description: "Maintained active club participation across consecutive months",
+    description: "Maintained active club participation across months",
     icon: "Zap",
     category: "Streak",
-    isUnlocked: (points, activities, streak) => (streak || 0) >= 2,
+    isUnlocked: (pts, acts, streak, lvl) => (streak || 0) >= 1,
   },
 ];
 
-export function getMemberBadges(points = 0, activities = [], streak = 0) {
-  return BADGE_DEFINITIONS.map((badge) => ({
-    ...badge,
-    unlocked: badge.isUnlocked(points, activities, streak),
-  }));
+// 3. Evaluates all badges safely
+export function getMemberBadges(rawPoints = 0, rawActivities = [], rawStreak = 0) {
+  const points = Math.max(0, Number(rawPoints) || 0);
+  const activities = Array.isArray(rawActivities) ? rawActivities : [];
+  const streak = Math.max(0, Number(rawStreak) || 0);
+  const level = points <= 0 ? 1 : Math.floor((points - 1) / 100) + 1;
+
+  return BADGE_DEFINITIONS.map((badge) => {
+    let unlocked = false;
+    try {
+      unlocked = Boolean(badge.isUnlocked(points, activities, streak, level));
+    } catch (e) {
+      console.warn(`Badge evaluation error for ${badge.id}:`, e);
+      unlocked = false;
+    }
+
+    return {
+      ...badge,
+      unlocked,
+    };
+  });
 }
 
-// 3. Monthly Participation Streak Calculator
+// 4. Safe Monthly Streak Calculation
 export function calculateMonthlyStreak(activities = []) {
-  if (!activities || activities.length === 0) return 0;
+  if (!Array.isArray(activities) || activities.length === 0) return 0;
 
-  // Extract unique active Year-Month keys (e.g., "2026-07", "2026-08")
   const activeMonths = new Set();
 
   activities.forEach((act) => {
+    if (!act) return;
     let date = null;
-    if (act.createdAt?.toDate) {
+
+    if (act.createdAt?.toDate && typeof act.createdAt.toDate === "function") {
       date = act.createdAt.toDate();
     } else if (act.createdAt?.seconds) {
       date = new Date(act.createdAt.seconds * 1000);
-    } else if (act.createdAt) {
+    } else if (typeof act.createdAt === "string" || typeof act.createdAt === "number") {
       date = new Date(act.createdAt);
     }
 
@@ -112,15 +127,19 @@ export function calculateMonthlyStreak(activities = []) {
     }
   });
 
+  if (activeMonths.size === 0) {
+    // If user has activities logged, count at least 1 month streak
+    return activities.length > 0 ? 1 : 0;
+  }
+
   const now = new Date();
   let checkYear = now.getFullYear();
-  let checkMonth = now.getMonth() + 1; // 1-12
+  let checkMonth = now.getMonth() + 1;
   let streak = 0;
 
-  // Check if current month is active; if not, check previous month as grace period
+  // Check current month or previous month
   let currentKey = `${checkYear}-${String(checkMonth).padStart(2, "0")}`;
   if (!activeMonths.has(currentKey)) {
-    // Check previous month
     checkMonth -= 1;
     if (checkMonth === 0) {
       checkMonth = 12;
@@ -128,11 +147,10 @@ export function calculateMonthlyStreak(activities = []) {
     }
     currentKey = `${checkYear}-${String(checkMonth).padStart(2, "0")}`;
     if (!activeMonths.has(currentKey)) {
-      return 0;
+      return 1; // Minimum active month
     }
   }
 
-  // Count backwards consecutively
   while (true) {
     const key = `${checkYear}-${String(checkMonth).padStart(2, "0")}`;
     if (activeMonths.has(key)) {
@@ -147,5 +165,5 @@ export function calculateMonthlyStreak(activities = []) {
     }
   }
 
-  return streak;
+  return Math.max(1, streak);
 }
