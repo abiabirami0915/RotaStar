@@ -11,7 +11,6 @@ import {
   User,
   Crown,
   Sparkles,
-  Gift,
   X,
   Target,
   Users,
@@ -58,7 +57,6 @@ export default function Dashboard() {
   const [userRank, setUserRank] = useState("-");
 
   // Popups & Modal States
-  const [showWelcomeModal, setShowWelcomeModal] = useState(false);
   const [showLevelUpModal, setShowLevelUpModal] = useState(false);
   const [levelUpData, setLevelUpData] = useState({ oldLevel: 1, newLevel: 1, quote: "" });
   const [unlockedBadgeModal, setUnlockedBadgeModal] = useState(null);
@@ -80,16 +78,7 @@ export default function Dashboard() {
     roleString.includes("president") ||
     roleString.includes("secretary");
 
-  // 1. One-time welcome bonus modal
-  useEffect(() => {
-    const isNewUser = sessionStorage.getItem("showWelcomeReward");
-    if (isNewUser === "true") {
-      setShowWelcomeModal(true);
-      sessionStorage.removeItem("showWelcomeReward");
-    }
-  }, []);
-
-  // 2. Level-Up detection and popup trigger
+  // 1. Level-Up detection and popup trigger
   useEffect(() => {
     if (!currentUser || !userData) return;
 
@@ -115,7 +104,7 @@ export default function Dashboard() {
     localStorage.setItem(storageKey, levelData.currentLevel.toString());
   }, [currentUser, userData, levelData.currentLevel]);
 
-  // 3. Robust Badge Unlock detection (prevents repeating popup on refresh)
+  // 2. Robust Badge Unlock detection (prevents repeating popup on refresh)
   useEffect(() => {
     if (!currentUser || !userData || memberBadges.length === 0) return;
 
@@ -148,7 +137,7 @@ export default function Dashboard() {
     }
   }, [currentUser, userData, memberBadges, hasInitializedBadges]);
 
-  // 4. Leaderboard rank calculation
+  // 3. Leaderboard rank calculation
   useEffect(() => {
     const unsubUsers = onSnapshot(collection(db, "users"), (snapshot) => {
       const allUsers = snapshot.docs.map((docSnap) => ({
@@ -164,7 +153,7 @@ export default function Dashboard() {
     return () => unsubUsers();
   }, [currentUser]);
 
-  // 5. Activities Sync (Streak & Feed)
+  // 4. Activities Sync (Streak & Feed)
   useEffect(() => {
     if (!currentUser) return;
 
@@ -234,8 +223,12 @@ export default function Dashboard() {
             </div>
             <div>
               <div className="flex items-center gap-1.5">
-                <span className="font-extrabold tracking-tight text-lg text-violet-400">Rota</span>
-                <span className="font-extrabold tracking-tight text-lg text-amber-400">Star</span>
+                <span className="font-extrabold tracking-tight text-lg text-violet-400">
+                  Rota
+                </span>
+                <span className="font-extrabold tracking-tight text-lg text-amber-400">
+                  Star
+                </span>
               </div>
               <p className="text-[10px] text-amber-300/80 tracking-tight font-medium">
                 Service with Purpose, Recognition with Merit.
@@ -421,7 +414,7 @@ export default function Dashboard() {
           </div>
         </div>
 
-        {/* PRIMARY ACTIONS GRID (FEATURES EVENT IDEAS) */}
+        {/* PRIMARY ACTIONS GRID */}
         <div className="grid grid-cols-2 lg:grid-cols-5 gap-3 mb-6">
           <button
             onClick={() => navigate("/events")}
@@ -765,45 +758,7 @@ export default function Dashboard() {
         </section>
       </main>
 
-      {/* 1. WELCOME BONUS MODAL */}
-      {showWelcomeModal && (
-        <div className="fixed inset-0 z-50 bg-black/85 backdrop-blur-md flex items-center justify-center p-4">
-          <div className="bg-slate-900 border-2 border-amber-400/50 rounded-3xl p-6 sm:p-8 max-w-md w-full shadow-2xl relative text-center animate-in fade-in zoom-in duration-200">
-            <button
-              onClick={() => setShowWelcomeModal(false)}
-              className="absolute top-4 right-4 p-2 rounded-full text-slate-400 hover:text-white hover:bg-slate-800 transition"
-            >
-              <X size={20} />
-            </button>
-
-            <div className="w-16 h-16 rounded-3xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-center text-amber-400 mx-auto mb-4">
-              <Gift size={32} />
-            </div>
-
-            <h2 className="text-2xl font-black text-white mb-2">
-              Welcome to RotaStar!
-            </h2>
-
-            <p className="text-sm text-slate-300 leading-relaxed mb-6">
-              Congratulations! You have received{" "}
-              <strong className="text-amber-400 font-bold">+50 Bonus Points</strong>{" "}
-              as a welcome reward for joining the{" "}
-              <strong className="text-white">
-                Rotaract Club of Prince Shri Venkateshwara Padmavathy Engineering College
-              </strong>.
-            </p>
-
-            <button
-              onClick={() => setShowWelcomeModal(false)}
-              className="w-full py-3.5 rounded-xl bg-gradient-to-r from-violet-700 to-amber-600 text-white font-bold transition shadow-xl"
-            >
-              Claim & Explore Dashboard
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* 2. LEVEL-UP MODAL */}
+      {/* LEVEL-UP MODAL */}
       {showLevelUpModal && (
         <div className="fixed inset-0 z-50 bg-black/90 backdrop-blur-md flex items-center justify-center p-4">
           <div className="bg-slate-900 border-2 border-amber-400 rounded-3xl p-6 sm:p-8 max-w-md w-full shadow-2xl relative text-center animate-in fade-in zoom-in duration-300">
@@ -847,7 +802,7 @@ export default function Dashboard() {
         </div>
       )}
 
-      {/* 3. BADGE MODAL */}
+      {/* BADGE MODAL */}
       {unlockedBadgeModal && (
         <div className="fixed inset-0 z-50 bg-black/90 backdrop-blur-md flex items-center justify-center p-4">
           <div className="bg-slate-900 border-2 border-amber-400/80 rounded-3xl p-6 sm:p-8 max-w-md w-full shadow-2xl relative text-center animate-in fade-in zoom-in duration-300">
