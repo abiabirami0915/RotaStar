@@ -19,6 +19,7 @@ import {
   Eye,
   FileText,
   Layers,
+  UserCheck,
 } from "lucide-react";
 import {
   collection,
@@ -56,7 +57,7 @@ export default function Events() {
   // Modal States
   const [showAddModal, setShowAddModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
-  const [viewingEvent, setViewingEvent] = useState(null); // Detailed view for long descriptions
+  const [viewingEvent, setViewingEvent] = useState(null);
   const [editingEventId, setEditingEventId] = useState(null);
   const [submitting, setSubmitting] = useState(false);
   const [eventToDelete, setEventToDelete] = useState(null);
@@ -69,16 +70,19 @@ export default function Events() {
   const [date, setDate] = useState("");
   const [time, setTime] = useState("");
   const [venue, setVenue] = useState("");
+  const [chairperson, setChairperson] = useState("");
+  const [secretary, setSecretary] = useState("");
   const [pointsReward, setPointsReward] = useState("25");
   const [description, setDescription] = useState("");
 
-  const roleString = (userData?.role || "").toLowerCase();
+  const rawRole = (userData?.role || "").toString().toLowerCase().trim();
   const canManage =
-    isAdmin ||
-    isSuperAdmin ||
-    roleString.includes("admin") ||
-    roleString.includes("president") ||
-    roleString.includes("secretary");
+    Boolean(isAdmin) ||
+    Boolean(isSuperAdmin) ||
+    rawRole.includes("admin") ||
+    rawRole.includes("president") ||
+    rawRole.includes("secretary") ||
+    rawRole.includes("board");
 
   useEffect(() => {
     const q = query(collection(db, "events"), orderBy("createdAt", "desc"));
@@ -112,6 +116,8 @@ export default function Events() {
     setDate("");
     setTime("");
     setVenue("");
+    setChairperson("");
+    setSecretary("");
     setDescription("");
     setPointsReward("25");
     setEditingEventId(null);
@@ -129,12 +135,14 @@ export default function Events() {
     setDate(eventItem.date || "");
     setTime(eventItem.time || "");
     setVenue(eventItem.venue || "");
+    setChairperson(eventItem.chairperson || "");
+    setSecretary(eventItem.secretary || "");
     setDescription(eventItem.description || "");
     setPointsReward((eventItem.pointsReward || 25).toString());
     setShowEditModal(true);
   };
 
-  // Add Event
+  // Add Event Handler
   const handleAddEvent = async (e) => {
     e.preventDefault();
     if (!title.trim()) {
@@ -150,6 +158,8 @@ export default function Events() {
         date: date.trim() || "",
         time: time.trim() || "TBA",
         venue: venue.trim() || "College Campus",
+        chairperson: chairperson.trim() || "",
+        secretary: secretary.trim() || "",
         pointsReward: Number(pointsReward) || 0,
         description: description.trim(),
         createdBy: userData?.name || "Club Admin",
@@ -167,7 +177,7 @@ export default function Events() {
     }
   };
 
-  // Update Event
+  // Update Event Handler
   const handleUpdateEvent = async (e) => {
     e.preventDefault();
     if (!editingEventId) return;
@@ -186,6 +196,8 @@ export default function Events() {
         date: date.trim() || "",
         time: time.trim() || "TBA",
         venue: venue.trim() || "College Campus",
+        chairperson: chairperson.trim() || "",
+        secretary: secretary.trim() || "",
         pointsReward: Number(pointsReward) || 0,
         description: description.trim(),
         updatedAt: serverTimestamp(),
@@ -202,7 +214,7 @@ export default function Events() {
     }
   };
 
-  // Delete Event
+  // Delete Event Handler
   const handleDeleteEvent = async () => {
     if (!eventToDelete) return;
     setDeleteLoading(true);
@@ -222,6 +234,8 @@ export default function Events() {
     const matchesSearch =
       ev.title?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       ev.venue?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      ev.chairperson?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      ev.secretary?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       ev.description?.toLowerCase().includes(searchTerm.toLowerCase());
 
     const matchesAvenue =
@@ -261,14 +275,14 @@ export default function Events() {
               Upcoming Events & Projects
             </h1>
             <p className="text-xs text-slate-400 mt-1">
-              Check out scheduled initiatives, multi-avenue drives, and avenues for RAC PSVPEC.
+              Check out scheduled initiatives, multi-avenue drives, and team leads for RAC PSVPEC.
             </p>
           </div>
 
           {canManage && (
             <button
               onClick={handleOpenAddModal}
-              className="px-5 py-3 rounded-2xl bg-gradient-to-r from-violet-700 via-purple-600 to-amber-600 hover:from-violet-600 hover:to-amber-500 text-white font-bold text-sm flex items-center gap-2 shadow-xl shadow-violet-950 transition border border-amber-400/30"
+              className="px-5 py-3 rounded-2xl bg-gradient-to-r from-violet-700 via-purple-600 to-amber-600 hover:from-violet-600 hover:to-amber-500 text-white font-bold text-sm flex items-center gap-2 shadow-xl shadow-violet-950 transition border border-amber-400/30 shrink-0"
             >
               <Plus size={18} />
               <span>Add New Event</span>
@@ -299,7 +313,7 @@ export default function Events() {
           <div className="sm:col-span-2 relative">
             <input
               type="text"
-              placeholder="Search by title, venue, or description..."
+              placeholder="Search by title, leads, venue, or details..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               className="w-full pl-11 pr-4 py-3 bg-slate-900/90 border border-violet-900/40 rounded-xl text-white placeholder-slate-500 text-sm outline-none focus:border-amber-400 transition"
@@ -386,19 +400,19 @@ export default function Events() {
                     {ev.title}
                   </h3>
 
-                  {/* EVENT DESCRIPTION PREVIEW WITH VIEW FULL OPTION */}
+                  {/* EVENT DESCRIPTION PREVIEW */}
                   {ev.description ? (
                     <div className="mb-4">
                       <p className="text-xs text-slate-300 leading-relaxed line-clamp-3">
                         {ev.description}
                       </p>
-                      {ev.description.length > 100 && (
+                      {ev.description.length > 90 && (
                         <button
                           type="button"
                           onClick={() => setViewingEvent(ev)}
                           className="text-[11px] font-bold text-amber-400 hover:underline mt-1 inline-flex items-center gap-1"
                         >
-                          Read full description →
+                          Read full details →
                         </button>
                       )}
                     </div>
@@ -409,7 +423,7 @@ export default function Events() {
                   )}
 
                   {/* EVENT DETAILS PILLS */}
-                  <div className="space-y-2.5 text-xs text-slate-400 bg-slate-950/70 p-4 rounded-2xl border border-violet-900/40 mb-4">
+                  <div className="space-y-2 text-xs text-slate-400 bg-slate-950/70 p-4 rounded-2xl border border-violet-900/40 mb-4">
                     <div className="flex items-center gap-2">
                       <Calendar size={14} className="text-amber-400 shrink-0" />
                       {ev.date ? (
@@ -438,6 +452,23 @@ export default function Events() {
                       <MapPin size={14} className="text-amber-400 shrink-0" />
                       <span className="truncate">{ev.venue || "Campus"}</span>
                     </div>
+
+                    {(ev.chairperson || ev.secretary) && (
+                      <div className="pt-2 mt-2 border-t border-violet-900/50 flex flex-col gap-1 text-[11px]">
+                        {ev.chairperson && (
+                          <div className="flex items-center justify-between">
+                            <span className="text-slate-500">Chairperson:</span>
+                            <span className="text-slate-200 font-semibold">{ev.chairperson}</span>
+                          </div>
+                        )}
+                        {ev.secretary && (
+                          <div className="flex items-center justify-between">
+                            <span className="text-slate-500">Secretary:</span>
+                            <span className="text-slate-200 font-semibold">{ev.secretary}</span>
+                          </div>
+                        )}
+                      </div>
+                    )}
                   </div>
                 </div>
 
@@ -453,7 +484,7 @@ export default function Events() {
         )}
       </main>
 
-      {/* 1. VIEW FULL EVENT DETAILS MODAL (FOR LARGE DESCRIPTIONS) */}
+      {/* 1. VIEW FULL EVENT DETAILS MODAL */}
       {viewingEvent && (
         <div className="fixed inset-0 z-50 bg-black/85 backdrop-blur-md flex items-center justify-center p-4">
           <div className="bg-slate-900 border-2 border-violet-500/40 rounded-3xl p-6 sm:p-8 max-w-xl w-full shadow-2xl relative max-h-[90vh] flex flex-col">
@@ -485,7 +516,7 @@ export default function Events() {
                 <span>
                   {viewingEvent.date
                     ? new Date(viewingEvent.date).toLocaleDateString()
-                    : "Date: Soon"}
+                    : "Date: Announced Soon"}
                 </span>
               </div>
               <div className="flex items-center gap-2 text-slate-300">
@@ -499,17 +530,33 @@ export default function Events() {
             </div>
 
             {/* FULL SCROLLABLE DESCRIPTION */}
-            <div className="flex-1 overflow-y-auto pr-2 space-y-2 mb-6 text-sm text-slate-300 leading-relaxed bg-slate-950/60 p-5 rounded-2xl border border-violet-900/30">
-              <h4 className="text-xs font-bold uppercase tracking-wider text-amber-400">
-                Event Description & Guidelines
-              </h4>
-              <p className="whitespace-pre-wrap">
-                {viewingEvent.description || "No full description provided for this project."}
-              </p>
+            <div className="flex-1 overflow-y-auto pr-2 space-y-3 mb-6 text-sm text-slate-300 leading-relaxed bg-slate-950/60 p-5 rounded-2xl border border-violet-900/30">
+              <div>
+                <h4 className="text-xs font-bold uppercase tracking-wider text-amber-400 mb-1">
+                  Event Description & Guidelines
+                </h4>
+                <p className="whitespace-pre-wrap">
+                  {viewingEvent.description || "No full description provided for this project."}
+                </p>
+              </div>
+
+              {(viewingEvent.chairperson || viewingEvent.secretary) && (
+                <div className="pt-3 border-t border-violet-900/40 grid grid-cols-2 gap-3 text-xs">
+                  <div>
+                    <span className="text-slate-500 block">Event Chairperson:</span>
+                    <strong className="text-slate-200">{viewingEvent.chairperson || "None / Open"}</strong>
+                  </div>
+                  <div>
+                    <span className="text-slate-500 block">Event Secretary:</span>
+                    <strong className="text-slate-200">{viewingEvent.secretary || "None / Open"}</strong>
+                  </div>
+                </div>
+              )}
+
               {viewingEvent.venue && (
-                <div className="pt-3 mt-3 border-t border-violet-900/40 flex items-center gap-2 text-xs text-slate-400">
+                <div className="pt-2 border-t border-violet-900/40 flex items-center gap-2 text-xs text-slate-400">
                   <MapPin size={14} className="text-amber-400" />
-                  <span>Venue: {viewingEvent.venue}</span>
+                  <span>Venue / Location: {viewingEvent.venue}</span>
                 </div>
               )}
             </div>
@@ -618,13 +665,44 @@ export default function Events() {
                 </div>
               </div>
 
+              {/* CHAIRPERSON & SECRETARY (OPTIONAL) */}
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-bold text-violet-300 uppercase tracking-wider mb-1 flex items-center justify-between">
+                    <span>Chairperson</span>
+                    <span className="text-[10px] text-slate-500 lowercase">(opt)</span>
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="e.g. Rtr. Rahul"
+                    value={chairperson}
+                    onChange={(e) => setChairperson(e.target.value)}
+                    className="w-full px-3 py-2.5 bg-slate-950 border border-violet-900/40 rounded-xl text-white text-sm outline-none focus:border-amber-400"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-violet-300 uppercase tracking-wider mb-1 flex items-center justify-between">
+                    <span>Secretary</span>
+                    <span className="text-[10px] text-slate-500 lowercase">(opt)</span>
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="e.g. Rtr. Priya"
+                    value={secretary}
+                    onChange={(e) => setSecretary(e.target.value)}
+                    className="w-full px-3 py-2.5 bg-slate-950 border border-violet-900/40 rounded-xl text-white text-sm outline-none focus:border-amber-400"
+                  />
+                </div>
+              </div>
+
               <div>
                 <label className="block text-xs font-bold text-violet-300 uppercase tracking-wider mb-1">
                   Venue / Location
                 </label>
                 <input
                   type="text"
-                  placeholder="e.g. Auditorium / Campus / TBA"
+                  placeholder="e.g. Auditorium / Campus / Online"
                   value={venue}
                   onChange={(e) => setVenue(e.target.value)}
                   className="w-full px-4 py-2.5 bg-slate-950 border border-violet-900/40 rounded-xl text-white text-sm outline-none focus:border-amber-400"
@@ -637,7 +715,7 @@ export default function Events() {
                 </label>
                 <textarea
                   rows={4}
-                  placeholder="Write full event details, rules, dress code, organizer contacts, or project objectives..."
+                  placeholder="Write event details, instructions, objectives, or lead contacts..."
                   value={description}
                   onChange={(e) => setDescription(e.target.value)}
                   className="w-full px-4 py-2.5 bg-slate-950 border border-violet-900/40 rounded-xl text-white text-sm outline-none focus:border-amber-400 resize-none"
@@ -752,6 +830,37 @@ export default function Events() {
                     type="text"
                     value={time}
                     onChange={(e) => setTime(e.target.value)}
+                    className="w-full px-3 py-2.5 bg-slate-950 border border-violet-900/40 rounded-xl text-white text-sm outline-none focus:border-amber-400"
+                  />
+                </div>
+              </div>
+
+              {/* CHAIRPERSON & SECRETARY (OPTIONAL) */}
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-bold text-violet-300 uppercase tracking-wider mb-1 flex items-center justify-between">
+                    <span>Chairperson</span>
+                    <span className="text-[10px] text-slate-500 lowercase">(opt)</span>
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="e.g. Rtr. Rahul"
+                    value={chairperson}
+                    onChange={(e) => setChairperson(e.target.value)}
+                    className="w-full px-3 py-2.5 bg-slate-950 border border-violet-900/40 rounded-xl text-white text-sm outline-none focus:border-amber-400"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-violet-300 uppercase tracking-wider mb-1 flex items-center justify-between">
+                    <span>Secretary</span>
+                    <span className="text-[10px] text-slate-500 lowercase">(opt)</span>
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="e.g. Rtr. Priya"
+                    value={secretary}
+                    onChange={(e) => setSecretary(e.target.value)}
                     className="w-full px-3 py-2.5 bg-slate-950 border border-violet-900/40 rounded-xl text-white text-sm outline-none focus:border-amber-400"
                   />
                 </div>
