@@ -52,6 +52,9 @@ import {
   calculateMonthlyStreak,
 } from "../utils/gamification";
 
+// Safe dynamic asset resolver
+const getAssetUrl = (name) => new URL(`../assets/${name}`, import.meta.url).href;
+
 const MOTIVATIONAL_QUOTES = [
   "“The best way to find yourself is to lose yourself in the service of others.” — Mahatma Gandhi",
   "“Great things are done by a series of small things brought together.” — Vincent van Gogh",
@@ -104,6 +107,9 @@ export default function Dashboard() {
   const [levelUpData, setLevelUpData] = useState({ oldLevel: 1, newLevel: 1, quote: "" });
   const [unlockedBadgeModal, setUnlockedBadgeModal] = useState(null);
   const [hasInitializedBadges, setHasInitializedBadges] = useState(false);
+
+  // Fallback state for navbar RotaStar logo
+  const [rotaStarLogoError, setRotaStarLogoError] = useState(false);
 
   // Gamification Calculations
   const points = userData?.totalPoints || 0;
@@ -298,13 +304,26 @@ export default function Dashboard() {
 
   return (
     <div className="min-h-screen bg-[#030014] text-white">
-      {/* NAVBAR */}
+      {/* NAVBAR WITH ROTASTAR LOGO */}
       <nav className="border-b border-violet-900/40 bg-slate-950/80 backdrop-blur-md sticky top-0 z-50">
         <div className="max-w-6xl mx-auto px-6 h-20 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-violet-600 to-amber-500 flex items-center justify-center font-black text-white shadow-lg shadow-violet-900/30">
-              <Crown size={20} className="text-amber-200" />
+            {/* ROTASTAR BRAND LOGO EMBED */}
+            <div className="w-11 h-11 rounded-2xl bg-slate-900 border border-violet-900/60 p-1 flex items-center justify-center shadow-lg shadow-violet-900/30 shrink-0 overflow-hidden">
+              {!rotaStarLogoError ? (
+                <img
+                  src={getAssetUrl("rotastar-logo.png")}
+                  alt="RotaStar Official Logo"
+                  className="w-full h-full object-contain"
+                  onError={() => setRotaStarLogoError(true)}
+                />
+              ) : (
+                <div className="w-full h-full rounded-xl bg-gradient-to-br from-violet-600 to-amber-500 flex items-center justify-center font-black text-amber-200 text-xs">
+                  RS
+                </div>
+              )}
             </div>
+
             <div>
               <div className="flex items-center gap-1">
                 <span className="font-black text-xl text-violet-400">Rota</span>
