@@ -52,10 +52,11 @@ export default function Dashboard() {
   const [recentActivities, setRecentActivities] = useState([]);
   const [userRank, setUserRank] = useState("-");
 
-  // Modals
+  // Popups
   const [showWelcomeModal, setShowWelcomeModal] = useState(false);
   const [showLevelUpModal, setShowLevelUpModal] = useState(false);
   const [levelUpData, setLevelUpData] = useState({ oldLevel: 1, newLevel: 1, quote: "" });
+  const [unlockedBadgeModal, setUnlockedBadgeModal] = useState(null);
 
   // Real-time Gamification Calculations
   const points = userData?.totalPoints || 0;
@@ -108,7 +109,32 @@ export default function Dashboard() {
     localStorage.setItem(storageKey, levelData.currentLevel.toString());
   }, [currentUser, userData, levelData.currentLevel]);
 
-  // 3. Leaderboard rank calculation
+  // 3. Badge Unlock detection and celebration popup trigger
+  useEffect(() => {
+    if (!currentUser || memberBadges.length === 0) return;
+
+    const storageKey = `rotastar_seen_badges_${currentUser.uid}`;
+    const storedBadges = JSON.parse(localStorage.getItem(storageKey) || "[]");
+
+    const newlyUnlocked = memberBadges.find(
+      (b) => b.unlocked && !storedBadges.includes(b.id)
+    );
+
+    if (newlyUnlocked) {
+      setUnlockedBadgeModal(newlyUnlocked);
+      const updatedList = [
+        ...storedBadges,
+        ...memberBadges.filter((b) => b.unlocked).map((b) => b.id),
+      ];
+      localStorage.setItem(storageKey, JSON.stringify([...new Set(updatedList)]));
+    } else {
+      // Keep storage aligned
+      const allUnlockedIds = memberBadges.filter((b) => b.unlocked).map((b) => b.id);
+      localStorage.setItem(storageKey, JSON.stringify(allUnlockedIds));
+    }
+  }, [currentUser, memberBadges]);
+
+  // 4. Leaderboard rank calculation
   useEffect(() => {
     const unsubUsers = onSnapshot(collection(db, "users"), (snapshot) => {
       const allUsers = snapshot.docs.map((docSnap) => ({
@@ -124,7 +150,7 @@ export default function Dashboard() {
     return () => unsubUsers();
   }, [currentUser]);
 
-  // 4. Activities Sync (Streak & Feed)
+  // 5. Activities Sync (Streak & Feed)
   useEffect(() => {
     if (!currentUser) return;
 
@@ -141,7 +167,6 @@ export default function Dashboard() {
           ...docSnap.data(),
         }));
 
-        // Sort descending by date
         acts.sort((a, b) => {
           const timeA = a.createdAt?.toDate ? a.createdAt.toDate().getTime() : 0;
           const timeB = b.createdAt?.toDate ? b.createdAt.toDate().getTime() : 0;
@@ -175,6 +200,8 @@ export default function Dashboard() {
         return <Trophy size={22} className={color} />;
       case "Flame":
         return <Flame size={22} className={color} />;
+      case "Shield":
+        return <Shield size={22} className={color} />;
       case "Zap":
         return <Zap size={22} className={color} />;
       default:
@@ -310,7 +337,6 @@ export default function Dashboard() {
               </span>
             </div>
 
-            {/* Progress Track */}
             <div className="w-full h-3.5 bg-slate-900 rounded-full overflow-hidden border border-violet-900/50 p-0.5 shadow-inner">
               <div
                 className="h-full rounded-full bg-gradient-to-r from-violet-600 via-amber-500 to-amber-300 transition-all duration-1000 ease-out shadow-lg shadow-amber-500/30"
@@ -326,7 +352,7 @@ export default function Dashboard() {
           </div>
         </div>
 
-        {/* METRICS ROW (WITH MONTHLY STREAK & BADGES COUNT) */}
+        {/* METRICS ROW */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
           <div className="bg-slate-900/90 border border-violet-900/40 hover:border-amber-500/40 rounded-2xl p-5 shadow-xl transition">
             <div className="flex items-center gap-2 text-violet-300 text-xs font-semibold mb-2">
@@ -344,7 +370,6 @@ export default function Dashboard() {
             <p className="text-2xl sm:text-3xl font-black text-white">{userRank}</p>
           </div>
 
-          {/* MONTHLY STREAK METRIC */}
           <div className="bg-slate-900/90 border border-violet-900/40 hover:border-amber-500/40 rounded-2xl p-5 shadow-xl transition">
             <div className="flex items-center gap-2 text-violet-300 text-xs font-semibold mb-2">
               <Calendar size={16} className="text-amber-400" />
@@ -358,7 +383,6 @@ export default function Dashboard() {
             </p>
           </div>
 
-          {/* BADGES COUNT */}
           <div className="bg-slate-900/90 border border-violet-900/40 rounded-2xl p-5 shadow-xl">
             <div className="flex items-center gap-2 text-violet-300 text-xs font-semibold mb-2">
               <Award size={16} className="text-amber-400" />
@@ -428,7 +452,7 @@ export default function Dashboard() {
             </span>
           </div>
 
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
             {memberBadges.map((badge) => (
               <div
                 key={badge.id}
@@ -605,7 +629,7 @@ export default function Dashboard() {
         </section>
       </main>
 
-      {/* 50 STARTER POINTS WELCOME REWARD POPUP MODAL */}
+      {/* 1. 50 STARTER POINTS WELCOME REWARD MODAL */}
       {showWelcomeModal && (
         <div className="fixed inset-0 z-50 bg-black/85 backdrop-blur-md flex items-center justify-center p-4">
           <div className="bg-slate-900 border-2 border-amber-400/50 rounded-3xl p-6 sm:p-8 max-w-md w-full shadow-2xl shadow-violet-950 relative text-center animate-in fade-in zoom-in duration-200">
@@ -643,7 +667,7 @@ export default function Dashboard() {
         </div>
       )}
 
-      {/* LEVEL-UP MOTIVATIONAL POPUP MODAL */}
+      {/* 2. LEVEL-UP MOTIVATIONAL POPUP MODAL */}
       {showLevelUpModal && (
         <div className="fixed inset-0 z-50 bg-black/90 backdrop-blur-md flex items-center justify-center p-4">
           <div className="bg-slate-900 border-2 border-amber-400 rounded-3xl p-6 sm:p-8 max-w-md w-full shadow-2xl shadow-amber-500/20 relative text-center animate-in fade-in zoom-in duration-300">
@@ -682,6 +706,44 @@ export default function Dashboard() {
               className="w-full py-3.5 rounded-xl bg-gradient-to-r from-violet-700 via-purple-600 to-amber-600 hover:from-violet-600 hover:to-amber-500 text-white font-bold transition shadow-xl shadow-violet-950 border border-amber-400/30 text-sm"
             >
               Keep Leveling Up! 🚀
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* 3. BADGE UNLOCKED CELEBRATION POPUP MODAL */}
+      {unlockedBadgeModal && (
+        <div className="fixed inset-0 z-50 bg-black/90 backdrop-blur-md flex items-center justify-center p-4">
+          <div className="bg-slate-900 border-2 border-amber-400/80 rounded-3xl p-6 sm:p-8 max-w-md w-full shadow-2xl shadow-amber-500/30 relative text-center animate-in fade-in zoom-in duration-300">
+            <button
+              onClick={() => setUnlockedBadgeModal(null)}
+              className="absolute top-4 right-4 p-2 rounded-full text-slate-400 hover:text-white hover:bg-slate-800 transition"
+            >
+              <X size={20} />
+            </button>
+
+            <div className="w-20 h-20 rounded-3xl bg-gradient-to-br from-violet-600 to-amber-500 border-2 border-amber-400/40 flex items-center justify-center text-white mx-auto mb-4 shadow-xl shadow-violet-900/40 animate-pulse">
+              {renderBadgeIcon(unlockedBadgeModal.icon, true)}
+            </div>
+
+            <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-500/10 border border-amber-500/30 text-amber-400 text-xs font-extrabold uppercase tracking-widest mb-2">
+              <Sparkles size={14} />
+              <span>New Achievement Unlocked!</span>
+            </div>
+
+            <h2 className="text-2xl font-black text-white mb-1">
+              {unlockedBadgeModal.title}
+            </h2>
+
+            <p className="text-sm text-slate-300 mb-6 leading-relaxed">
+              {unlockedBadgeModal.description}
+            </p>
+
+            <button
+              onClick={() => setUnlockedBadgeModal(null)}
+              className="w-full py-3.5 rounded-xl bg-gradient-to-r from-violet-700 via-purple-600 to-amber-600 hover:from-violet-600 hover:to-amber-500 text-white font-bold transition shadow-xl shadow-violet-950 border border-amber-400/30 text-sm"
+            >
+              Claim Badge & Continue
             </button>
           </div>
         </div>

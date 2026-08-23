@@ -1,5 +1,5 @@
 /**
- * Robust Gamification Logic for RotaStar
+ * Comprehensive Gamification & Badge Engine for RotaStar
  */
 
 // 1. Level & Progress Calculator (1-100 = Level 1, 101-200 = Level 2, etc.)
@@ -27,55 +27,80 @@ export function calculateLevelProgress(rawPoints = 0) {
   };
 }
 
-// 2. Clear, Rewarding Badge Definitions
+// 2. High-Impact Rotary & Club Service Badge Definitions
 export const BADGE_DEFINITIONS = [
   {
     id: "starter_spark",
     title: "Starter Spark",
-    description: "Earned 50+ points and joined the club roster",
+    description: "Earned initial starter points and officially joined RotaStar.",
     icon: "Sparkles",
     category: "Milestone",
-    isUnlocked: (pts, acts, streak, lvl) => pts >= 50,
+    isUnlocked: (pts) => pts >= 50,
   },
   {
     id: "century_club",
     title: "Century Club",
-    description: "Reached 100+ points and ascended to Level 2",
+    description: "Crossed 100+ points and achieved Level 2 recognition.",
     icon: "Crown",
-    category: "Level",
-    isUnlocked: (pts, acts, streak, lvl) => pts >= 101 || lvl >= 2,
+    category: "Milestone",
+    isUnlocked: (pts, acts, streak, lvl) => lvl >= 2 || pts >= 101,
   },
   {
-    id: "double_century",
-    title: "Double Century",
-    description: "Reached 200+ points through dedicated club initiatives",
-    icon: "Award",
-    category: "Level",
-    isUnlocked: (pts, acts, streak, lvl) => pts >= 201 || lvl >= 3,
+    id: "knight_of_service",
+    title: "Knight of Service",
+    description: "Reached 300+ points through dedicated club participation.",
+    icon: "Shield",
+    category: "Milestone",
+    isUnlocked: (pts, acts, streak, lvl) => lvl >= 4 || pts >= 301,
   },
   {
-    id: "active_contributor",
-    title: "Active Contributor",
-    description: "Logged your first verified club activity or project",
+    id: "crown_of_rotaract",
+    title: "Crown of Rotaract",
+    description: "Reached premier status with 500+ total club points.",
+    icon: "Crown",
+    category: "Elite",
+    isUnlocked: (pts, acts, streak, lvl) => lvl >= 6 || pts >= 501,
+  },
+  {
+    id: "community_pillar",
+    title: "Community Pillar",
+    description: "Completed 3 or more verified community service initiatives.",
     icon: "Trophy",
-    category: "Activity",
-    isUnlocked: (pts, acts, streak, lvl) => (acts && acts.length >= 1) || pts > 50,
+    category: "Community",
+    isUnlocked: (pts, acts) =>
+      acts.filter((a) =>
+        (a.activityName || "").toLowerCase().includes("community") ||
+        (a.activityName || "").toLowerCase().includes("service") ||
+        (a.activityName || "").toLowerCase().includes("donation")
+      ).length >= 3 || acts.length >= 3,
   },
   {
-    id: "service_titan",
-    title: "Service Titan",
-    description: "Participated in 3 or more club service initiatives",
+    id: "fellowship_anchor",
+    title: "Fellowship Anchor",
+    description: "Participated in 3 or more club service or fellowship events.",
+    icon: "Award",
+    category: "Club Service",
+    isUnlocked: (pts, acts) => acts.length >= 4 || pts >= 200,
+  },
+  {
+    id: "streak_titan",
+    title: "Streak Titan",
+    description: "Maintained active club attendance across consecutive months.",
     icon: "Flame",
-    category: "Activity",
-    isUnlocked: (pts, acts, streak, lvl) => (acts && acts.length >= 3) || pts >= 150,
+    category: "Dedication",
+    isUnlocked: (pts, acts, streak) => streak >= 2,
   },
   {
-    id: "streak_champion",
-    title: "Streak Champion",
-    description: "Maintained active club participation across months",
+    id: "lifesaver",
+    title: "Health & Life Hero",
+    description: "Volunteered in a blood donation camp or medical drive.",
     icon: "Zap",
-    category: "Streak",
-    isUnlocked: (pts, acts, streak, lvl) => (streak || 0) >= 1,
+    category: "Special",
+    isUnlocked: (pts, acts) =>
+      acts.some((a) => {
+        const name = (a.activityName || "").toLowerCase();
+        return name.includes("blood") || name.includes("medical") || name.includes("health");
+      }),
   },
 ];
 
@@ -91,7 +116,7 @@ export function getMemberBadges(rawPoints = 0, rawActivities = [], rawStreak = 0
     try {
       unlocked = Boolean(badge.isUnlocked(points, activities, streak, level));
     } catch (e) {
-      console.warn(`Badge evaluation error for ${badge.id}:`, e);
+      console.warn(`Badge evaluation notice for ${badge.id}:`, e);
       unlocked = false;
     }
 
@@ -102,7 +127,7 @@ export function getMemberBadges(rawPoints = 0, rawActivities = [], rawStreak = 0
   });
 }
 
-// 4. Safe Monthly Streak Calculation
+// 4. Monthly Participation Streak Calculator
 export function calculateMonthlyStreak(activities = []) {
   if (!Array.isArray(activities) || activities.length === 0) return 0;
 
@@ -128,7 +153,6 @@ export function calculateMonthlyStreak(activities = []) {
   });
 
   if (activeMonths.size === 0) {
-    // If user has activities logged, count at least 1 month streak
     return activities.length > 0 ? 1 : 0;
   }
 
@@ -137,7 +161,6 @@ export function calculateMonthlyStreak(activities = []) {
   let checkMonth = now.getMonth() + 1;
   let streak = 0;
 
-  // Check current month or previous month
   let currentKey = `${checkYear}-${String(checkMonth).padStart(2, "0")}`;
   if (!activeMonths.has(currentKey)) {
     checkMonth -= 1;
@@ -147,7 +170,7 @@ export function calculateMonthlyStreak(activities = []) {
     }
     currentKey = `${checkYear}-${String(checkMonth).padStart(2, "0")}`;
     if (!activeMonths.has(currentKey)) {
-      return 1; // Minimum active month
+      return 1;
     }
   }
 
