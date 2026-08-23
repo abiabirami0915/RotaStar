@@ -24,6 +24,7 @@ import {
   Heart,
   MessageSquarePlus,
   MessageSquare,
+  Lightbulb,
 } from "lucide-react";
 import {
   collection,
@@ -233,12 +234,8 @@ export default function Dashboard() {
             </div>
             <div>
               <div className="flex items-center gap-1.5">
-                <span className="font-extrabold tracking-tight text-lg text-violet-400">
-                  Rota
-                </span>
-                <span className="font-extrabold tracking-tight text-lg text-amber-400">
-                  Star
-                </span>
+                <span className="font-extrabold tracking-tight text-lg text-violet-400">Rota</span>
+                <span className="font-extrabold tracking-tight text-lg text-amber-400">Star</span>
               </div>
               <p className="text-[10px] text-amber-300/80 tracking-tight font-medium">
                 Service with Purpose, Recognition with Merit.
@@ -252,6 +249,13 @@ export default function Dashboard() {
               className="text-xs font-semibold text-violet-200/80 hover:text-amber-300 transition"
             >
               Events
+            </button>
+
+            <button
+              onClick={() => navigate("/event-ideas")}
+              className="text-xs font-semibold text-violet-200/80 hover:text-amber-300 transition"
+            >
+              Ideas
             </button>
 
             <button
@@ -417,70 +421,86 @@ export default function Dashboard() {
           </div>
         </div>
 
-        {/* PRIMARY ACTIONS GRID (NOW INCLUDES EVENTS) */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+        {/* PRIMARY ACTIONS GRID (FEATURES EVENT IDEAS) */}
+        <div className="grid grid-cols-2 lg:grid-cols-5 gap-3 mb-6">
           <button
             onClick={() => navigate("/events")}
-            className="p-5 rounded-2xl bg-slate-900/90 border border-violet-900/50 hover:border-amber-500/50 text-left transition shadow-xl flex items-center justify-between group"
+            className="p-4 rounded-2xl bg-slate-900/90 border border-violet-900/50 hover:border-amber-500/50 text-left transition shadow-xl flex items-center justify-between group"
           >
-            <div className="flex items-center gap-3">
-              <div className="p-2.5 bg-amber-500/10 text-amber-400 rounded-xl border border-amber-500/20">
-                <Calendar size={22} />
+            <div className="flex items-center gap-2.5">
+              <div className="p-2 bg-amber-500/10 text-amber-400 rounded-xl">
+                <Calendar size={18} />
               </div>
               <div>
-                <h3 className="font-extrabold text-sm text-white">Event Calendar</h3>
-                <p className="text-[10px] text-slate-400 mt-0.5">Upcoming projects</p>
+                <h3 className="font-bold text-xs text-white">Calendar</h3>
+                <p className="text-[10px] text-slate-400">Events</p>
               </div>
             </div>
-            <ChevronRight size={16} className="text-amber-400 group-hover:translate-x-1 transition-transform" />
+            <ChevronRight size={14} className="text-amber-400" />
+          </button>
+
+          <button
+            onClick={() => navigate("/event-ideas")}
+            className="p-4 rounded-2xl bg-slate-900/90 border border-violet-900/50 hover:border-amber-500/50 text-left transition shadow-xl flex items-center justify-between group"
+          >
+            <div className="flex items-center gap-2.5">
+              <div className="p-2 bg-amber-500/10 text-amber-400 rounded-xl">
+                <Lightbulb size={18} />
+              </div>
+              <div>
+                <h3 className="font-bold text-xs text-white">Event Ideas</h3>
+                <p className="text-[10px] text-slate-400">Propose</p>
+              </div>
+            </div>
+            <ChevronRight size={14} className="text-amber-400" />
           </button>
 
           <button
             onClick={() => navigate("/request-points")}
-            className="p-5 rounded-2xl bg-gradient-to-r from-violet-700 to-amber-600 hover:from-violet-600 hover:to-amber-500 text-left transition shadow-xl shadow-violet-950 flex items-center justify-between group"
+            className="p-4 rounded-2xl bg-gradient-to-r from-violet-700 to-amber-600 hover:from-violet-600 hover:to-amber-500 text-left transition shadow-xl flex items-center justify-between group col-span-2 sm:col-span-1"
           >
-            <div className="flex items-center gap-3">
-              <div className="p-2.5 bg-white/15 rounded-xl text-amber-200">
-                <FileText size={22} />
+            <div className="flex items-center gap-2.5">
+              <div className="p-2 bg-white/15 rounded-xl text-amber-200">
+                <FileText size={18} />
               </div>
               <div>
-                <h3 className="font-extrabold text-sm text-white">Request Points</h3>
-                <p className="text-[10px] text-amber-100/90 mt-0.5">Claim club points</p>
+                <h3 className="font-bold text-xs text-white">Claim Points</h3>
+                <p className="text-[10px] text-amber-100/90">Submit</p>
               </div>
             </div>
-            <ChevronRight size={16} className="text-amber-200 group-hover:translate-x-1 transition-transform" />
+            <ChevronRight size={14} className="text-amber-200" />
           </button>
 
           <button
             onClick={() => navigate("/leaderboard")}
-            className="p-5 rounded-2xl bg-slate-900/90 border border-violet-900/50 hover:border-amber-500/50 text-left transition shadow-xl flex items-center justify-between group"
+            className="p-4 rounded-2xl bg-slate-900/90 border border-violet-900/50 hover:border-amber-500/50 text-left transition shadow-xl flex items-center justify-between group"
           >
-            <div className="flex items-center gap-3">
-              <div className="p-2.5 bg-violet-600/10 text-amber-400 rounded-xl border border-violet-500/20">
-                <Crown size={22} />
+            <div className="flex items-center gap-2.5">
+              <div className="p-2 bg-violet-600/10 text-amber-400 rounded-xl">
+                <Crown size={18} />
               </div>
               <div>
-                <h3 className="font-extrabold text-sm text-white">Leaderboard</h3>
-                <p className="text-[10px] text-slate-400 mt-0.5">View club ranks</p>
+                <h3 className="font-bold text-xs text-white">Leaderboard</h3>
+                <p className="text-[10px] text-slate-400">Ranks</p>
               </div>
             </div>
-            <ChevronRight size={16} className="text-violet-400 group-hover:translate-x-1 transition-transform" />
+            <ChevronRight size={14} className="text-violet-400" />
           </button>
 
           <button
             onClick={() => navigate("/feedback")}
-            className="p-5 rounded-2xl bg-slate-900/90 border border-violet-900/50 hover:border-amber-500/50 text-left transition shadow-xl flex items-center justify-between group"
+            className="p-4 rounded-2xl bg-slate-900/90 border border-violet-900/50 hover:border-amber-500/50 text-left transition shadow-xl flex items-center justify-between group"
           >
-            <div className="flex items-center gap-3">
-              <div className="p-2.5 bg-amber-500/10 text-amber-400 rounded-xl border border-amber-500/20">
-                <MessageSquarePlus size={22} />
+            <div className="flex items-center gap-2.5">
+              <div className="p-2 bg-amber-500/10 text-amber-400 rounded-xl">
+                <MessageSquarePlus size={18} />
               </div>
               <div>
-                <h3 className="font-extrabold text-sm text-white">Give Feedback</h3>
-                <p className="text-[10px] text-slate-400 mt-0.5">Share your voice</p>
+                <h3 className="font-bold text-xs text-white">Feedback</h3>
+                <p className="text-[10px] text-slate-400">Voice</p>
               </div>
             </div>
-            <ChevronRight size={16} className="text-amber-400 group-hover:translate-x-1 transition-transform" />
+            <ChevronRight size={14} className="text-amber-400" />
           </button>
         </div>
 
@@ -664,7 +684,7 @@ export default function Dashboard() {
           )}
         </section>
 
-        {/* VISION & PURPOSE SECTION */}
+        {/* VISION & PURPOSE */}
         <section className="bg-gradient-to-r from-violet-950/70 via-slate-900/90 to-amber-950/40 border border-violet-900/50 rounded-3xl p-6 sm:p-8 shadow-2xl mb-6">
           <div className="flex items-start gap-4">
             <div className="p-3.5 bg-amber-500/10 border border-amber-500/30 rounded-2xl text-amber-400 shrink-0 shadow-lg shadow-amber-500/10">
@@ -688,7 +708,7 @@ export default function Dashboard() {
           </div>
         </section>
 
-        {/* 🚀 ABOUT THIS PLATFORM & CREATOR CARD */}
+        {/* ABOUT THIS PLATFORM */}
         <section className="bg-gradient-to-r from-violet-950/70 via-slate-900/90 to-amber-950/40 border border-violet-900/50 rounded-3xl p-6 sm:p-8 shadow-2xl">
           <div className="flex flex-col md:flex-row items-start gap-6">
             <div className="p-4 bg-amber-500/10 border border-amber-500/30 rounded-2xl text-amber-400 shrink-0 shadow-lg shadow-amber-500/10">
@@ -717,7 +737,6 @@ export default function Dashboard() {
                 Built from the ground up to turn everyday participation into measurable growth and recognition.
               </p>
 
-              {/* DEVELOPER CREDIT FOOTER */}
               <div className="pt-4 border-t border-violet-900/60 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                 <div className="flex items-center gap-3">
                   <div className="p-2.5 rounded-xl bg-violet-600/20 text-violet-300 border border-violet-500/30">
@@ -746,10 +765,10 @@ export default function Dashboard() {
         </section>
       </main>
 
-      {/* 1. 50 STARTER POINTS WELCOME REWARD MODAL */}
+      {/* 1. WELCOME BONUS MODAL */}
       {showWelcomeModal && (
         <div className="fixed inset-0 z-50 bg-black/85 backdrop-blur-md flex items-center justify-center p-4">
-          <div className="bg-slate-900 border-2 border-amber-400/50 rounded-3xl p-6 sm:p-8 max-w-md w-full shadow-2xl shadow-violet-950 relative text-center animate-in fade-in zoom-in duration-200">
+          <div className="bg-slate-900 border-2 border-amber-400/50 rounded-3xl p-6 sm:p-8 max-w-md w-full shadow-2xl relative text-center animate-in fade-in zoom-in duration-200">
             <button
               onClick={() => setShowWelcomeModal(false)}
               className="absolute top-4 right-4 p-2 rounded-full text-slate-400 hover:text-white hover:bg-slate-800 transition"
@@ -757,7 +776,7 @@ export default function Dashboard() {
               <X size={20} />
             </button>
 
-            <div className="w-16 h-16 rounded-3xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-center text-amber-400 mx-auto mb-4 shadow-lg shadow-amber-500/10">
+            <div className="w-16 h-16 rounded-3xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-center text-amber-400 mx-auto mb-4">
               <Gift size={32} />
             </div>
 
@@ -776,7 +795,7 @@ export default function Dashboard() {
 
             <button
               onClick={() => setShowWelcomeModal(false)}
-              className="w-full py-3.5 rounded-xl bg-gradient-to-r from-violet-700 via-purple-600 to-amber-600 hover:from-violet-600 hover:to-amber-500 text-white font-bold transition shadow-xl shadow-violet-950 border border-amber-400/30"
+              className="w-full py-3.5 rounded-xl bg-gradient-to-r from-violet-700 to-amber-600 text-white font-bold transition shadow-xl"
             >
               Claim & Explore Dashboard
             </button>
@@ -784,10 +803,10 @@ export default function Dashboard() {
         </div>
       )}
 
-      {/* 2. LEVEL-UP MOTIVATIONAL POPUP MODAL */}
+      {/* 2. LEVEL-UP MODAL */}
       {showLevelUpModal && (
         <div className="fixed inset-0 z-50 bg-black/90 backdrop-blur-md flex items-center justify-center p-4">
-          <div className="bg-slate-900 border-2 border-amber-400 rounded-3xl p-6 sm:p-8 max-w-md w-full shadow-2xl shadow-amber-500/20 relative text-center animate-in fade-in zoom-in duration-300">
+          <div className="bg-slate-900 border-2 border-amber-400 rounded-3xl p-6 sm:p-8 max-w-md w-full shadow-2xl relative text-center animate-in fade-in zoom-in duration-300">
             <button
               onClick={() => setShowLevelUpModal(false)}
               className="absolute top-4 right-4 p-2 rounded-full text-slate-400 hover:text-white hover:bg-slate-800 transition"
@@ -795,7 +814,7 @@ export default function Dashboard() {
               <X size={20} />
             </button>
 
-            <div className="w-20 h-20 rounded-3xl bg-gradient-to-tr from-amber-500 to-amber-300 flex items-center justify-center text-slate-950 mx-auto mb-4 shadow-xl shadow-amber-500/30 animate-bounce">
+            <div className="w-20 h-20 rounded-3xl bg-gradient-to-tr from-amber-500 to-amber-300 flex items-center justify-center text-slate-950 mx-auto mb-4 animate-bounce">
               <PartyPopper size={40} />
             </div>
 
@@ -820,7 +839,7 @@ export default function Dashboard() {
 
             <button
               onClick={() => setShowLevelUpModal(false)}
-              className="w-full py-3.5 rounded-xl bg-gradient-to-r from-violet-700 via-purple-600 to-amber-600 hover:from-violet-600 hover:to-amber-500 text-white font-bold transition shadow-xl shadow-violet-950 border border-amber-400/30 text-sm"
+              className="w-full py-3.5 rounded-xl bg-gradient-to-r from-violet-700 to-amber-600 text-white font-bold transition shadow-xl"
             >
               Keep Leveling Up! 🚀
             </button>
@@ -828,10 +847,10 @@ export default function Dashboard() {
         </div>
       )}
 
-      {/* 3. BADGE UNLOCKED CELEBRATION POPUP MODAL */}
+      {/* 3. BADGE MODAL */}
       {unlockedBadgeModal && (
         <div className="fixed inset-0 z-50 bg-black/90 backdrop-blur-md flex items-center justify-center p-4">
-          <div className="bg-slate-900 border-2 border-amber-400/80 rounded-3xl p-6 sm:p-8 max-w-md w-full shadow-2xl shadow-amber-500/30 relative text-center animate-in fade-in zoom-in duration-300">
+          <div className="bg-slate-900 border-2 border-amber-400/80 rounded-3xl p-6 sm:p-8 max-w-md w-full shadow-2xl relative text-center animate-in fade-in zoom-in duration-300">
             <button
               onClick={() => setUnlockedBadgeModal(null)}
               className="absolute top-4 right-4 p-2 rounded-full text-slate-400 hover:text-white hover:bg-slate-800 transition"
@@ -839,7 +858,7 @@ export default function Dashboard() {
               <X size={20} />
             </button>
 
-            <div className="w-20 h-20 rounded-3xl bg-gradient-to-br from-violet-600 to-amber-500 border-2 border-amber-400/40 flex items-center justify-center text-white mx-auto mb-4 shadow-xl shadow-violet-900/40 animate-pulse">
+            <div className="w-20 h-20 rounded-3xl bg-gradient-to-br from-violet-600 to-amber-500 border-2 border-amber-400/40 flex items-center justify-center text-white mx-auto mb-4 animate-pulse">
               {renderBadgeIcon(unlockedBadgeModal.icon, true)}
             </div>
 
@@ -858,7 +877,7 @@ export default function Dashboard() {
 
             <button
               onClick={() => setUnlockedBadgeModal(null)}
-              className="w-full py-3.5 rounded-xl bg-gradient-to-r from-violet-700 via-purple-600 to-amber-600 hover:from-violet-600 hover:to-amber-500 text-white font-bold transition shadow-xl shadow-violet-950 border border-amber-400/30 text-sm"
+              className="w-full py-3.5 rounded-xl bg-gradient-to-r from-violet-700 to-amber-600 text-white font-bold transition shadow-xl text-sm"
             >
               Claim Badge & Continue
             </button>

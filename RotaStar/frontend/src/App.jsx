@@ -9,6 +9,7 @@ import AdminRoute from "./components/AdminRoute";
 import Login from "./pages/Login";
 import Dashboard from "./pages/Dashboard";
 import Events from "./pages/Events";
+import EventIdeas from "./pages/EventIdeas";
 import Leaderboard from "./pages/Leaderboard";
 import Profile from "./pages/Profile";
 import PointRequest from "./pages/PointRequest";
@@ -40,6 +41,14 @@ export default function App() {
         element={
           <ProtectedRoute>
             <Events />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/event-ideas"
+        element={
+          <ProtectedRoute>
+            <EventIdeas />
           </ProtectedRoute>
         }
       />
