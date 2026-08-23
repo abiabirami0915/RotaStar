@@ -16,7 +16,7 @@ import Feedback from "./pages/Feedback";
 
 // Admin Pages
 import Admin from "./pages/Admin";
-import AdminRequests from "./pages/AdminRequests";
+import AdminPointRequests from "./pages/AdminPointRequests";
 import AdminMembers from "./pages/AdminMembers";
 import AdminFeedback from "./pages/AdminFeedback";
 
@@ -83,7 +83,7 @@ export default function App() {
             path="/admin/requests"
             element={
               <AdminRoute>
-                <AdminRequests />
+                <AdminPointRequests />
               </AdminRoute>
             }
           />
