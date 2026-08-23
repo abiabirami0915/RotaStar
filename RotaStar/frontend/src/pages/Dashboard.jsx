@@ -23,6 +23,8 @@ import {
   Code,
   Rocket,
   Heart,
+  MessageSquarePlus,
+  MessageSquare,
 } from "lucide-react";
 import {
   collection,
@@ -55,7 +57,7 @@ export default function Dashboard() {
   const [recentActivities, setRecentActivities] = useState([]);
   const [userRank, setUserRank] = useState("-");
 
-  // Modal Triggers
+  // Popups & Celebration States
   const [showWelcomeModal, setShowWelcomeModal] = useState(false);
   const [showLevelUpModal, setShowLevelUpModal] = useState(false);
   const [levelUpData, setLevelUpData] = useState({ oldLevel: 1, newLevel: 1, quote: "" });
@@ -272,7 +274,7 @@ export default function Dashboard() {
 
       {/* MAIN CONTAINER */}
       <main className="max-w-6xl mx-auto px-6 py-8">
-        {/* HERO STATUS & PROGRESS CARD */}
+        {/* HERO STATUS CARD */}
         <div className="bg-gradient-to-r from-violet-950/70 via-slate-900/90 to-amber-950/40 border border-violet-500/30 rounded-3xl p-6 sm:p-8 mb-6 shadow-2xl transition-all">
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-6">
             <div
@@ -399,46 +401,66 @@ export default function Dashboard() {
           </div>
         </div>
 
-        {/* PRIMARY ACTIONS */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+        {/* PRIMARY ACTIONS GRID */}
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
           <button
             onClick={() => navigate("/request-points")}
-            className="p-6 rounded-2xl bg-gradient-to-r from-violet-700 to-amber-600 hover:from-violet-600 hover:to-amber-500 text-left transition shadow-xl shadow-violet-950 flex items-center justify-between group"
+            className="p-5 rounded-2xl bg-gradient-to-r from-violet-700 to-amber-600 hover:from-violet-600 hover:to-amber-500 text-left transition shadow-xl shadow-violet-950 flex items-center justify-between group"
           >
-            <div className="flex items-center gap-4">
-              <div className="p-3 bg-white/15 rounded-xl text-amber-200">
-                <FileText size={24} />
+            <div className="flex items-center gap-3">
+              <div className="p-2.5 bg-white/15 rounded-xl text-amber-200">
+                <FileText size={22} />
               </div>
               <div>
-                <h3 className="font-extrabold text-lg text-white">
+                <h3 className="font-extrabold text-base text-white">
                   Request Points
                 </h3>
-                <p className="text-xs text-amber-100/90 mt-0.5">
-                  Submit your activity and claim club points
+                <p className="text-[11px] text-amber-100/90 mt-0.5">
+                  Submit service activity
                 </p>
               </div>
             </div>
-            <ChevronRight size={22} className="text-amber-200 group-hover:translate-x-1 transition-transform" />
+            <ChevronRight size={18} className="text-amber-200 group-hover:translate-x-1 transition-transform" />
           </button>
 
           <button
             onClick={() => navigate("/leaderboard")}
-            className="p-6 rounded-2xl bg-slate-900/90 border border-violet-900/50 hover:border-amber-500/50 text-left transition shadow-xl flex items-center justify-between group"
+            className="p-5 rounded-2xl bg-slate-900/90 border border-violet-900/50 hover:border-amber-500/50 text-left transition shadow-xl flex items-center justify-between group"
           >
-            <div className="flex items-center gap-4">
-              <div className="p-3 bg-violet-600/10 text-amber-400 rounded-xl border border-violet-500/20">
-                <Crown size={24} />
+            <div className="flex items-center gap-3">
+              <div className="p-2.5 bg-violet-600/10 text-amber-400 rounded-xl border border-violet-500/20">
+                <Crown size={22} />
               </div>
               <div>
-                <h3 className="font-extrabold text-lg text-white">
-                  Royal Leaderboard
+                <h3 className="font-extrabold text-base text-white">
+                  Leaderboard
                 </h3>
-                <p className="text-xs text-slate-400 mt-0.5">
-                  View standings, tiers, and top ranks
+                <p className="text-[11px] text-slate-400 mt-0.5">
+                  View standings & tiers
                 </p>
               </div>
             </div>
-            <ChevronRight size={22} className="text-violet-400 group-hover:translate-x-1 transition-transform" />
+            <ChevronRight size={18} className="text-violet-400 group-hover:translate-x-1 transition-transform" />
+          </button>
+
+          <button
+            onClick={() => navigate("/feedback")}
+            className="p-5 rounded-2xl bg-slate-900/90 border border-violet-900/50 hover:border-amber-500/50 text-left transition shadow-xl flex items-center justify-between group"
+          >
+            <div className="flex items-center gap-3">
+              <div className="p-2.5 bg-amber-500/10 text-amber-400 rounded-xl border border-amber-500/20">
+                <MessageSquarePlus size={22} />
+              </div>
+              <div>
+                <h3 className="font-extrabold text-base text-white">
+                  Give Feedback
+                </h3>
+                <p className="text-[11px] text-slate-400 mt-0.5">
+                  Ideas & suggestions
+                </p>
+              </div>
+            </div>
+            <ChevronRight size={18} className="text-amber-400 group-hover:translate-x-1 transition-transform" />
           </button>
         </div>
 
@@ -509,12 +531,12 @@ export default function Dashboard() {
                 <div>
                   <h2 className="text-lg font-bold text-white">Admin Controls</h2>
                   <p className="text-xs text-slate-400">
-                    Oversee points ledger, submissions, and member privileges
+                    Oversee points ledger, submissions, member directory, and feedback
                   </p>
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
                 <button
                   onClick={() => navigate("/admin")}
                   className="flex items-center justify-between p-4 rounded-xl bg-slate-950 border border-violet-900/40 hover:border-amber-500/40 text-left transition"
@@ -524,7 +546,7 @@ export default function Dashboard() {
                       Point Management
                     </p>
                     <p className="text-xs text-slate-500 mt-0.5">
-                      Award or deduct points
+                      Award or deduct
                     </p>
                   </div>
                   <ChevronRight size={16} className="text-amber-400" />
@@ -539,7 +561,7 @@ export default function Dashboard() {
                       Point Requests
                     </p>
                     <p className="text-xs text-slate-500 mt-0.5">
-                      Approve/Reject requests
+                      Approve/Reject
                     </p>
                   </div>
                   <ChevronRight size={16} className="text-amber-400" />
@@ -555,7 +577,23 @@ export default function Dashboard() {
                       View Members
                     </p>
                     <p className="text-xs text-slate-500 mt-0.5">
-                      Directory & Super Admin delete
+                      Roster & Delete
+                    </p>
+                  </div>
+                  <ChevronRight size={16} className="text-amber-400" />
+                </button>
+
+                <button
+                  onClick={() => navigate("/admin/feedback")}
+                  className="flex items-center justify-between p-4 rounded-xl bg-slate-950 border border-violet-900/40 hover:border-amber-500/40 text-left transition"
+                >
+                  <div>
+                    <p className="font-semibold text-white text-sm flex items-center gap-1.5">
+                      <MessageSquare size={14} className="text-amber-400" />
+                      Feedback Ledger
+                    </p>
+                    <p className="text-xs text-slate-500 mt-0.5">
+                      Review ideas
                     </p>
                   </div>
                   <ChevronRight size={16} className="text-amber-400" />
