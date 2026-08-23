@@ -16,6 +16,9 @@ import {
   AlertTriangle,
   Crown,
   Search,
+  Eye,
+  FileText,
+  Layers,
 } from "lucide-react";
 import {
   collection,
@@ -36,6 +39,7 @@ const AVENUES = [
   "Club Service",
   "Professional Development",
   "International Service",
+  "Multi-Avenue",
   "General Body Meeting",
   "Special Initiative",
 ];
@@ -52,6 +56,7 @@ export default function Events() {
   // Modal States
   const [showAddModal, setShowAddModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
+  const [viewingEvent, setViewingEvent] = useState(null); // Detailed view for long descriptions
   const [editingEventId, setEditingEventId] = useState(null);
   const [submitting, setSubmitting] = useState(false);
   const [eventToDelete, setEventToDelete] = useState(null);
@@ -129,7 +134,7 @@ export default function Events() {
     setShowEditModal(true);
   };
 
-  // Add Event Handler
+  // Add Event
   const handleAddEvent = async (e) => {
     e.preventDefault();
     if (!title.trim()) {
@@ -162,7 +167,7 @@ export default function Events() {
     }
   };
 
-  // Update Event Handler
+  // Update Event
   const handleUpdateEvent = async (e) => {
     e.preventDefault();
     if (!editingEventId) return;
@@ -197,7 +202,7 @@ export default function Events() {
     }
   };
 
-  // Delete Event Handler
+  // Delete Event
   const handleDeleteEvent = async () => {
     if (!eventToDelete) return;
     setDeleteLoading(true);
@@ -256,7 +261,7 @@ export default function Events() {
               Upcoming Events & Projects
             </h1>
             <p className="text-xs text-slate-400 mt-1">
-              Check out scheduled initiatives and avenues for RAC PSVPEC.
+              Check out scheduled initiatives, multi-avenue drives, and avenues for RAC PSVPEC.
             </p>
           </div>
 
@@ -294,7 +299,7 @@ export default function Events() {
           <div className="sm:col-span-2 relative">
             <input
               type="text"
-              placeholder="Search by event title, venue, or description..."
+              placeholder="Search by title, venue, or description..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               className="w-full pl-11 pr-4 py-3 bg-slate-900/90 border border-violet-900/40 rounded-xl text-white placeholder-slate-500 text-sm outline-none focus:border-amber-400 transition"
@@ -321,7 +326,7 @@ export default function Events() {
           </div>
         </div>
 
-        {/* EVENTS LIST */}
+        {/* EVENTS LIST / GRID */}
         {loading ? (
           <div className="bg-slate-900/90 border border-violet-900/40 rounded-3xl p-12 text-center text-slate-500">
             Loading events schedule...
@@ -339,40 +344,71 @@ export default function Events() {
               >
                 <div>
                   <div className="flex items-start justify-between gap-3 mb-3">
-                    <span className="px-3 py-1 rounded-full bg-violet-500/10 border border-violet-500/30 text-amber-300 text-xs font-bold">
+                    <span className="px-3 py-1 rounded-full bg-violet-500/10 border border-violet-500/30 text-amber-300 text-xs font-bold flex items-center gap-1.5">
+                      {ev.avenue === "Multi-Avenue" && <Layers size={13} className="text-amber-400" />}
                       {ev.avenue || "General"}
                     </span>
 
-                    {canManage && (
-                      <div className="flex items-center gap-1.5">
-                        <button
-                          onClick={() => handleOpenEditModal(ev)}
-                          className="p-1.5 rounded-xl bg-violet-500/10 text-violet-300 hover:bg-violet-500/20 border border-violet-500/20 transition"
-                          title="Edit Event"
-                        >
-                          <Edit size={15} />
-                        </button>
-                        <button
-                          onClick={() => setEventToDelete(ev)}
-                          className="p-1.5 rounded-xl bg-red-500/10 text-red-400 hover:bg-red-500/20 border border-red-500/20 transition"
-                          title="Delete Event"
-                        >
-                          <Trash2 size={15} />
-                        </button>
-                      </div>
-                    )}
+                    <div className="flex items-center gap-1.5">
+                      <button
+                        onClick={() => setViewingEvent(ev)}
+                        className="p-1.5 rounded-xl bg-slate-800 text-slate-300 hover:text-white hover:bg-slate-700 transition"
+                        title="View Full Details"
+                      >
+                        <Eye size={15} />
+                      </button>
+
+                      {canManage && (
+                        <>
+                          <button
+                            onClick={() => handleOpenEditModal(ev)}
+                            className="p-1.5 rounded-xl bg-violet-500/10 text-violet-300 hover:bg-violet-500/20 border border-violet-500/20 transition"
+                            title="Edit Event"
+                          >
+                            <Edit size={15} />
+                          </button>
+                          <button
+                            onClick={() => setEventToDelete(ev)}
+                            className="p-1.5 rounded-xl bg-red-500/10 text-red-400 hover:bg-red-500/20 border border-red-500/20 transition"
+                            title="Delete Event"
+                          >
+                            <Trash2 size={15} />
+                          </button>
+                        </>
+                      )}
+                    </div>
                   </div>
 
-                  <h3 className="text-lg font-black text-white mb-3">
+                  <h3
+                    onClick={() => setViewingEvent(ev)}
+                    className="text-lg font-black text-white mb-2 cursor-pointer hover:text-amber-300 transition-colors"
+                  >
                     {ev.title}
                   </h3>
 
-                  {ev.description && (
-                    <p className="text-xs text-slate-300 mb-4 leading-relaxed line-clamp-3">
-                      {ev.description}
+                  {/* EVENT DESCRIPTION PREVIEW WITH VIEW FULL OPTION */}
+                  {ev.description ? (
+                    <div className="mb-4">
+                      <p className="text-xs text-slate-300 leading-relaxed line-clamp-3">
+                        {ev.description}
+                      </p>
+                      {ev.description.length > 100 && (
+                        <button
+                          type="button"
+                          onClick={() => setViewingEvent(ev)}
+                          className="text-[11px] font-bold text-amber-400 hover:underline mt-1 inline-flex items-center gap-1"
+                        >
+                          Read full description →
+                        </button>
+                      )}
+                    </div>
+                  ) : (
+                    <p className="text-xs text-slate-500 italic mb-4">
+                      No extra description provided.
                     </p>
                   )}
 
+                  {/* EVENT DETAILS PILLS */}
                   <div className="space-y-2.5 text-xs text-slate-400 bg-slate-950/70 p-4 rounded-2xl border border-violet-900/40 mb-4">
                     <div className="flex items-center gap-2">
                       <Calendar size={14} className="text-amber-400 shrink-0" />
@@ -417,10 +453,81 @@ export default function Events() {
         )}
       </main>
 
-      {/* 1. CREATE EVENT MODAL */}
+      {/* 1. VIEW FULL EVENT DETAILS MODAL (FOR LARGE DESCRIPTIONS) */}
+      {viewingEvent && (
+        <div className="fixed inset-0 z-50 bg-black/85 backdrop-blur-md flex items-center justify-center p-4">
+          <div className="bg-slate-900 border-2 border-violet-500/40 rounded-3xl p-6 sm:p-8 max-w-xl w-full shadow-2xl relative max-h-[90vh] flex flex-col">
+            <button
+              onClick={() => setViewingEvent(null)}
+              className="absolute top-4 right-4 p-2 rounded-full text-slate-400 hover:text-white hover:bg-slate-800 transition"
+            >
+              <X size={20} />
+            </button>
+
+            <div className="flex items-start gap-3 mb-4">
+              <div className="p-3 bg-amber-500/10 border border-amber-500/20 rounded-2xl text-amber-400 shrink-0">
+                <FileText size={24} />
+              </div>
+              <div className="pr-6">
+                <span className="px-3 py-0.5 rounded-full bg-violet-500/10 border border-violet-500/30 text-amber-300 text-xs font-bold mb-1.5 inline-block">
+                  {viewingEvent.avenue || "General"}
+                </span>
+                <h2 className="text-xl sm:text-2xl font-black text-white">
+                  {viewingEvent.title}
+                </h2>
+              </div>
+            </div>
+
+            {/* EVENT METRICS */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 bg-slate-950 p-4 rounded-2xl border border-violet-900/40 mb-4 text-xs">
+              <div className="flex items-center gap-2 text-slate-300">
+                <Calendar size={15} className="text-amber-400 shrink-0" />
+                <span>
+                  {viewingEvent.date
+                    ? new Date(viewingEvent.date).toLocaleDateString()
+                    : "Date: Soon"}
+                </span>
+              </div>
+              <div className="flex items-center gap-2 text-slate-300">
+                <Clock size={15} className="text-amber-400 shrink-0" />
+                <span>{viewingEvent.time || "TBA"}</span>
+              </div>
+              <div className="flex items-center gap-2 text-amber-400 font-bold">
+                <Award size={15} className="shrink-0" />
+                <span>+{viewingEvent.pointsReward || 0} pts reward</span>
+              </div>
+            </div>
+
+            {/* FULL SCROLLABLE DESCRIPTION */}
+            <div className="flex-1 overflow-y-auto pr-2 space-y-2 mb-6 text-sm text-slate-300 leading-relaxed bg-slate-950/60 p-5 rounded-2xl border border-violet-900/30">
+              <h4 className="text-xs font-bold uppercase tracking-wider text-amber-400">
+                Event Description & Guidelines
+              </h4>
+              <p className="whitespace-pre-wrap">
+                {viewingEvent.description || "No full description provided for this project."}
+              </p>
+              {viewingEvent.venue && (
+                <div className="pt-3 mt-3 border-t border-violet-900/40 flex items-center gap-2 text-xs text-slate-400">
+                  <MapPin size={14} className="text-amber-400" />
+                  <span>Venue: {viewingEvent.venue}</span>
+                </div>
+              )}
+            </div>
+
+            <button
+              onClick={() => setViewingEvent(null)}
+              className="w-full py-3 rounded-xl bg-violet-600/30 hover:bg-violet-600/50 border border-violet-500/40 text-violet-200 font-bold text-sm transition"
+            >
+              Close Event Details
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* 2. CREATE EVENT MODAL */}
       {showAddModal && (
         <div className="fixed inset-0 z-50 bg-black/85 backdrop-blur-md flex items-center justify-center p-4">
-          <div className="bg-slate-900 border-2 border-violet-500/40 rounded-3xl p-6 sm:p-8 max-w-lg w-full shadow-2xl relative">
+          <div className="bg-slate-900 border-2 border-violet-500/40 rounded-3xl p-6 sm:p-8 max-w-lg w-full shadow-2xl relative max-h-[90vh] overflow-y-auto">
             <button
               onClick={() => setShowAddModal(false)}
               className="absolute top-4 right-4 p-2 rounded-full text-slate-400 hover:text-white hover:bg-slate-800 transition"
@@ -526,11 +633,11 @@ export default function Events() {
 
               <div>
                 <label className="block text-xs font-bold text-violet-300 uppercase tracking-wider mb-1">
-                  Description / Note
+                  Detailed Description & Guidelines
                 </label>
                 <textarea
-                  rows={3}
-                  placeholder="Details regarding dress code, project lead, or objectives..."
+                  rows={4}
+                  placeholder="Write full event details, rules, dress code, organizer contacts, or project objectives..."
                   value={description}
                   onChange={(e) => setDescription(e.target.value)}
                   className="w-full px-4 py-2.5 bg-slate-950 border border-violet-900/40 rounded-xl text-white text-sm outline-none focus:border-amber-400 resize-none"
@@ -556,10 +663,10 @@ export default function Events() {
         </div>
       )}
 
-      {/* 2. EDIT EVENT MODAL */}
+      {/* 3. EDIT EVENT MODAL */}
       {showEditModal && (
         <div className="fixed inset-0 z-50 bg-black/85 backdrop-blur-md flex items-center justify-center p-4">
-          <div className="bg-slate-900 border-2 border-amber-500/40 rounded-3xl p-6 sm:p-8 max-w-lg w-full shadow-2xl relative">
+          <div className="bg-slate-900 border-2 border-amber-500/40 rounded-3xl p-6 sm:p-8 max-w-lg w-full shadow-2xl relative max-h-[90vh] overflow-y-auto">
             <button
               onClick={() => {
                 setShowEditModal(false);
@@ -664,10 +771,10 @@ export default function Events() {
 
               <div>
                 <label className="block text-xs font-bold text-violet-300 uppercase tracking-wider mb-1">
-                  Description / Note
+                  Detailed Description & Guidelines
                 </label>
                 <textarea
-                  rows={3}
+                  rows={4}
                   value={description}
                   onChange={(e) => setDescription(e.target.value)}
                   className="w-full px-4 py-2.5 bg-slate-950 border border-violet-900/40 rounded-xl text-white text-sm outline-none focus:border-amber-400 resize-none"
@@ -693,7 +800,7 @@ export default function Events() {
         </div>
       )}
 
-      {/* 3. DELETE CONFIRMATION MODAL */}
+      {/* 4. DELETE CONFIRMATION MODAL */}
       {eventToDelete && (
         <div className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4">
           <div className="bg-slate-900 border border-red-500/30 rounded-3xl p-6 max-w-sm w-full text-center">
