@@ -57,11 +57,12 @@ export default function Dashboard() {
   const [recentActivities, setRecentActivities] = useState([]);
   const [userRank, setUserRank] = useState("-");
 
-  // Popups & Celebration States
+  // Popups & Modal States
   const [showWelcomeModal, setShowWelcomeModal] = useState(false);
   const [showLevelUpModal, setShowLevelUpModal] = useState(false);
   const [levelUpData, setLevelUpData] = useState({ oldLevel: 1, newLevel: 1, quote: "" });
   const [unlockedBadgeModal, setUnlockedBadgeModal] = useState(null);
+  const [hasInitializedBadges, setHasInitializedBadges] = useState(false);
 
   // Real-time Gamification Calculations
   const points = userData?.totalPoints || 0;
@@ -114,29 +115,40 @@ export default function Dashboard() {
     localStorage.setItem(storageKey, levelData.currentLevel.toString());
   }, [currentUser, userData, levelData.currentLevel]);
 
-  // 3. Badge Unlock detection and celebration popup trigger
+  // 3. Robust Badge Unlock detection (prevents repeating popup on refresh)
   useEffect(() => {
-    if (!currentUser || memberBadges.length === 0) return;
+    if (!currentUser || !userData || memberBadges.length === 0) return;
 
     const storageKey = `rotastar_seen_badges_${currentUser.uid}`;
-    const storedBadges = JSON.parse(localStorage.getItem(storageKey) || "[]");
+    const rawStored = localStorage.getItem(storageKey);
+    const storedBadges = rawStored ? JSON.parse(rawStored) : null;
+    const currentlyUnlockedIds = memberBadges.filter((b) => b.unlocked).map((b) => b.id);
 
-    const newlyUnlocked = memberBadges.find(
-      (b) => b.unlocked && !storedBadges.includes(b.id)
-    );
-
-    if (newlyUnlocked) {
-      setUnlockedBadgeModal(newlyUnlocked);
-      const updatedList = [
-        ...storedBadges,
-        ...memberBadges.filter((b) => b.unlocked).map((b) => b.id),
-      ];
-      localStorage.setItem(storageKey, JSON.stringify([...new Set(updatedList)]));
-    } else {
-      const allUnlockedIds = memberBadges.filter((b) => b.unlocked).map((b) => b.id);
-      localStorage.setItem(storageKey, JSON.stringify(allUnlockedIds));
+    // On first load/refresh: silently sync already unlocked badges without showing a popup
+    if (!hasInitializedBadges) {
+      if (!storedBadges) {
+        localStorage.setItem(storageKey, JSON.stringify(currentlyUnlockedIds));
+      } else {
+        const merged = Array.from(new Set([...storedBadges, ...currentlyUnlockedIds]));
+        localStorage.setItem(storageKey, JSON.stringify(merged));
+      }
+      setHasInitializedBadges(true);
+      return;
     }
-  }, [currentUser, memberBadges]);
+
+    // After initial load: only show popup if a BRAND NEW badge is unlocked during this active session
+    if (storedBadges) {
+      const brandNewBadge = memberBadges.find(
+        (b) => b.unlocked && !storedBadges.includes(b.id)
+      );
+
+      if (brandNewBadge) {
+        setUnlockedBadgeModal(brandNewBadge);
+        const updatedList = Array.from(new Set([...storedBadges, brandNewBadge.id]));
+        localStorage.setItem(storageKey, JSON.stringify(updatedList));
+      }
+    }
+  }, [currentUser, userData, memberBadges, hasInitializedBadges]);
 
   // 4. Leaderboard rank calculation
   useEffect(() => {
