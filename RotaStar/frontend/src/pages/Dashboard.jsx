@@ -25,12 +25,9 @@ import {
   MessageSquare,
   Lightbulb,
   Megaphone,
-  Bell,
   AlertTriangle,
   Info,
-  CheckCircle,
   Trash2,
-  Plus,
   Loader2,
 } from "lucide-react";
 import {
@@ -112,7 +109,6 @@ export default function Dashboard() {
   const memberBadges = getMemberBadges(points, allUserActivities, monthlyStreak);
   const unlockedBadgesCount = memberBadges.filter((b) => b.unlocked).length;
 
-  // Role validation
   const rawRole = (userData?.role || "").toString().toLowerCase().trim();
   const showAdminPanel =
     Boolean(isAdmin) ||
@@ -183,19 +179,10 @@ export default function Dashboard() {
 
   // 3. Live Announcements Sync
   useEffect(() => {
-    const q = query(
-      collection(db, "announcements"),
-      orderBy("createdAt", "desc")
-    );
-
+    const q = query(collection(db, "announcements"), orderBy("createdAt", "desc"));
     const unsubscribe = onSnapshot(q, (snapshot) => {
-      const list = snapshot.docs.map((d) => ({
-        id: d.id,
-        ...d.data(),
-      }));
-      setAnnouncements(list);
+      setAnnouncements(snapshot.docs.map((d) => ({ id: d.id, ...d.data() })));
     });
-
     return () => unsubscribe();
   }, []);
 
@@ -218,38 +205,26 @@ export default function Dashboard() {
   // 5. Activities Sync
   useEffect(() => {
     if (!currentUser) return;
+    const q = query(collection(db, "activities"), where("userId", "==", currentUser.uid));
+    const unsubActivities = onSnapshot(q, (snapshot) => {
+      const acts = snapshot.docs.map((docSnap) => ({
+        id: docSnap.id,
+        ...docSnap.data(),
+      }));
 
-    const q = query(
-      collection(db, "activities"),
-      where("userId", "==", currentUser.uid)
-    );
+      acts.sort((a, b) => {
+        const timeA = a.createdAt?.toDate ? a.createdAt.toDate().getTime() : 0;
+        const timeB = b.createdAt?.toDate ? b.createdAt.toDate().getTime() : 0;
+        return timeB - timeA;
+      });
 
-    const unsubActivities = onSnapshot(
-      q,
-      (snapshot) => {
-        const acts = snapshot.docs.map((docSnap) => ({
-          id: docSnap.id,
-          ...docSnap.data(),
-        }));
-
-        acts.sort((a, b) => {
-          const timeA = a.createdAt?.toDate ? a.createdAt.toDate().getTime() : 0;
-          const timeB = b.createdAt?.toDate ? b.createdAt.toDate().getTime() : 0;
-          return timeB - timeA;
-        });
-
-        setAllUserActivities(acts);
-        setRecentActivities(acts.slice(0, 5));
-      },
-      (err) => {
-        console.error("Activities listener error:", err);
-      }
-    );
+      setAllUserActivities(acts);
+      setRecentActivities(acts.slice(0, 5));
+    });
 
     return () => unsubActivities();
   }, [currentUser]);
 
-  // Create Announcement
   const handleCreateAnnouncement = async (e) => {
     e.preventDefault();
     if (!announceTitle.trim() || !announceMessage.trim()) return;
@@ -273,7 +248,6 @@ export default function Dashboard() {
     }
   };
 
-  // Delete Announcement
   const handleDeleteAnnouncement = async (id) => {
     try {
       await deleteDoc(doc(db, "announcements", id));
@@ -315,24 +289,69 @@ export default function Dashboard() {
 
   return (
     <div className="min-h-screen bg-[#030014] text-white">
-      {/* NAVBAR */}
+      {/* 🏆 TOP NAVBAR WITH TRIPLE OFFICIAL LOGOS */}
       <nav className="border-b border-violet-900/40 bg-slate-950/80 backdrop-blur-md sticky top-0 z-50">
         <div className="max-w-6xl mx-auto px-6 h-20 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-violet-600 to-amber-500 flex items-center justify-center font-black text-white shadow-lg shadow-violet-600/30 shrink-0">
-              <Crown size={20} className="text-amber-200" />
+          <div className="flex items-center gap-3.5">
+            {/* LOGO GROUP: CLUB + AURA + DISTRICT */}
+            <div className="flex items-center gap-2 p-1.5 rounded-2xl bg-slate-900/90 border border-violet-900/50 shadow-lg">
+              {/* Club Logo */}
+              <div className="w-9 h-9 rounded-xl overflow-hidden bg-slate-950 border border-amber-400/30 flex items-center justify-center shrink-0">
+                <img
+                  src="/assets/club-logo.png"
+                  alt="RAC PSVPEC Club Logo"
+                  className="w-full h-full object-contain p-0.5"
+                  onError={(e) => {
+                    e.target.style.display = "none";
+                    e.target.nextSibling.style.display = "flex";
+                  }}
+                />
+                <div className="hidden w-full h-full items-center justify-center font-black text-amber-300 text-xs">
+                  PSV
+                </div>
+              </div>
+
+              {/* AURA Theme Logo */}
+              <div className="w-9 h-9 rounded-xl overflow-hidden bg-slate-950 border border-violet-400/30 flex items-center justify-center shrink-0" title="AURA Theme">
+                <img
+                  src="/assets/aura-logo.png"
+                  alt="AURA Theme Logo"
+                  className="w-full h-full object-contain p-0.5"
+                  onError={(e) => {
+                    e.target.style.display = "none";
+                    e.target.nextSibling.style.display = "flex";
+                  }}
+                />
+                <div className="hidden w-full h-full items-center justify-center font-black text-violet-300 text-xs">
+                  AURA
+                </div>
+              </div>
+
+              {/* District Logo */}
+              <div className="w-9 h-9 rounded-xl overflow-hidden bg-slate-950 border border-amber-400/30 flex items-center justify-center shrink-0" title="Rotaract District">
+                <img
+                  src="/assets/district-logo.png"
+                  alt="Rotaract District Logo"
+                  className="w-full h-full object-contain p-0.5"
+                  onError={(e) => {
+                    e.target.style.display = "none";
+                    e.target.nextSibling.style.display = "flex";
+                  }}
+                />
+                <div className="hidden w-full h-full items-center justify-center font-black text-amber-400 text-xs">
+                  DIST
+                </div>
+              </div>
             </div>
-            <div>
-              <div className="flex items-center gap-1.5">
-                <span className="font-extrabold tracking-tight text-lg text-violet-400">
-                  Rota
-                </span>
-                <span className="font-extrabold tracking-tight text-lg text-amber-400">
-                  Star
-                </span>
+
+            {/* PLATFORM TITLE */}
+            <div className="hidden sm:block">
+              <div className="flex items-center gap-1">
+                <span className="font-extrabold tracking-tight text-lg text-violet-400">Rota</span>
+                <span className="font-extrabold tracking-tight text-lg text-amber-400">Star</span>
               </div>
               <p className="text-[10px] text-amber-300/80 tracking-tight font-medium">
-                Service with Purpose, Recognition with Merit.
+                RAC PSVPEC • AURA • RID 3234
               </p>
             </div>
           </div>
@@ -869,7 +888,7 @@ export default function Dashboard() {
           </div>
         </section>
 
-        {/* ABOUT THIS PLATFORM */}
+        {/* 🚀 ABOUT THIS PLATFORM & ATTRIBUTION */}
         <section className="bg-gradient-to-r from-violet-950/70 via-slate-900/90 to-amber-950/40 border border-violet-900/50 rounded-3xl p-6 sm:p-8 shadow-2xl">
           <div className="flex flex-col md:flex-row items-start gap-6">
             <div className="p-4 bg-amber-500/10 border border-amber-500/30 rounded-2xl text-amber-400 shrink-0 shadow-lg shadow-amber-500/10">
@@ -894,10 +913,7 @@ export default function Dashboard() {
                 </strong>
               </p>
 
-              <p className="text-sm text-slate-300 leading-relaxed">
-                Built from the ground up to turn everyday participation into measurable growth and recognition.
-              </p>
-
+              {/* DEVELOPER CREDIT FOOTER */}
               <div className="pt-4 border-t border-violet-900/60 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                 <div className="flex items-center gap-3">
                   <div className="p-2.5 rounded-xl bg-violet-600/20 text-violet-300 border border-violet-500/30">
@@ -918,7 +934,7 @@ export default function Dashboard() {
 
                 <div className="flex items-center gap-1.5 text-xs text-slate-400 italic">
                   <Heart size={14} className="text-rose-400 shrink-0" />
-                  <span>Built for RAC PSVPEC</span>
+                  <span>AURA • RAC PSVPEC</span>
                 </div>
               </div>
             </div>
