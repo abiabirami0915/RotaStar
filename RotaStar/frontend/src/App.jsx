@@ -1,11 +1,11 @@
 import React, { useState } from "react";
-import { BrowserRouter as Router, Routes, Route, Navigate, useNavigate, Link } from "react-router-dom";
+import { Routes, Route, Navigate, useNavigate, Link } from "react-router-dom";
 import { createUserWithEmailAndPassword, updateProfile } from "firebase/auth";
 import { doc, setDoc, serverTimestamp } from "firebase/firestore";
 import { auth, db } from "./firebase/firebase";
 import { AuthProvider, useAuth } from "./AuthContext";
 
-// Existing Working Pages
+// Existing Pages
 import Login from "./pages/Login";
 import Dashboard from "./pages/Dashboard";
 import Profile from "./pages/Profile";
@@ -43,7 +43,7 @@ const CLUB_ROLES = [
   "President",
 ];
 
-// INLINE SIGNUP COMPONENT (Guaranteed 0 Import Errors)
+// INLINE SIGNUP COMPONENT
 function SignupComponent() {
   const navigate = useNavigate();
 
@@ -397,56 +397,54 @@ function AdminRoute({ children }) {
 export default function App() {
   return (
     <AuthProvider>
-      <Router>
-        <Routes>
-          {/* Public Access */}
-          <Route path="/login" element={<Login />} />
-          <Route path="/signup" element={<SignupComponent />} />
-          <Route path="/register" element={<SignupComponent />} />
+      <Routes>
+        {/* Public Access */}
+        <Route path="/login" element={<Login />} />
+        <Route path="/signup" element={<SignupComponent />} />
+        <Route path="/register" element={<SignupComponent />} />
 
-          {/* Member Area */}
-          <Route
-            path="/"
-            element={
-              <ProtectedRoute>
-                <Dashboard />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/dashboard"
-            element={
-              <ProtectedRoute>
-                <Dashboard />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/profile"
-            element={
-              <ProtectedRoute>
-                <Profile />
-              </ProtectedRoute>
-            }
-          />
+        {/* Member Area */}
+        <Route
+          path="/"
+          element={
+            <ProtectedRoute>
+              <Dashboard />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/dashboard"
+          element={
+            <ProtectedRoute>
+              <Dashboard />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/profile"
+          element={
+            <ProtectedRoute>
+              <Profile />
+            </ProtectedRoute>
+          }
+        />
 
-          {/* Feature Hubs */}
-          <Route path="/leaderboard" element={<ProtectedRoute><SafeModule title="Leaderboard Standings" /></ProtectedRoute>} />
-          <Route path="/events" element={<ProtectedRoute><SafeModule title="Club Events & Calendar" /></ProtectedRoute>} />
-          <Route path="/event-ideas" element={<ProtectedRoute><SafeModule title="Propose Event Ideas" /></ProtectedRoute>} />
-          <Route path="/feedback" element={<ProtectedRoute><SafeModule title="Member Feedback Hub" /></ProtectedRoute>} />
-          <Route path="/request-points" element={<ProtectedRoute><SafeModule title="Submit Activity Points" /></ProtectedRoute>} />
+        {/* Feature Hubs */}
+        <Route path="/leaderboard" element={<ProtectedRoute><SafeModule title="Leaderboard Standings" /></ProtectedRoute>} />
+        <Route path="/events" element={<ProtectedRoute><SafeModule title="Club Events & Calendar" /></ProtectedRoute>} />
+        <Route path="/event-ideas" element={<ProtectedRoute><SafeModule title="Propose Event Ideas" /></ProtectedRoute>} />
+        <Route path="/feedback" element={<ProtectedRoute><SafeModule title="Member Feedback Hub" /></ProtectedRoute>} />
+        <Route path="/request-points" element={<ProtectedRoute><SafeModule title="Submit Activity Points" /></ProtectedRoute>} />
 
-          {/* Admin Hubs */}
-          <Route path="/admin" element={<AdminRoute><SafeModule title="Admin Point Ledger" /></AdminRoute>} />
-          <Route path="/admin/requests" element={<AdminRoute><SafeModule title="Admin Point Approvals" /></AdminRoute>} />
-          <Route path="/admin/members" element={<AdminRoute><SafeModule title="Member Directory Management" /></AdminRoute>} />
-          <Route path="/admin/feedback" element={<AdminRoute><SafeModule title="Executive Feedback Roster" /></AdminRoute>} />
+        {/* Admin Hubs */}
+        <Route path="/admin" element={<AdminRoute><SafeModule title="Admin Point Ledger" /></AdminRoute>} />
+        <Route path="/admin/requests" element={<AdminRoute><SafeModule title="Admin Point Approvals" /></AdminRoute>} />
+        <Route path="/admin/members" element={<AdminRoute><SafeModule title="Member Directory Management" /></AdminRoute>} />
+        <Route path="/admin/feedback" element={<AdminRoute><SafeModule title="Executive Feedback Roster" /></AdminRoute>} />
 
-          {/* Fallback */}
-          <Route path="*" element={<Navigate to="/login" replace />} />
-        </Routes>
-      </Router>
+        {/* Fallback */}
+        <Route path="*" element={<Navigate to="/login" replace />} />
+      </Routes>
     </AuthProvider>
   );
 }
