@@ -1,6 +1,7 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { doc, updateDoc, onSnapshot } from "firebase/firestore";
+import { updateProfile } from "firebase/auth";
 import { db } from "../firebase/firebase";
 import { useAuth } from "../AuthContext";
 import {
@@ -12,14 +13,14 @@ import {
   CheckCircle2,
   AlertCircle,
   Loader2,
-  Mail,
-  Shield,
-  Star,
+  Camera,
+  Upload,
 } from "lucide-react";
 
 export default function Profile() {
   const navigate = useNavigate();
   const { currentUser } = useAuth();
+  const fileInputRef = useRef(null);
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -45,13 +46,31 @@ export default function Profile() {
         setDepartment(data.department || "");
         setYearOfStudy(data.yearOfStudy || "1st Year");
         setCurrentRole(data.role || "General Member");
-        setPhotoURL(data.photoURL || "");
+        setPhotoURL(data.photoURL || currentUser.photoURL || "");
       }
       setLoading(false);
     });
 
     return () => unsub();
   }, [currentUser]);
+
+  // Handle local image file picker and convert to compressed data URI
+  const handleImageFileChange = (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (file.size > 2 * 1024 * 1024) {
+      setErrorMsg("Image size should be under 2MB.");
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      setPhotoURL(event.target.result);
+      setErrorMsg("");
+    };
+    reader.readAsDataURL(file);
+  };
 
   const handleUpdateProfile = async (e) => {
     e.preventDefault();
@@ -62,15 +81,26 @@ export default function Profile() {
     setSuccessMsg(false);
 
     try {
+      const cleanUsername = username
+        ? username.trim().toLowerCase().replace(/[^a-z0-9_]/g, "")
+        : "";
+
       const userRef = doc(db, "users", currentUser.uid);
       await updateDoc(userRef, {
         name: name.trim(),
-        username: username.trim().toLowerCase().replace(/[^a-z0-9_]/g, ""),
+        username: cleanUsername,
         phone: phone.trim(),
         department: department.trim(),
         yearOfStudy: yearOfStudy,
-        photoURL: photoURL.trim(),
+        photoURL: photoURL,
       });
+
+      if (auth.currentUser) {
+        await updateProfile(auth.currentUser, {
+          displayName: name.trim(),
+          photoURL: photoURL.startsWith("data:") ? "" : photoURL,
+        });
+      }
 
       setSuccessMsg(true);
       setTimeout(() => setSuccessMsg(false), 3000);
@@ -112,14 +142,34 @@ export default function Profile() {
 
       <main className="max-w-3xl mx-auto px-6 py-8">
         <div className="bg-slate-900/90 border border-violet-900/40 rounded-3xl p-6 sm:p-8 shadow-2xl">
-          {/* HEADER STATUS */}
+          {/* HEADER AVATAR WITH DIRECT UPLOAD TRIGGER */}
           <div className="flex flex-col sm:flex-row items-center gap-5 pb-6 border-b border-violet-950/80 mb-6">
-            <div className="w-20 h-20 rounded-2xl overflow-hidden border-2 border-amber-500/50 bg-slate-950 flex items-center justify-center shadow-lg shadow-amber-500/10 shrink-0">
-              {photoURL ? (
-                <img src={photoURL} alt="Profile" className="w-full h-full object-cover" />
-              ) : (
-                <User size={36} className="text-violet-400" />
-              )}
+            <div className="relative group">
+              <div className="w-24 h-24 rounded-3xl overflow-hidden border-2 border-amber-500/50 bg-slate-950 flex items-center justify-center shadow-lg shadow-amber-500/10 shrink-0">
+                {photoURL ? (
+                  <img src={photoURL} alt="Profile" className="w-full h-full object-cover" />
+                ) : (
+                  <User size={40} className="text-violet-400" />
+                )}
+              </div>
+
+              {/* Camera upload overlay */}
+              <button
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                className="absolute inset-0 bg-black/60 rounded-3xl opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center text-amber-300 text-[10px] font-bold gap-1 cursor-pointer"
+              >
+                <Camera size={20} />
+                <span>Upload</span>
+              </button>
+
+              <input
+                type="file"
+                ref={fileInputRef}
+                onChange={handleImageFileChange}
+                accept="image/*"
+                className="hidden"
+              />
             </div>
 
             <div className="text-center sm:text-left flex-1">
@@ -130,6 +180,17 @@ export default function Profile() {
                 </span>
               </div>
               <p className="text-xs text-slate-400">{currentUser?.email}</p>
+
+              <div className="mt-3">
+                <button
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                  className="px-3.5 py-1.5 rounded-xl bg-violet-600/20 hover:bg-violet-600/30 border border-violet-500/40 text-violet-200 text-xs font-bold transition inline-flex items-center gap-1.5 cursor-pointer"
+                >
+                  <Upload size={13} className="text-amber-400" />
+                  <span>Choose Photo from Device</span>
+                </button>
+              </div>
             </div>
           </div>
 
@@ -232,12 +293,12 @@ export default function Profile() {
 
               <div>
                 <label className="block text-xs font-bold text-violet-300 uppercase tracking-wider mb-1.5">
-                  Profile Avatar Image URL
+                  Image Web URL (Optional)
                 </label>
                 <input
                   type="url"
                   placeholder="https://images.unsplash.com/..."
-                  value={photoURL}
+                  value={photoURL.startsWith("data:") ? "" : photoURL}
                   onChange={(e) => setPhotoURL(e.target.value)}
                   className="w-full px-4 py-2.5 bg-slate-950 border border-violet-900/50 rounded-xl text-white text-sm outline-none focus:border-amber-400"
                 />
@@ -253,7 +314,7 @@ export default function Profile() {
                 {saving ? (
                   <>
                     <Loader2 size={18} className="animate-spin text-slate-950" />
-                    <span>Saving Changes...</span>
+                    <span>Saving Profile...</span>
                   </>
                 ) : (
                   <span>Save Profile Updates</span>
