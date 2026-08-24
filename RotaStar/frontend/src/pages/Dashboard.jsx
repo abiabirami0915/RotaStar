@@ -35,6 +35,9 @@ import {
   BellRing,
   PieChart,
   Users,
+  Edit3,
+  Layers,
+  Check,
 } from "lucide-react";
 import {
   collection,
@@ -45,6 +48,7 @@ import {
   addDoc,
   deleteDoc,
   doc,
+  setDoc,
   serverTimestamp,
 } from "firebase/firestore";
 import { db } from "../firebase/firebase";
@@ -105,6 +109,28 @@ export default function Dashboard() {
   const [userRank, setUserRank] = useState("-");
   const [allMembers, setAllMembers] = useState([]);
 
+  // Club Avenue Event Count Tracker State (Synced with Firestore)
+  const [clubMilestones, setClubMilestones] = useState({
+    clubService: 0,
+    communityService: 0,
+    professionalDevelopment: 0,
+    internationalService: 0,
+    multiAvenue: 0,
+    generalEvents: 0,
+  });
+
+  // Milestone Modal States (Admin)
+  const [showMilestoneModal, setShowMilestoneModal] = useState(false);
+  const [editMilestones, setEditMilestones] = useState({
+    clubService: 0,
+    communityService: 0,
+    professionalDevelopment: 0,
+    internationalService: 0,
+    multiAvenue: 0,
+    generalEvents: 0,
+  });
+  const [milestoneSubmitting, setMilestoneSubmitting] = useState(false);
+
   // Announcement Modal States
   const [showAnnounceModal, setShowAnnounceModal] = useState(false);
   const [announceTitle, setAnnounceTitle] = useState("");
@@ -140,61 +166,41 @@ export default function Dashboard() {
     rawRole.includes("secretary") ||
     rawRole.includes("board");
 
-  // 🌟 Star Rotaractor of the Month Calculation (Top Points earner)
+  const totalEventsConducted = useMemo(() => {
+    return (
+      (clubMilestones.clubService || 0) +
+      (clubMilestones.communityService || 0) +
+      (clubMilestones.professionalDevelopment || 0) +
+      (clubMilestones.internationalService || 0) +
+      (clubMilestones.multiAvenue || 0) +
+      (clubMilestones.generalEvents || 0)
+    );
+  }, [clubMilestones]);
+
   const starRotaractor = useMemo(() => {
     if (allMembers.length === 0) return null;
-    return allMembers[0]; // Already sorted by totalPoints desc
+    return allMembers[0];
   }, [allMembers]);
 
-  // 📊 Dynamic Avenue Balance Calculation
-  const avenueStats = useMemo(() => {
-    const counts = {
-      "Club Service": 0,
-      "Community Service": 0,
-      "Professional Development": 0,
-      "International Service": 0,
-    };
-
-    allUserActivities.forEach((act) => {
-      const cat = act.category || "Community Service";
-      if (counts[cat] !== undefined) {
-        counts[cat] += Math.max(act.points || 0, 1);
-      } else {
-        counts["Community Service"] += Math.max(act.points || 0, 1);
+  // Sync Club Milestone Statistics
+  useEffect(() => {
+    const unsub = onSnapshot(doc(db, "clubMeta", "eventMilestones"), (docSnap) => {
+      if (docSnap.exists()) {
+        const data = docSnap.data();
+        const loaded = {
+          clubService: Number(data.clubService) || 0,
+          communityService: Number(data.communityService) || 0,
+          professionalDevelopment: Number(data.professionalDevelopment) || 0,
+          internationalService: Number(data.internationalService) || 0,
+          multiAvenue: Number(data.multiAvenue) || 0,
+          generalEvents: Number(data.generalEvents) || 0,
+        };
+        setClubMilestones(loaded);
+        setEditMilestones(loaded);
       }
     });
-
-    const totalAvenuePoints = Object.values(counts).reduce((a, b) => a + b, 0) || 1;
-    return {
-      counts,
-      totalAvenuePoints,
-      percentages: {
-        "Club Service": Math.round((counts["Club Service"] / totalAvenuePoints) * 100),
-        "Community Service": Math.round((counts["Community Service"] / totalAvenuePoints) * 100),
-        "Professional Development": Math.round((counts["Professional Development"] / totalAvenuePoints) * 100),
-        "International Service": Math.round((counts["International Service"] / totalAvenuePoints) * 100),
-      },
-    };
-  }, [allUserActivities]);
-
-  // SVG Doughnut Chart Calculation
-  const doughnutSegments = useMemo(() => {
-    const circumference = 2 * Math.PI * 40; // r=40
-    let cumulativePercent = 0;
-    const items = [
-      { key: "Club Service", percent: avenueStats.percentages["Club Service"], color: AVENUE_COLORS["Club Service"].hex },
-      { key: "Community Service", percent: avenueStats.percentages["Community Service"], color: AVENUE_COLORS["Community Service"].hex },
-      { key: "Professional Development", percent: avenueStats.percentages["Professional Development"], color: AVENUE_COLORS["Professional Development"].hex },
-      { key: "International Service", percent: avenueStats.percentages["International Service"], color: AVENUE_COLORS["International Service"].hex },
-    ];
-
-    return items.map((item) => {
-      const strokeDasharray = `${(item.percent * circumference) / 100} ${circumference}`;
-      const strokeDashoffset = -((cumulativePercent * circumference) / 100);
-      cumulativePercent += item.percent;
-      return { ...item, strokeDasharray, strokeDashoffset };
-    });
-  }, [avenueStats]);
+    return () => unsub();
+  }, []);
 
   // 1. Level-Up detection
   useEffect(() => {
@@ -261,7 +267,7 @@ export default function Dashboard() {
     return () => unsubscribe();
   }, []);
 
-  // 4. Live Events Sync with Reminders Calculation
+  // 4. Live Events Sync
   useEffect(() => {
     const eventsQuery = query(collection(db, "events"));
     const unsubscribe = onSnapshot(eventsQuery, (snapshot) => {
@@ -340,6 +346,32 @@ export default function Dashboard() {
 
     return () => unsubActivities();
   }, [currentUser]);
+
+  const handleUpdateMilestones = async (e) => {
+    e.preventDefault();
+    setMilestoneSubmitting(true);
+    try {
+      await setDoc(
+        doc(db, "clubMeta", "eventMilestones"),
+        {
+          clubService: Number(editMilestones.clubService) || 0,
+          communityService: Number(editMilestones.communityService) || 0,
+          professionalDevelopment: Number(editMilestones.professionalDevelopment) || 0,
+          internationalService: Number(editMilestones.internationalService) || 0,
+          multiAvenue: Number(editMilestones.multiAvenue) || 0,
+          generalEvents: Number(editMilestones.generalEvents) || 0,
+          updatedAt: serverTimestamp(),
+          updatedBy: userData?.name || "Admin",
+        },
+        { merge: true }
+      );
+      setShowMilestoneModal(false);
+    } catch (err) {
+      console.error("Update milestone error:", err);
+    } finally {
+      setMilestoneSubmitting(false);
+    }
+  };
 
   const handleCreateAnnouncement = async (e) => {
     e.preventDefault();
@@ -615,7 +647,7 @@ export default function Dashboard() {
           </div>
         )}
 
-        {/* 🌟 STAR ROTARACTOR OF THE MONTH SPOTLIGHT */}
+        {/* 🌟 STAR ROTARACTOR SPOTLIGHT */}
         {starRotaractor && (
           <div className="mb-6 p-6 sm:p-7 rounded-3xl bg-gradient-to-r from-amber-500/15 via-purple-950/40 to-slate-900/90 border-2 border-amber-500/40 shadow-2xl backdrop-blur-xl relative overflow-hidden">
             <div className="absolute -right-10 -bottom-10 w-40 h-40 bg-amber-500/10 rounded-full blur-3xl pointer-events-none" />
@@ -668,6 +700,97 @@ export default function Dashboard() {
             </div>
           </div>
         )}
+
+        {/* 🏆 OFFICIAL CLUB EVENT COUNTER & AVENUE MILESTONES */}
+        <section className="bg-slate-900/90 border border-amber-500/30 rounded-3xl p-6 sm:p-7 shadow-2xl mb-6 relative overflow-hidden">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6 pb-4 border-b border-violet-950/80">
+            <div>
+              <div className="inline-flex items-center gap-1.5 px-3 py-0.5 rounded-full bg-amber-500/10 border border-amber-500/30 text-amber-300 text-[10px] font-black uppercase tracking-wider mb-1.5">
+                <Layers size={12} />
+                <span>RAC PSVPEC Official Record</span>
+              </div>
+              <h2 className="text-xl sm:text-2xl font-black text-white">
+                Events Conducted Milestone
+              </h2>
+              <p className="text-xs text-slate-400 mt-0.5">
+                Total completed initiatives across all avenues of service
+              </p>
+            </div>
+
+            <div className="flex items-center gap-3">
+              <div className="px-5 py-2.5 rounded-2xl bg-gradient-to-r from-amber-500/20 to-amber-400/10 border border-amber-500/40 text-center">
+                <span className="text-[10px] uppercase font-bold text-amber-300 block">Total Completed</span>
+                <span className="text-2xl font-black text-amber-400">{totalEventsConducted} Events</span>
+              </div>
+
+              {showAdminPanel && (
+                <button
+                  onClick={() => setShowMilestoneModal(true)}
+                  className="px-4 py-2.5 rounded-2xl bg-violet-600/20 hover:bg-violet-600/30 border border-violet-500/40 text-violet-200 text-xs font-bold transition flex items-center gap-1.5 cursor-pointer shadow-lg"
+                >
+                  <Edit3 size={14} className="text-amber-400" />
+                  <span>Update Count</span>
+                </button>
+              )}
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+            {/* 1. CLUB SERVICE */}
+            <div className="p-4 rounded-2xl bg-slate-950/80 border border-violet-500/30 flex flex-col justify-between text-center hover:border-violet-400 transition">
+              <span className="text-[10px] font-black uppercase tracking-wider text-violet-300 mb-2">
+                Club Service
+              </span>
+              <p className="text-2xl font-black text-white">{clubMilestones.clubService || 0}</p>
+              <span className="text-[10px] text-slate-500 mt-1">Events</span>
+            </div>
+
+            {/* 2. COMMUNITY SERVICE */}
+            <div className="p-4 rounded-2xl bg-slate-950/80 border border-amber-500/30 flex flex-col justify-between text-center hover:border-amber-400 transition">
+              <span className="text-[10px] font-black uppercase tracking-wider text-amber-300 mb-2">
+                Community Service
+              </span>
+              <p className="text-2xl font-black text-amber-400">{clubMilestones.communityService || 0}</p>
+              <span className="text-[10px] text-slate-500 mt-1">Events</span>
+            </div>
+
+            {/* 3. PROFESSIONAL DEVELOPMENT */}
+            <div className="p-4 rounded-2xl bg-slate-950/80 border border-cyan-500/30 flex flex-col justify-between text-center hover:border-cyan-400 transition">
+              <span className="text-[10px] font-black uppercase tracking-wider text-cyan-300 mb-2">
+                Prof. Service
+              </span>
+              <p className="text-2xl font-black text-cyan-400">{clubMilestones.professionalDevelopment || 0}</p>
+              <span className="text-[10px] text-slate-500 mt-1">Events</span>
+            </div>
+
+            {/* 4. INTERNATIONAL SERVICE */}
+            <div className="p-4 rounded-2xl bg-slate-950/80 border border-emerald-500/30 flex flex-col justify-between text-center hover:border-emerald-400 transition">
+              <span className="text-[10px] font-black uppercase tracking-wider text-emerald-300 mb-2">
+                Intl. Service
+              </span>
+              <p className="text-2xl font-black text-emerald-400">{clubMilestones.internationalService || 0}</p>
+              <span className="text-[10px] text-slate-500 mt-1">Events</span>
+            </div>
+
+            {/* 5. MULTI-AVENUE */}
+            <div className="p-4 rounded-2xl bg-slate-950/80 border border-fuchsia-500/30 flex flex-col justify-between text-center hover:border-fuchsia-400 transition">
+              <span className="text-[10px] font-black uppercase tracking-wider text-fuchsia-300 mb-2">
+                Multi-Avenue
+              </span>
+              <p className="text-2xl font-black text-fuchsia-400">{clubMilestones.multiAvenue || 0}</p>
+              <span className="text-[10px] text-slate-500 mt-1">Events</span>
+            </div>
+
+            {/* 6. GENERAL EVENTS */}
+            <div className="p-4 rounded-2xl bg-slate-950/80 border border-slate-700 flex flex-col justify-between text-center hover:border-slate-500 transition">
+              <span className="text-[10px] font-black uppercase tracking-wider text-slate-300 mb-2">
+                General
+              </span>
+              <p className="text-2xl font-black text-white">{clubMilestones.generalEvents || 0}</p>
+              <span className="text-[10px] text-slate-500 mt-1">Meetings & GBM</span>
+            </div>
+          </div>
+        </section>
 
         {/* HERO STATUS CARD */}
         <div className="bg-gradient-to-r from-violet-950/70 via-slate-900/90 to-amber-950/40 border border-violet-500/30 rounded-3xl p-6 sm:p-8 mb-6 shadow-2xl transition-all">
@@ -807,88 +930,6 @@ export default function Dashboard() {
             </p>
           </div>
         </div>
-
-        {/* 📊 FOUR AVENUES OF SERVICE DOUGHNUT & BALANCE CHART */}
-        <section className="bg-slate-900/90 border border-violet-900/40 rounded-3xl p-6 sm:p-7 shadow-2xl mb-8">
-          <div className="flex items-center justify-between mb-5">
-            <div>
-              <h2 className="text-base sm:text-lg font-black text-white flex items-center gap-2">
-                <PieChart size={18} className="text-amber-400" />
-                <span>Four Avenues of Service Balance</span>
-              </h2>
-              <p className="text-xs text-slate-400">
-                Visual breakdown of active service hours and point distribution
-              </p>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 items-center">
-            {/* SVG DOUGHNUT CHART */}
-            <div className="flex flex-col items-center justify-center p-4">
-              <div className="relative w-40 h-40">
-                <svg className="w-full h-full transform -rotate-90" viewBox="0 0 100 100">
-                  <circle
-                    cx="50"
-                    cy="50"
-                    r="40"
-                    fill="transparent"
-                    stroke="#1e1b4b"
-                    strokeWidth="14"
-                  />
-                  {doughnutSegments.map((seg) => (
-                    <circle
-                      key={seg.key}
-                      cx="50"
-                      cy="50"
-                      r="40"
-                      fill="transparent"
-                      stroke={seg.color}
-                      strokeWidth="14"
-                      strokeDasharray={seg.strokeDasharray}
-                      strokeDashoffset={seg.strokeDashoffset}
-                      className="transition-all duration-1000 ease-out"
-                    />
-                  ))}
-                </svg>
-
-                <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-                  <span className="text-xs text-slate-400 font-semibold">Total</span>
-                  <span className="text-xl font-black text-white">{points} pts</span>
-                </div>
-              </div>
-            </div>
-
-            {/* AVENUE PROGRESS METRICS */}
-            <div className="md:col-span-2 space-y-3.5">
-              {Object.entries(AVENUE_COLORS).map(([avenueName, style]) => {
-                const count = avenueStats.counts[avenueName] || 0;
-                const percent = avenueStats.percentages[avenueName] || 0;
-
-                return (
-                  <div key={avenueName} className="p-3 bg-slate-950/80 rounded-2xl border border-violet-900/30">
-                    <div className="flex items-center justify-between text-xs font-bold mb-1.5">
-                      <div className="flex items-center gap-2">
-                        <div className={`w-3 h-3 rounded-full ${style.bg}`} />
-                        <span className="text-white">{avenueName}</span>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <span className="text-slate-400 font-medium">{count} pts</span>
-                        <span className={`font-black ${style.text}`}>{percent}%</span>
-                      </div>
-                    </div>
-
-                    <div className="w-full h-2 bg-slate-900 rounded-full overflow-hidden">
-                      <div
-                        className={`h-full rounded-full ${style.bg} transition-all duration-1000 ease-out`}
-                        style={{ width: `${percent}%` }}
-                      />
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        </section>
 
         {/* PRIMARY ACTIONS GRID */}
         <div className="grid grid-cols-2 lg:grid-cols-5 gap-3 mb-8">
@@ -1340,6 +1381,141 @@ export default function Dashboard() {
           </div>
         </section>
       </main>
+
+      {/* 🛠️ ADMIN EVENT MILESTONES UPDATE MODAL */}
+      {showMilestoneModal && (
+        <div className="fixed inset-0 z-50 bg-black/85 backdrop-blur-md flex items-center justify-center p-4">
+          <div className="bg-slate-900 border-2 border-amber-500/40 rounded-3xl p-6 sm:p-8 max-w-lg w-full shadow-2xl relative animate-in fade-in zoom-in duration-200">
+            <button
+              onClick={() => setShowMilestoneModal(false)}
+              className="absolute top-4 right-4 p-2 rounded-full text-slate-400 hover:text-white hover:bg-slate-800 transition cursor-pointer"
+            >
+              <X size={20} />
+            </button>
+
+            <div className="flex items-center gap-3 mb-5">
+              <div className="p-2.5 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-400">
+                <Layers size={22} />
+              </div>
+              <div>
+                <h2 className="text-xl font-bold text-white">Update Events Conducted</h2>
+                <p className="text-xs text-slate-400">Update official records per avenue of service</p>
+              </div>
+            </div>
+
+            <form onSubmit={handleUpdateMilestones} className="space-y-3.5">
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-bold text-violet-300 uppercase tracking-wider mb-1">
+                    Club Service
+                  </label>
+                  <input
+                    type="number"
+                    min="0"
+                    value={editMilestones.clubService}
+                    onChange={(e) =>
+                      setEditMilestones((prev) => ({ ...prev, clubService: e.target.value }))
+                    }
+                    className="w-full px-3.5 py-2 bg-slate-950 border border-violet-900/50 rounded-xl text-white text-sm outline-none focus:border-amber-400"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-amber-300 uppercase tracking-wider mb-1">
+                    Community Service
+                  </label>
+                  <input
+                    type="number"
+                    min="0"
+                    value={editMilestones.communityService}
+                    onChange={(e) =>
+                      setEditMilestones((prev) => ({ ...prev, communityService: e.target.value }))
+                    }
+                    className="w-full px-3.5 py-2 bg-slate-950 border border-violet-900/50 rounded-xl text-white text-sm outline-none focus:border-amber-400"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-cyan-300 uppercase tracking-wider mb-1">
+                    Prof. Development
+                  </label>
+                  <input
+                    type="number"
+                    min="0"
+                    value={editMilestones.professionalDevelopment}
+                    onChange={(e) =>
+                      setEditMilestones((prev) => ({ ...prev, professionalDevelopment: e.target.value }))
+                    }
+                    className="w-full px-3.5 py-2 bg-slate-950 border border-violet-900/50 rounded-xl text-white text-sm outline-none focus:border-amber-400"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-emerald-300 uppercase tracking-wider mb-1">
+                    Intl. Service
+                  </label>
+                  <input
+                    type="number"
+                    min="0"
+                    value={editMilestones.internationalService}
+                    onChange={(e) =>
+                      setEditMilestones((prev) => ({ ...prev, internationalService: e.target.value }))
+                    }
+                    className="w-full px-3.5 py-2 bg-slate-950 border border-violet-900/50 rounded-xl text-white text-sm outline-none focus:border-amber-400"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-fuchsia-300 uppercase tracking-wider mb-1">
+                    Multi-Avenue
+                  </label>
+                  <input
+                    type="number"
+                    min="0"
+                    value={editMilestones.multiAvenue}
+                    onChange={(e) =>
+                      setEditMilestones((prev) => ({ ...prev, multiAvenue: e.target.value }))
+                    }
+                    className="w-full px-3.5 py-2 bg-slate-950 border border-violet-900/50 rounded-xl text-white text-sm outline-none focus:border-amber-400"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-slate-300 uppercase tracking-wider mb-1">
+                    General / GBM
+                  </label>
+                  <input
+                    type="number"
+                    min="0"
+                    value={editMilestones.generalEvents}
+                    onChange={(e) =>
+                      setEditMilestones((prev) => ({ ...prev, generalEvents: e.target.value }))
+                    }
+                    className="w-full px-3.5 py-2 bg-slate-950 border border-violet-900/50 rounded-xl text-white text-sm outline-none focus:border-amber-400"
+                  />
+                </div>
+              </div>
+
+              <div className="pt-2">
+                <button
+                  type="submit"
+                  disabled={milestoneSubmitting}
+                  className="w-full py-3.5 rounded-xl bg-gradient-to-r from-amber-500 to-amber-400 hover:from-amber-400 hover:to-amber-300 text-slate-950 font-black text-xs flex items-center justify-center gap-2 shadow-xl transition disabled:opacity-50 cursor-pointer"
+                >
+                  {milestoneSubmitting ? (
+                    <Loader2 size={16} className="animate-spin text-slate-950" />
+                  ) : (
+                    <>
+                      <Check size={16} />
+                      <span>Save Official Club Milestones</span>
+                    </>
+                  )}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
 
       {/* ADMIN ANNOUNCEMENT MODAL */}
       {showAnnounceModal && (
