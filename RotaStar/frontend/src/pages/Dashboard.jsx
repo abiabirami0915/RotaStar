@@ -609,6 +609,7 @@ export default function Dashboard() {
           <div className="space-y-3 mb-6">
             {visibleAnnouncements.map((ann) => {
               const style = ANNOUNCEMENT_PRIORITIES[ann.type] || ANNOUNCEMENT_PRIORITIES.info;
+
               return (
                 <div
                   key={ann.id}
@@ -650,13 +651,20 @@ export default function Dashboard() {
           </div>
         )}
 
-        {/* 🌟 1. HELLO STATUS CARD (AT THE TOP) */}
+        {/* 🌟 1. HELLO STATUS CARD */}
         <div className="bg-gradient-to-r from-violet-950/70 via-slate-900/90 to-amber-950/40 border border-violet-500/30 rounded-3xl p-6 sm:p-8 mb-6 shadow-2xl transition-all">
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-6">
-            <div onClick={() => navigate("/profile")} className="flex items-center gap-4 cursor-pointer group">
+            <div
+              onClick={() => navigate("/profile")}
+              className="flex items-center gap-4 cursor-pointer group"
+            >
               <div className="w-16 h-16 rounded-2xl overflow-hidden border-2 border-amber-500/50 bg-slate-950 flex items-center justify-center shrink-0 shadow-lg shadow-amber-500/10 group-hover:scale-105 transition-transform">
                 {userData?.photoURL || currentUser?.photoURL ? (
-                  <img src={userData?.photoURL || currentUser?.photoURL} alt="Avatar" className="w-full h-full object-cover" />
+                  <img
+                    src={userData?.photoURL || currentUser?.photoURL}
+                    alt="Avatar"
+                    className="w-full h-full object-cover"
+                  />
                 ) : (
                   <User size={32} className="text-violet-400" />
                 )}
@@ -671,9 +679,14 @@ export default function Dashboard() {
                   Hello, {userData?.name || currentUser?.displayName || "Member"}
                 </h1>
                 <p className="text-xs text-slate-400 mt-1">
-                  Role: <span className="capitalize text-violet-300 font-semibold">{userData?.role || "Member"}</span>
+                  Role:{" "}
+                  <span className="capitalize text-violet-300 font-semibold">
+                    {userData?.role || "Member"}
+                  </span>
                   {userData?.username && ` • @${userData.username}`}
-                  <span className="text-amber-400 font-medium ml-2 underline">Edit Profile →</span>
+                  <span className="text-amber-400 font-medium ml-2 underline">
+                    Edit Profile →
+                  </span>
                 </p>
               </div>
             </div>
@@ -694,8 +707,12 @@ export default function Dashboard() {
                   <Trophy size={20} />
                 </div>
                 <div>
-                  <p className="text-[10px] text-amber-300/80 font-bold uppercase tracking-wider">Current Level</p>
-                  <p className="text-lg font-black text-amber-400 tracking-wide">{levelData.levelTitle}</p>
+                  <p className="text-[10px] text-amber-300/80 font-bold uppercase tracking-wider">
+                    Current Level
+                  </p>
+                  <p className="text-lg font-black text-amber-400 tracking-wide">
+                    {levelData.levelTitle}
+                  </p>
                 </div>
               </div>
             </div>
@@ -718,6 +735,12 @@ export default function Dashboard() {
                 className="h-full rounded-full bg-gradient-to-r from-violet-600 via-amber-500 to-amber-300 transition-all duration-1000 ease-out shadow-lg shadow-amber-500/30"
                 style={{ width: `${levelData.percentage}%` }}
               />
+            </div>
+
+            <div className="flex items-center justify-between text-[10px] text-slate-500 font-semibold mt-2">
+              <span>{levelData.levelFloor} pts (L{levelData.currentLevel})</span>
+              <span>{points} pts (Current)</span>
+              <span>{levelData.levelCap} pts (L{levelData.nextLevel})</span>
             </div>
           </div>
         </div>
@@ -745,7 +768,12 @@ export default function Dashboard() {
               <Calendar size={16} className="text-amber-400" />
               <span>Monthly Streak</span>
             </div>
-            <p className="text-2xl sm:text-3xl font-black text-amber-400">{monthlyStreak} mo</p>
+            <p className="text-2xl sm:text-3xl font-black text-amber-400 flex items-baseline gap-1">
+              {monthlyStreak}{" "}
+              <span className="text-xs text-slate-400 font-normal">
+                {monthlyStreak === 1 ? "month" : "months"}
+              </span>
+            </p>
           </div>
 
           <div className="bg-slate-900/90 border border-violet-900/40 rounded-2xl p-5 shadow-xl">
@@ -753,7 +781,12 @@ export default function Dashboard() {
               <Award size={16} className="text-amber-400" />
               <span>Badges Unlocked</span>
             </div>
-            <p className="text-2xl sm:text-3xl font-black text-white">{unlockedBadgesCount} / {memberBadges.length}</p>
+            <p className="text-2xl sm:text-3xl font-black text-white">
+              {unlockedBadgesCount}{" "}
+              <span className="text-xs text-slate-500 font-normal">
+                / {memberBadges.length}
+              </span>
+            </p>
           </div>
         </div>
 
@@ -767,7 +800,11 @@ export default function Dashboard() {
                 <div className="relative">
                   <div className="w-20 h-20 rounded-3xl overflow-hidden border-2 border-amber-400 p-0.5 bg-slate-950 shadow-xl shadow-amber-500/20">
                     {starRotaractor.photoURL ? (
-                      <img src={starRotaractor.photoURL} alt="Star Rotaractor" className="w-full h-full object-cover rounded-[20px]" />
+                      <img
+                        src={starRotaractor.photoURL}
+                        alt="Star Rotaractor"
+                        className="w-full h-full object-cover rounded-[20px]"
+                      />
                     ) : (
                       <div className="w-full h-full flex items-center justify-center bg-slate-900 text-amber-400">
                         <User size={36} />
@@ -784,8 +821,15 @@ export default function Dashboard() {
                     <Sparkles size={11} />
                     <span>Star Rotaractor of the Month</span>
                   </div>
-                  <h3 className="text-xl sm:text-2xl font-black text-white">{starRotaractor.name || "Standout Rotaractor"}</h3>
-                  <p className="text-xs text-amber-300/90 font-medium">{starRotaractor.role || "General Member"} • {starRotaractor.department || "RAC PSVPEC"}</p>
+                  <h3 className="text-xl sm:text-2xl font-black text-white">
+                    {starRotaractor.name || "Standout Rotaractor"}
+                  </h3>
+                  <p className="text-xs text-amber-300/90 font-medium">
+                    {starRotaractor.role || "General Member"} • {starRotaractor.department || "RAC PSVPEC"}
+                  </p>
+                  <p className="text-xs text-slate-300 italic mt-2 max-w-md">
+                    "Recognized for extraordinary leadership, steadfast meeting attendance, and leading community service impact."
+                  </p>
                 </div>
               </div>
 
@@ -794,6 +838,7 @@ export default function Dashboard() {
                   <span className="text-[10px] uppercase font-bold text-slate-400">Monthly Contribution</span>
                   <p className="text-2xl font-black text-amber-400">{starRotaractor.points || starRotaractor.totalPoints || 0} pts</p>
                 </div>
+                <span className="text-[10px] text-amber-400/80 font-semibold">#1 Ranked Champion</span>
               </div>
             </div>
           </div>
@@ -882,7 +927,7 @@ export default function Dashboard() {
           </button>
         </div>
 
-        {/* 🌟 INSTITUTIONAL SHOWCASE */}
+        {/* 🌟 INSTITUTIONAL SHOWCASE (FULL CONTENT RESTORED) */}
         <section className="mb-8">
           <div className="flex items-center justify-between mb-4">
             <div>
@@ -890,11 +935,14 @@ export default function Dashboard() {
                 <Sparkles size={20} className="text-amber-400" />
                 Our Institutional Identity
               </h2>
+              <p className="text-xs text-slate-400">
+                The governing pillars and leadership behind RAC PSVPEC
+              </p>
             </div>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-            {/* 1. RAC PSVPEC */}
+            {/* 1. RAC PSVPEC TAB */}
             <div className="bg-gradient-to-b from-slate-900/95 to-slate-950 border border-amber-500/30 rounded-3xl p-6 shadow-2xl flex flex-col justify-between hover:border-amber-400/60 transition-all">
               <div>
                 <div className="flex items-center justify-between mb-3">
@@ -907,9 +955,11 @@ export default function Dashboard() {
                   </div>
                 </div>
 
-                <h3 className="text-xl font-black text-white mb-2">RAC PSVPEC</h3>
+                <h3 className="text-xl font-black text-white mb-2">
+                  RAC PSVPEC
+                </h3>
                 <p className="text-xs text-slate-300 leading-relaxed mb-4">
-                  Rotaract Club of Prince Shri Venkateshwara Padmavathy Engineering College is dedicated to youth leadership, community impact, and service above self.
+                  Rotaract Club of Prince Shri Venkateshwara Padmavathy Engineering College is dedicated to youth leadership, community impact, and empowering students through service above self.
                 </p>
 
                 <div className="bg-slate-950/80 rounded-2xl p-4 border border-violet-900/40 space-y-2.5 text-xs text-slate-300">
@@ -927,33 +977,92 @@ export default function Dashboard() {
                   </p>
                 </div>
               </div>
+
+              <div className="pt-3 mt-4 border-t border-violet-900/40 text-[11px] text-amber-400/90 font-bold flex items-center justify-between">
+                <span>College Based Club</span>
+                <span>RAC PSVPEC</span>
+              </div>
             </div>
 
-            {/* 2. THEME A.U.R.A */}
+            {/* 2. THEME A.U.R.A TAB */}
             <div className="bg-gradient-to-b from-violet-950/60 to-slate-950 border border-violet-500/40 rounded-3xl p-6 shadow-2xl flex flex-col justify-between hover:border-violet-400/70 transition-all">
               <div>
                 <div className="inline-block px-2.5 py-0.5 rounded-full bg-violet-500/10 border border-violet-500/30 text-violet-300 text-[10px] font-black uppercase mb-3">
                   Leadership Theme
                 </div>
-                <h3 className="text-xl font-black text-white mb-1">Theme A.U.R.A</h3>
-                <p className="text-xs font-extrabold text-amber-400 mb-3 tracking-wide">A.U.R.A - Activating unity, responsibilities and action</p>
+
+                <h3 className="text-xl font-black text-white mb-1">
+                  Theme A.U.R.A
+                </h3>
+                <p className="text-xs font-extrabold text-amber-400 mb-3 tracking-wide">
+                  A.U.R.A - Activating unity, responsibilities and action
+                </p>
+
+                <p className="text-xs text-slate-300 leading-relaxed mb-4">
+                  Symbolizing radiance, high ethical standards, and purposeful action. A.U.R.A ignites our club's commitment to community excellence, fellowship, and visionary leadership.
+                </p>
+
+                <div className="bg-slate-950/80 rounded-2xl p-3.5 border border-violet-900/40 text-xs text-slate-300 space-y-1.5">
+                  <div className="text-[10px] uppercase font-extrabold text-violet-400 tracking-wider mb-1 flex items-center gap-1">
+                    <Star size={12} />
+                    <span>Core Pillars</span>
+                  </div>
+                  <p>• <strong className="text-violet-200">A</strong>ctivating Collective Purpose</p>
+                  <p>• <strong className="text-violet-200">U</strong>nity in Every Initiative</p>
+                  <p>• <strong className="text-violet-200">R</strong>esponsibility Toward Society</p>
+                  <p>• <strong className="text-violet-200">A</strong>ction with Tangible Impact</p>
+                </div>
+              </div>
+
+              <div className="pt-3 mt-4 border-t border-violet-900/40 text-[11px] text-violet-300 font-bold flex items-center justify-between">
+                <span>Radiance in Leadership</span>
+                <span>Tenure 2026–2027</span>
               </div>
             </div>
 
-            {/* 3. RID 3233 */}
+            {/* 3. ROTARY INTERNATIONAL DISTRICT 3233 TAB */}
             <div className="bg-gradient-to-b from-slate-900/95 to-slate-950 border border-amber-500/30 rounded-3xl p-6 shadow-2xl flex flex-col justify-between hover:border-amber-400/60 transition-all">
               <div>
                 <div className="inline-block px-2.5 py-0.5 rounded-full bg-amber-500/10 border border-amber-500/30 text-amber-300 text-[10px] font-black uppercase mb-3">
                   Rotary International District
                 </div>
-                <h3 className="text-xl font-black text-white mb-1">Rotary International District 3233</h3>
-                <p className="text-xs font-extrabold text-amber-400 mb-3 tracking-wide">V.I.B.E - Vision.Innovate.Believe.Evolve</p>
+
+                <h3 className="text-xl font-black text-white mb-1">
+                  Rotary International District 3233
+                </h3>
+                <p className="text-xs font-extrabold text-amber-400 mb-3 tracking-wide">
+                  V.I.B.E - Vision.Innovate.Believe.Evolve
+                </p>
+
+                <p className="text-xs text-slate-300 leading-relaxed mb-4">
+                  Governing and inspiring Rotaract clubs across RID 3233 to deliver impactful community service and cross-district collaborations.
+                </p>
+
+                <div className="bg-slate-950/80 rounded-2xl p-3.5 border border-violet-900/40 space-y-1.5 text-xs text-slate-300">
+                  <div className="text-[10px] uppercase font-extrabold text-amber-400 tracking-wider mb-1 flex items-center gap-1">
+                    <Crown size={12} />
+                    <span>District Leadership 26-27</span>
+                  </div>
+                  <p>
+                    <span className="text-slate-500 font-medium">District Rotaract Representative 26-27:</span><br />
+                    <strong className="text-white">Rtr. PP. PHF. HariVignesh M</strong>
+                  </p>
+                  <p className="pt-1">
+                    <span className="text-slate-500 font-medium">District Rotaract Secretary 26-27:</span><br />
+                    <strong className="text-white">Rtr. PP. Naveen Kumar A</strong>
+                  </p>
+                </div>
+              </div>
+
+              <div className="pt-3 mt-4 border-t border-violet-900/40 text-[11px] text-amber-400/90 font-bold flex items-center justify-between">
+                <span>RID 3233</span>
+                <span>Rotary International</span>
               </div>
             </div>
           </div>
         </section>
 
-        {/* 🏆 2. CLEAN CONDUCTED EVENTS MILESTONE SECTION (MODAL DRIVEN) */}
+        {/* 🏆 2. CLEAN CONDUCTED EVENTS MILESTONE SECTION */}
         <section className="bg-slate-900/90 border border-amber-500/30 rounded-3xl p-6 sm:p-7 shadow-2xl mb-8 relative overflow-hidden">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6 pb-4 border-b border-violet-950/80">
             <div>
