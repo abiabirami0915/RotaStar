@@ -12,8 +12,6 @@ import {
   Crown,
   Sparkles,
   X,
-  Target,
-  Users,
   Zap,
   PartyPopper,
   Calendar,
@@ -35,6 +33,8 @@ import {
   Clock,
   MapPin,
   BellRing,
+  PieChart,
+  Users,
 } from "lucide-react";
 import {
   collection,
@@ -85,6 +85,13 @@ const ANNOUNCEMENT_PRIORITIES = {
   },
 };
 
+const AVENUE_COLORS = {
+  "Club Service": { hex: "#8B5CF6", bg: "bg-violet-500", text: "text-violet-400", light: "bg-violet-500/10 border-violet-500/30" },
+  "Community Service": { hex: "#F59E0B", bg: "bg-amber-500", text: "text-amber-400", light: "bg-amber-500/10 border-amber-500/30" },
+  "Professional Development": { hex: "#06B6D4", bg: "bg-cyan-500", text: "text-cyan-400", light: "bg-cyan-500/10 border-cyan-500/30" },
+  "International Service": { hex: "#10B981", bg: "bg-emerald-500", text: "text-emerald-400", light: "bg-emerald-500/10 border-emerald-500/30" },
+};
+
 export default function Dashboard() {
   const navigate = useNavigate();
   const { currentUser, userData, isAdmin, isSuperAdmin, logout } = useAuth();
@@ -96,6 +103,7 @@ export default function Dashboard() {
   const [dismissedIds, setDismissedIds] = useState([]);
   const [dismissedEventReminder, setDismissedEventReminder] = useState(false);
   const [userRank, setUserRank] = useState("-");
+  const [allMembers, setAllMembers] = useState([]);
 
   // Announcement Modal States
   const [showAnnounceModal, setShowAnnounceModal] = useState(false);
@@ -132,10 +140,65 @@ export default function Dashboard() {
     rawRole.includes("secretary") ||
     rawRole.includes("board");
 
+  // 🌟 Star Rotaractor of the Month Calculation (Top Points earner)
+  const starRotaractor = useMemo(() => {
+    if (allMembers.length === 0) return null;
+    return allMembers[0]; // Already sorted by totalPoints desc
+  }, [allMembers]);
+
+  // 📊 Dynamic Avenue Balance Calculation
+  const avenueStats = useMemo(() => {
+    const counts = {
+      "Club Service": 0,
+      "Community Service": 0,
+      "Professional Development": 0,
+      "International Service": 0,
+    };
+
+    allUserActivities.forEach((act) => {
+      const cat = act.category || "Community Service";
+      if (counts[cat] !== undefined) {
+        counts[cat] += Math.max(act.points || 0, 1);
+      } else {
+        counts["Community Service"] += Math.max(act.points || 0, 1);
+      }
+    });
+
+    const totalAvenuePoints = Object.values(counts).reduce((a, b) => a + b, 0) || 1;
+    return {
+      counts,
+      totalAvenuePoints,
+      percentages: {
+        "Club Service": Math.round((counts["Club Service"] / totalAvenuePoints) * 100),
+        "Community Service": Math.round((counts["Community Service"] / totalAvenuePoints) * 100),
+        "Professional Development": Math.round((counts["Professional Development"] / totalAvenuePoints) * 100),
+        "International Service": Math.round((counts["International Service"] / totalAvenuePoints) * 100),
+      },
+    };
+  }, [allUserActivities]);
+
+  // SVG Doughnut Chart Calculation
+  const doughnutSegments = useMemo(() => {
+    const circumference = 2 * Math.PI * 40; // r=40
+    let cumulativePercent = 0;
+    const items = [
+      { key: "Club Service", percent: avenueStats.percentages["Club Service"], color: AVENUE_COLORS["Club Service"].hex },
+      { key: "Community Service", percent: avenueStats.percentages["Community Service"], color: AVENUE_COLORS["Community Service"].hex },
+      { key: "Professional Development", percent: avenueStats.percentages["Professional Development"], color: AVENUE_COLORS["Professional Development"].hex },
+      { key: "International Service", percent: avenueStats.percentages["International Service"], color: AVENUE_COLORS["International Service"].hex },
+    ];
+
+    return items.map((item) => {
+      const strokeDasharray = `${(item.percent * circumference) / 100} ${circumference}`;
+      const strokeDashoffset = -((cumulativePercent * circumference) / 100);
+      cumulativePercent += item.percent;
+      return { ...item, strokeDasharray, strokeDashoffset };
+    });
+  }, [avenueStats]);
+
   // 1. Level-Up detection
   useEffect(() => {
     if (!currentUser || !userData) return;
-
     const storageKey = `rotastar_seen_level_${currentUser.uid}`;
     const storedLevelStr = localStorage.getItem(storageKey);
 
@@ -154,14 +217,12 @@ export default function Dashboard() {
         setShowLevelUpModal(true);
       }
     }
-
     localStorage.setItem(storageKey, levelData.currentLevel.toString());
   }, [currentUser, userData, levelData.currentLevel]);
 
   // 2. Badge Unlock detection
   useEffect(() => {
     if (!currentUser || !userData || memberBadges.length === 0) return;
-
     const storageKey = `rotastar_seen_badges_${currentUser.uid}`;
     const rawStored = localStorage.getItem(storageKey);
     const storedBadges = rawStored ? JSON.parse(rawStored) : null;
@@ -229,7 +290,7 @@ export default function Dashboard() {
             diffDays,
           };
         })
-        .filter((ev) => ev.diffDays !== null && ev.diffDays >= 0) // Future or today
+        .filter((ev) => ev.diffDays !== null && ev.diffDays >= 0)
         .sort((a, b) => a.eventTimestamp - b.eventTimestamp);
 
       setUpcomingEvents(eventsList);
@@ -238,16 +299,19 @@ export default function Dashboard() {
     return () => unsubscribe();
   }, []);
 
-  // 5. Leaderboard Rank Sync
+  // 5. Leaderboard Rank & Members Sync
   useEffect(() => {
     const unsubUsers = onSnapshot(collection(db, "users"), (snapshot) => {
-      const allUsers = snapshot.docs.map((docSnap) => ({
+      const list = snapshot.docs.map((docSnap) => ({
         id: docSnap.id,
+        ...docSnap.data(),
         points: docSnap.data().totalPoints || 0,
       }));
 
-      allUsers.sort((a, b) => b.points - a.points);
-      const rankIndex = allUsers.findIndex((u) => u.id === currentUser?.uid);
+      list.sort((a, b) => b.points - a.points);
+      setAllMembers(list);
+
+      const rankIndex = list.findIndex((u) => u.id === currentUser?.uid);
       setUserRank(rankIndex !== -1 ? `#${rankIndex + 1}` : "-");
     });
 
@@ -338,8 +402,6 @@ export default function Dashboard() {
   };
 
   const visibleAnnouncements = announcements.filter((a) => !dismissedIds.includes(a.id));
-
-  // Find nearest upcoming event happening within 7 days
   const nearestEvent = upcomingEvents.length > 0 && upcomingEvents[0].diffDays <= 7 ? upcomingEvents[0] : null;
 
   return (
@@ -348,7 +410,6 @@ export default function Dashboard() {
       <nav className="border-b border-violet-900/40 bg-slate-950/80 backdrop-blur-md sticky top-0 z-50">
         <div className="max-w-6xl mx-auto px-6 h-20 flex items-center justify-between">
           <div className="flex items-center gap-3.5">
-            {/* ROTASTAR BRAND LOGO */}
             <div className="w-11 h-11 rounded-2xl bg-gradient-to-br from-violet-600 via-indigo-600 to-amber-500 p-0.5 flex items-center justify-center shadow-lg shadow-violet-900/40 shrink-0">
               <div className="w-full h-full bg-slate-950 rounded-[14px] flex items-center justify-center relative overflow-hidden">
                 <div className="absolute inset-0 bg-gradient-to-br from-violet-500/20 via-transparent to-amber-500/20" />
@@ -373,21 +434,21 @@ export default function Dashboard() {
           <div className="flex items-center gap-3 sm:gap-4">
             <button
               onClick={() => navigate("/events")}
-              className="text-xs font-semibold text-violet-200/80 hover:text-amber-300 transition"
+              className="text-xs font-semibold text-violet-200/80 hover:text-amber-300 transition cursor-pointer"
             >
               Events
             </button>
 
             <button
               onClick={() => navigate("/event-ideas")}
-              className="text-xs font-semibold text-violet-200/80 hover:text-amber-300 transition"
+              className="text-xs font-semibold text-violet-200/80 hover:text-amber-300 transition cursor-pointer"
             >
               Ideas
             </button>
 
             <button
               onClick={() => navigate("/leaderboard")}
-              className="text-xs font-semibold text-violet-200/80 hover:text-amber-300 transition"
+              className="text-xs font-semibold text-violet-200/80 hover:text-amber-300 transition cursor-pointer"
             >
               Leaderboard
             </button>
@@ -410,7 +471,7 @@ export default function Dashboard() {
 
             <button
               onClick={handleLogout}
-              className="flex items-center gap-1 text-xs text-slate-400 hover:text-rose-400 transition ml-1"
+              className="flex items-center gap-1 text-xs text-slate-400 hover:text-rose-400 transition ml-1 cursor-pointer"
             >
               <LogOut size={16} />
               <span className="hidden sm:inline">Logout</span>
@@ -421,7 +482,7 @@ export default function Dashboard() {
 
       {/* MAIN CONTAINER */}
       <main className="max-w-6xl mx-auto px-6 py-8">
-        {/* ⏰ SMART UPCOMING EVENT REMINDER BANNER */}
+        {/* ⏰ UPCOMING EVENT REMINDER BANNER */}
         {nearestEvent && !dismissedEventReminder && (
           <div className="mb-6 p-4 sm:p-5 rounded-3xl bg-gradient-to-r from-amber-950/80 via-purple-950/80 to-slate-900/90 border border-amber-500/50 shadow-2xl backdrop-blur-md animate-in fade-in slide-in-from-top-3 duration-300">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
@@ -481,7 +542,7 @@ export default function Dashboard() {
               <div className="flex items-center gap-2.5 self-end sm:self-center shrink-0">
                 <button
                   onClick={() => navigate("/events")}
-                  className="px-4 py-2 rounded-xl bg-gradient-to-r from-amber-500 to-amber-400 hover:from-amber-400 hover:to-amber-300 text-slate-950 font-bold text-xs transition shadow-lg flex items-center gap-1.5"
+                  className="px-4 py-2 rounded-xl bg-gradient-to-r from-amber-500 to-amber-400 hover:from-amber-400 hover:to-amber-300 text-slate-950 font-bold text-xs transition shadow-lg flex items-center gap-1.5 cursor-pointer"
                 >
                   <span>View Details</span>
                   <ChevronRight size={14} />
@@ -489,7 +550,7 @@ export default function Dashboard() {
 
                 <button
                   onClick={() => setDismissedEventReminder(true)}
-                  className="p-2 rounded-xl bg-black/30 hover:bg-black/50 text-slate-400 hover:text-white transition"
+                  className="p-2 rounded-xl bg-black/30 hover:bg-black/50 text-slate-400 hover:text-white transition cursor-pointer"
                   title="Dismiss Reminder"
                 >
                   <X size={16} />
@@ -499,7 +560,7 @@ export default function Dashboard() {
           </div>
         )}
 
-        {/* 📢 LIVE URGENT BROADCAST BANNERS */}
+        {/* 📢 LIVE BROADCAST BANNERS */}
         {visibleAnnouncements.length > 0 && (
           <div className="space-y-3 mb-6">
             {visibleAnnouncements.map((ann) => {
@@ -534,7 +595,7 @@ export default function Dashboard() {
                     {showAdminPanel && (
                       <button
                         onClick={() => handleDeleteAnnouncement(ann.id)}
-                        className="p-1.5 rounded-xl bg-black/20 hover:bg-black/40 text-slate-400 hover:text-rose-400 transition"
+                        className="p-1.5 rounded-xl bg-black/20 hover:bg-black/40 text-slate-400 hover:text-rose-400 transition cursor-pointer"
                         title="Delete Announcement"
                       >
                         <Trash2 size={14} />
@@ -542,7 +603,7 @@ export default function Dashboard() {
                     )}
                     <button
                       onClick={() => handleDismiss(ann.id)}
-                      className="p-1.5 rounded-xl bg-black/20 hover:bg-black/40 text-slate-400 hover:text-white transition"
+                      className="p-1.5 rounded-xl bg-black/20 hover:bg-black/40 text-slate-400 hover:text-white transition cursor-pointer"
                       title="Dismiss"
                     >
                       <X size={14} />
@@ -551,6 +612,60 @@ export default function Dashboard() {
                 </div>
               );
             })}
+          </div>
+        )}
+
+        {/* 🌟 STAR ROTARACTOR OF THE MONTH SPOTLIGHT */}
+        {starRotaractor && (
+          <div className="mb-6 p-6 sm:p-7 rounded-3xl bg-gradient-to-r from-amber-500/15 via-purple-950/40 to-slate-900/90 border-2 border-amber-500/40 shadow-2xl backdrop-blur-xl relative overflow-hidden">
+            <div className="absolute -right-10 -bottom-10 w-40 h-40 bg-amber-500/10 rounded-full blur-3xl pointer-events-none" />
+
+            <div className="flex flex-col sm:flex-row items-center justify-between gap-6 relative z-10">
+              <div className="flex flex-col sm:flex-row items-center sm:items-start gap-4 text-center sm:text-left">
+                <div className="relative">
+                  <div className="w-20 h-20 rounded-3xl overflow-hidden border-2 border-amber-400 p-0.5 bg-slate-950 shadow-xl shadow-amber-500/20">
+                    {starRotaractor.photoURL ? (
+                      <img
+                        src={starRotaractor.photoURL}
+                        alt="Star Rotaractor"
+                        className="w-full h-full object-cover rounded-[20px]"
+                      />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center bg-slate-900 text-amber-400">
+                        <User size={36} />
+                      </div>
+                    )}
+                  </div>
+                  <div className="absolute -top-2 -right-2 p-1.5 bg-amber-400 text-slate-950 rounded-full shadow-lg animate-bounce">
+                    <Crown size={14} />
+                  </div>
+                </div>
+
+                <div>
+                  <div className="inline-flex items-center gap-1.5 px-3 py-0.5 rounded-full bg-amber-400/20 border border-amber-400/50 text-amber-300 text-[10px] font-black uppercase tracking-widest mb-1.5">
+                    <Sparkles size={11} />
+                    <span>Star Rotaractor of the Month</span>
+                  </div>
+                  <h3 className="text-xl sm:text-2xl font-black text-white">
+                    {starRotaractor.name || "Standout Rotaractor"}
+                  </h3>
+                  <p className="text-xs text-amber-300/90 font-medium">
+                    {starRotaractor.role || "General Member"} • {starRotaractor.department || "RAC PSVPEC"}
+                  </p>
+                  <p className="text-xs text-slate-300 italic mt-2 max-w-md">
+                    "Recognized for extraordinary leadership, steadfast meeting attendance, and leading community service impact."
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex flex-col items-center sm:items-end gap-2 shrink-0">
+                <div className="px-5 py-3 rounded-2xl bg-slate-950/80 border border-amber-500/30 text-center">
+                  <span className="text-[10px] uppercase font-bold text-slate-400">Monthly Contribution</span>
+                  <p className="text-2xl font-black text-amber-400">{starRotaractor.points || starRotaractor.totalPoints || 0} pts</p>
+                </div>
+                <span className="text-[10px] text-amber-400/80 font-semibold">#1 Ranked Champion</span>
+              </div>
+            </div>
           </div>
         )}
 
@@ -598,7 +713,7 @@ export default function Dashboard() {
               {showAdminPanel && (
                 <button
                   onClick={() => setShowAnnounceModal(true)}
-                  className="px-4 py-3 rounded-2xl bg-amber-500/15 border border-amber-500/30 hover:bg-amber-500/25 text-amber-300 font-bold text-xs flex items-center gap-2 transition shadow-lg shrink-0"
+                  className="px-4 py-3 rounded-2xl bg-amber-500/15 border border-amber-500/30 hover:bg-amber-500/25 text-amber-300 font-bold text-xs flex items-center gap-2 transition shadow-lg shrink-0 cursor-pointer"
                 >
                   <Megaphone size={16} className="text-amber-400" />
                   <span>Broadcast Notice</span>
@@ -693,11 +808,93 @@ export default function Dashboard() {
           </div>
         </div>
 
+        {/* 📊 FOUR AVENUES OF SERVICE DOUGHNUT & BALANCE CHART */}
+        <section className="bg-slate-900/90 border border-violet-900/40 rounded-3xl p-6 sm:p-7 shadow-2xl mb-8">
+          <div className="flex items-center justify-between mb-5">
+            <div>
+              <h2 className="text-base sm:text-lg font-black text-white flex items-center gap-2">
+                <PieChart size={18} className="text-amber-400" />
+                <span>Four Avenues of Service Balance</span>
+              </h2>
+              <p className="text-xs text-slate-400">
+                Visual breakdown of active service hours and point distribution
+              </p>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 items-center">
+            {/* SVG DOUGHNUT CHART */}
+            <div className="flex flex-col items-center justify-center p-4">
+              <div className="relative w-40 h-40">
+                <svg className="w-full h-full transform -rotate-90" viewBox="0 0 100 100">
+                  <circle
+                    cx="50"
+                    cy="50"
+                    r="40"
+                    fill="transparent"
+                    stroke="#1e1b4b"
+                    strokeWidth="14"
+                  />
+                  {doughnutSegments.map((seg) => (
+                    <circle
+                      key={seg.key}
+                      cx="50"
+                      cy="50"
+                      r="40"
+                      fill="transparent"
+                      stroke={seg.color}
+                      strokeWidth="14"
+                      strokeDasharray={seg.strokeDasharray}
+                      strokeDashoffset={seg.strokeDashoffset}
+                      className="transition-all duration-1000 ease-out"
+                    />
+                  ))}
+                </svg>
+
+                <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+                  <span className="text-xs text-slate-400 font-semibold">Total</span>
+                  <span className="text-xl font-black text-white">{points} pts</span>
+                </div>
+              </div>
+            </div>
+
+            {/* AVENUE PROGRESS METRICS */}
+            <div className="md:col-span-2 space-y-3.5">
+              {Object.entries(AVENUE_COLORS).map(([avenueName, style]) => {
+                const count = avenueStats.counts[avenueName] || 0;
+                const percent = avenueStats.percentages[avenueName] || 0;
+
+                return (
+                  <div key={avenueName} className="p-3 bg-slate-950/80 rounded-2xl border border-violet-900/30">
+                    <div className="flex items-center justify-between text-xs font-bold mb-1.5">
+                      <div className="flex items-center gap-2">
+                        <div className={`w-3 h-3 rounded-full ${style.bg}`} />
+                        <span className="text-white">{avenueName}</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-slate-400 font-medium">{count} pts</span>
+                        <span className={`font-black ${style.text}`}>{percent}%</span>
+                      </div>
+                    </div>
+
+                    <div className="w-full h-2 bg-slate-900 rounded-full overflow-hidden">
+                      <div
+                        className={`h-full rounded-full ${style.bg} transition-all duration-1000 ease-out`}
+                        style={{ width: `${percent}%` }}
+                      />
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </section>
+
         {/* PRIMARY ACTIONS GRID */}
         <div className="grid grid-cols-2 lg:grid-cols-5 gap-3 mb-8">
           <button
             onClick={() => navigate("/events")}
-            className="p-4 rounded-2xl bg-slate-900/90 border border-violet-900/50 hover:border-amber-500/50 text-left transition shadow-xl flex items-center justify-between group"
+            className="p-4 rounded-2xl bg-slate-900/90 border border-violet-900/50 hover:border-amber-500/50 text-left transition shadow-xl flex items-center justify-between group cursor-pointer"
           >
             <div className="flex items-center gap-2.5">
               <div className="p-2 bg-amber-500/10 text-amber-400 rounded-xl">
@@ -713,7 +910,7 @@ export default function Dashboard() {
 
           <button
             onClick={() => navigate("/event-ideas")}
-            className="p-4 rounded-2xl bg-slate-900/90 border border-violet-900/50 hover:border-amber-500/50 text-left transition shadow-xl flex items-center justify-between group"
+            className="p-4 rounded-2xl bg-slate-900/90 border border-violet-900/50 hover:border-amber-500/50 text-left transition shadow-xl flex items-center justify-between group cursor-pointer"
           >
             <div className="flex items-center gap-2.5">
               <div className="p-2 bg-amber-500/10 text-amber-400 rounded-xl">
@@ -729,7 +926,7 @@ export default function Dashboard() {
 
           <button
             onClick={() => navigate("/request-points")}
-            className="p-4 rounded-2xl bg-gradient-to-r from-violet-700 to-amber-600 hover:from-violet-600 hover:to-amber-500 text-left transition shadow-xl flex items-center justify-between group col-span-2 sm:col-span-1"
+            className="p-4 rounded-2xl bg-gradient-to-r from-violet-700 to-amber-600 hover:from-violet-600 hover:to-amber-500 text-left transition shadow-xl flex items-center justify-between group col-span-2 sm:col-span-1 cursor-pointer"
           >
             <div className="flex items-center gap-2.5">
               <div className="p-2 bg-white/15 rounded-xl text-amber-200">
@@ -745,7 +942,7 @@ export default function Dashboard() {
 
           <button
             onClick={() => navigate("/leaderboard")}
-            className="p-4 rounded-2xl bg-slate-900/90 border border-violet-900/50 hover:border-amber-500/50 text-left transition shadow-xl flex items-center justify-between group"
+            className="p-4 rounded-2xl bg-slate-900/90 border border-violet-900/50 hover:border-amber-500/50 text-left transition shadow-xl flex items-center justify-between group cursor-pointer"
           >
             <div className="flex items-center gap-2.5">
               <div className="p-2 bg-violet-600/10 text-amber-400 rounded-xl">
@@ -761,7 +958,7 @@ export default function Dashboard() {
 
           <button
             onClick={() => navigate("/feedback")}
-            className="p-4 rounded-2xl bg-slate-900/90 border border-violet-900/50 hover:border-amber-500/50 text-left transition shadow-xl flex items-center justify-between group"
+            className="p-4 rounded-2xl bg-slate-900/90 border border-violet-900/50 hover:border-amber-500/50 text-left transition shadow-xl flex items-center justify-between group cursor-pointer"
           >
             <div className="flex items-center gap-2.5">
               <div className="p-2 bg-amber-500/10 text-amber-400 rounded-xl">
@@ -811,14 +1008,19 @@ export default function Dashboard() {
                   Rotaract Club of Prince Shri Venkateshwara Padmavathy Engineering College is dedicated to youth leadership, community impact, and empowering students through service above self.
                 </p>
 
-                {/* LEADERSHIP ROSTER */}
-                <div className="bg-slate-950/80 rounded-2xl p-3.5 border border-violet-900/40 space-y-1.5 text-xs text-slate-300">
+                <div className="bg-slate-950/80 rounded-2xl p-4 border border-violet-900/40 space-y-2.5 text-xs text-slate-300">
                   <div className="text-[10px] uppercase font-extrabold text-amber-400 tracking-wider mb-1 flex items-center gap-1">
                     <UserCheck size={12} />
-                    <span>Leadership Hierarchy</span>
+                    <span>Club Leadership (2026–2027)</span>
                   </div>
-                  <p><span className="text-amber-400 font-medium">President 26-27:</span> <strong className="text-amber-300">Rtr. Jeevanaa Y</strong></p>
-                  <p><span className="text-amber-400 font-medium">Secretary 26-27:</span> <strong className="text-amber-300">Rtr. Abirami G</strong></p>
+                  <p className="flex items-center justify-between">
+                    <span className="text-slate-400 font-medium">President 26-27:</span>
+                    <strong className="text-amber-300 font-bold">Rtr. Jeevanaa Y</strong>
+                  </p>
+                  <p className="flex items-center justify-between">
+                    <span className="text-slate-400 font-medium">Secretary 26-27:</span>
+                    <strong className="text-amber-300 font-bold">Rtr. Abirami G</strong>
+                  </p>
                 </div>
               </div>
 
@@ -882,7 +1084,6 @@ export default function Dashboard() {
                   Governing and inspiring Rotaract clubs across RID 3233 to deliver impactful community service and cross-district collaborations.
                 </p>
 
-                {/* DISTRICT LEADERSHIP */}
                 <div className="bg-slate-950/80 rounded-2xl p-3.5 border border-violet-900/40 space-y-1.5 text-xs text-slate-300">
                   <div className="text-[10px] uppercase font-extrabold text-amber-400 tracking-wider mb-1 flex items-center gap-1">
                     <Crown size={12} />
@@ -982,7 +1183,7 @@ export default function Dashboard() {
               <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
                 <button
                   onClick={() => navigate("/admin")}
-                  className="flex items-center justify-between p-4 rounded-xl bg-slate-950 border border-violet-900/40 hover:border-amber-500/40 text-left transition"
+                  className="flex items-center justify-between p-4 rounded-xl bg-slate-950 border border-violet-900/40 hover:border-amber-500/40 text-left transition cursor-pointer"
                 >
                   <div>
                     <p className="font-semibold text-white text-sm">
@@ -997,7 +1198,7 @@ export default function Dashboard() {
 
                 <button
                   onClick={() => navigate("/admin/requests")}
-                  className="flex items-center justify-between p-4 rounded-xl bg-slate-950 border border-violet-900/40 hover:border-amber-500/40 text-left transition"
+                  className="flex items-center justify-between p-4 rounded-xl bg-slate-950 border border-violet-900/40 hover:border-amber-500/40 text-left transition cursor-pointer"
                 >
                   <div>
                     <p className="font-semibold text-white text-sm">
@@ -1012,7 +1213,7 @@ export default function Dashboard() {
 
                 <button
                   onClick={() => navigate("/admin/members")}
-                  className="flex items-center justify-between p-4 rounded-xl bg-slate-950 border border-amber-500/30 hover:border-amber-500 text-left transition"
+                  className="flex items-center justify-between p-4 rounded-xl bg-slate-950 border border-amber-500/30 hover:border-amber-500 text-left transition cursor-pointer"
                 >
                   <div>
                     <p className="font-semibold text-white text-sm flex items-center gap-1.5">
@@ -1028,7 +1229,7 @@ export default function Dashboard() {
 
                 <button
                   onClick={() => navigate("/admin/feedback")}
-                  className="flex items-center justify-between p-4 rounded-xl bg-slate-950 border border-violet-900/40 hover:border-amber-500/40 text-left transition"
+                  className="flex items-center justify-between p-4 rounded-xl bg-slate-950 border border-violet-900/40 hover:border-amber-500/40 text-left transition cursor-pointer"
                 >
                   <div>
                     <p className="font-semibold text-white text-sm flex items-center gap-1.5">
@@ -1146,7 +1347,7 @@ export default function Dashboard() {
           <div className="bg-slate-900 border-2 border-amber-500/40 rounded-3xl p-6 sm:p-8 max-w-lg w-full shadow-2xl relative">
             <button
               onClick={() => setShowAnnounceModal(false)}
-              className="absolute top-4 right-4 p-2 rounded-full text-slate-400 hover:text-white hover:bg-slate-800 transition"
+              className="absolute top-4 right-4 p-2 rounded-full text-slate-400 hover:text-white hover:bg-slate-800 transition cursor-pointer"
             >
               <X size={20} />
             </button>
@@ -1205,7 +1406,7 @@ export default function Dashboard() {
               <button
                 type="submit"
                 disabled={announceSubmitting}
-                className="w-full py-3.5 rounded-xl bg-gradient-to-r from-amber-600 via-amber-500 to-amber-400 hover:from-amber-500 hover:to-amber-300 text-slate-950 font-bold text-sm flex items-center justify-center gap-2 shadow-xl transition disabled:opacity-50"
+                className="w-full py-3.5 rounded-xl bg-gradient-to-r from-amber-600 via-amber-500 to-amber-400 hover:from-amber-500 hover:to-amber-300 text-slate-950 font-bold text-sm flex items-center justify-center gap-2 shadow-xl transition disabled:opacity-50 cursor-pointer"
               >
                 {announceSubmitting ? (
                   <>
@@ -1227,7 +1428,7 @@ export default function Dashboard() {
           <div className="bg-slate-900 border-2 border-amber-400 rounded-3xl p-6 sm:p-8 max-w-md w-full shadow-2xl relative text-center animate-in fade-in zoom-in duration-300">
             <button
               onClick={() => setShowLevelUpModal(false)}
-              className="absolute top-4 right-4 p-2 rounded-full text-slate-400 hover:text-white hover:bg-slate-800 transition"
+              className="absolute top-4 right-4 p-2 rounded-full text-slate-400 hover:text-white hover:bg-slate-800 transition cursor-pointer"
             >
               <X size={20} />
             </button>
@@ -1257,7 +1458,7 @@ export default function Dashboard() {
 
             <button
               onClick={() => setShowLevelUpModal(false)}
-              className="w-full py-3.5 rounded-xl bg-gradient-to-r from-violet-700 to-amber-600 text-white font-bold transition shadow-xl"
+              className="w-full py-3.5 rounded-xl bg-gradient-to-r from-violet-700 to-amber-600 text-white font-bold transition shadow-xl cursor-pointer"
             >
               Keep Leveling Up! 🚀
             </button>
@@ -1271,7 +1472,7 @@ export default function Dashboard() {
           <div className="bg-slate-900 border-2 border-amber-400/80 rounded-3xl p-6 sm:p-8 max-w-md w-full shadow-2xl relative text-center animate-in fade-in zoom-in duration-300">
             <button
               onClick={() => setUnlockedBadgeModal(null)}
-              className="absolute top-4 right-4 p-2 rounded-full text-slate-400 hover:text-white hover:bg-slate-800 transition"
+              className="absolute top-4 right-4 p-2 rounded-full text-slate-400 hover:text-white hover:bg-slate-800 transition cursor-pointer"
             >
               <X size={20} />
             </button>
@@ -1295,7 +1496,7 @@ export default function Dashboard() {
 
             <button
               onClick={() => setUnlockedBadgeModal(null)}
-              className="w-full py-3.5 rounded-xl bg-gradient-to-r from-violet-700 to-amber-600 text-white font-bold transition shadow-xl text-sm"
+              className="w-full py-3.5 rounded-xl bg-gradient-to-r from-violet-700 to-amber-600 text-white font-bold transition shadow-xl text-sm cursor-pointer"
             >
               Claim Badge & Continue
             </button>
