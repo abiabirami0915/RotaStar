@@ -59,9 +59,10 @@ import {
   Trash2,
 } from "lucide-react";
 
-// RAC PSVPEC ROLES LIST
+// RAC PSVPEC ROLES LIST (With Green Rotaractor Added)
 const CLUB_ROLES = [
   "General Member",
+  "Green Rotaractor",
   "President",
   "Secretary",
   "Vice President",
@@ -387,7 +388,7 @@ function SignupComponent() {
 }
 
 // ==========================================
-// 2. PROPOSE EVENT IDEAS (WITH ADMIN DELETE)
+// 2. PROPOSE EVENT IDEAS COMPONENT
 // ==========================================
 function EventIdeasPage() {
   const navigate = useNavigate();
@@ -478,7 +479,6 @@ function EventIdeasPage() {
     }
   };
 
-  // Admin Delete Functionality
   const handleDeleteIdea = async (ideaId) => {
     if (!isBoardAdmin) return;
     if (window.confirm("Are you sure you want to delete this event proposal permanently?")) {
@@ -490,7 +490,6 @@ function EventIdeasPage() {
     }
   };
 
-  // Volunteer or withdraw for Chairperson
   const handleVolunteerChair = async (idea) => {
     if (!currentUser) return;
     const ideaRef = doc(db, "eventIdeas", idea.id);
@@ -509,7 +508,6 @@ function EventIdeasPage() {
     }
   };
 
-  // Volunteer or withdraw for Secretary
   const handleVolunteerSecretary = async (idea) => {
     if (!currentUser) return;
     const ideaRef = doc(db, "eventIdeas", idea.id);
@@ -528,7 +526,6 @@ function EventIdeasPage() {
     }
   };
 
-  // Board Decision Approval
   const handleApproveRole = async (ideaId, roleType) => {
     if (!isBoardAdmin) return;
     const ideaRef = doc(db, "eventIdeas", ideaId);
@@ -537,7 +534,6 @@ function EventIdeasPage() {
     });
   };
 
-  // Submit suggestion/recommendation comment
   const handleAddSuggestionComment = async (ideaId) => {
     const text = commentInputs[ideaId]?.trim();
     if (!text || !currentUser) return;
@@ -620,7 +616,6 @@ function EventIdeasPage() {
             )}
 
             <form onSubmit={handleProposeIdea} className="space-y-4">
-              {/* 1. EVENT NAME */}
               <div>
                 <label className="block text-xs font-bold text-violet-300 uppercase tracking-wider mb-1">
                   Event Name *
@@ -635,7 +630,6 @@ function EventIdeasPage() {
                 />
               </div>
 
-              {/* 2. AVENUE OF SERVICE */}
               <div>
                 <label className="block text-xs font-bold text-violet-300 uppercase tracking-wider mb-1">
                   Avenue of Service *
@@ -654,7 +648,6 @@ function EventIdeasPage() {
                 </select>
               </div>
 
-              {/* 3. EVENT CHAIR & SECRETARY (OPTIONAL) */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
                 <div>
                   <label className="block text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-1">
@@ -682,7 +675,6 @@ function EventIdeasPage() {
                 </div>
               </div>
 
-              {/* 4. EVENT DESCRIPTION */}
               <div>
                 <label className="block text-xs font-bold text-violet-300 uppercase tracking-wider mb-1">
                   Event Description (Explain the Event) *
@@ -697,7 +689,6 @@ function EventIdeasPage() {
                 />
               </div>
 
-              {/* 5. NEED EVENT SUGGESTIONS */}
               <div className="p-3.5 bg-slate-950/80 rounded-2xl border border-violet-900/40 space-y-2.5">
                 <label className="flex items-center gap-2.5 cursor-pointer text-xs font-bold text-amber-300">
                   <input
@@ -770,7 +761,6 @@ function EventIdeasPage() {
                     className="p-5 sm:p-6 rounded-3xl bg-slate-900/90 border border-violet-900/40 hover:border-violet-500/40 shadow-xl transition flex flex-col justify-between gap-4"
                   >
                     <div>
-                      {/* HEADER WITH ADMIN DELETE BUTTON */}
                       <div className="flex items-center justify-between gap-3 mb-2">
                         <div className="flex items-center gap-2">
                           <span className="inline-flex items-center gap-1 text-[10px] font-black uppercase tracking-wider px-2.5 py-0.5 rounded-full bg-violet-500/15 border border-violet-500/30 text-violet-300">
@@ -785,7 +775,6 @@ function EventIdeasPage() {
                           )}
                         </div>
 
-                        {/* 🗑️ ADMIN-ONLY DELETE BUTTON */}
                         {isBoardAdmin && (
                           <button
                             onClick={() => handleDeleteIdea(idea.id)}
@@ -814,7 +803,6 @@ function EventIdeasPage() {
 
                       {/* LEADERSHIP VOLUNTEER SLOTS */}
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 p-3.5 bg-slate-950/80 rounded-2xl border border-violet-900/40 mb-4">
-                        {/* CHAIRPERSON */}
                         <div className="flex flex-col justify-between gap-2 p-3 rounded-xl bg-slate-900/70 border border-slate-800">
                           <div className="flex items-center justify-between">
                             <span className="text-[10px] font-black uppercase text-amber-400 flex items-center gap-1">
@@ -873,7 +861,6 @@ function EventIdeasPage() {
                           )}
                         </div>
 
-                        {/* SECRETARY */}
                         <div className="flex flex-col justify-between gap-2 p-3 rounded-xl bg-slate-900/70 border border-slate-800">
                           <div className="flex items-center justify-between">
                             <span className="text-[10px] font-black uppercase text-violet-400 flex items-center gap-1">
@@ -933,7 +920,7 @@ function EventIdeasPage() {
                         </div>
                       </div>
 
-                      {/* 💡 SUGGESTIONS TO MAKE THIS EVENT BETTER */}
+                      {/* 💡 SUGGESTIONS */}
                       <div className="border-t border-violet-950 pt-3">
                         <div className="flex items-center gap-1.5 text-xs font-bold text-amber-400 mb-2">
                           <MessageCircle size={14} />
@@ -960,7 +947,6 @@ function EventIdeasPage() {
                           </div>
                         )}
 
-                        {/* Drop suggestion input */}
                         <div className="flex gap-2">
                           <input
                             type="text"
