@@ -2,9 +2,9 @@ import React from "react";
 import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider, useAuth } from "./AuthContext";
 
-// Pages
+// Core Pages
 import Login from "./pages/Login";
-import Signup from "./pages/signup";
+import Signup from "./pages/Signup";
 import Dashboard from "./pages/Dashboard";
 import Profile from "./pages/Profile";
 import Leaderboard from "./pages/Leaderboard";
@@ -12,14 +12,9 @@ import Events from "./pages/Events";
 import EventIdeas from "./pages/EventIdeas";
 import Feedback from "./pages/Feedback";
 import RequestPoints from "./pages/RequestPoints";
-
-// Admin Pages
 import AdminDashboard from "./pages/AdminDashboard";
-import AdminRequests from "./pages/AdminRequests";
-import AdminMembers from "./pages/AdminMembers";
-import AdminFeedback from "./pages/AdminFeedback";
 
-// Protected Route Component for Authenticated Members
+// Protected Route for Members
 function ProtectedRoute({ children }) {
   const { currentUser, loading } = useAuth();
 
@@ -34,14 +29,14 @@ function ProtectedRoute({ children }) {
   return currentUser ? children : <Navigate to="/login" replace />;
 }
 
-// Protected Route Component for Admin & Board Access
+// Protected Route for Admin/Board
 function AdminRoute({ children }) {
   const { currentUser, userData, isAdmin, isSuperAdmin, loading } = useAuth();
 
   if (loading) {
     return (
       <div className="min-h-screen bg-[#030014] flex items-center justify-center text-amber-400 font-bold text-sm">
-        Verifying authorization...
+        Verifying access...
       </div>
     );
   }
@@ -63,12 +58,12 @@ export default function App() {
     <AuthProvider>
       <Router>
         <Routes>
-          {/* Public Authentication Routes */}
+          {/* Public Access */}
           <Route path="/login" element={<Login />} />
           <Route path="/signup" element={<Signup />} />
           <Route path="/register" element={<Signup />} />
 
-          {/* Member Authenticated Routes */}
+          {/* Authenticated Member Routes */}
           <Route
             path="/"
             element={
@@ -134,7 +129,7 @@ export default function App() {
             }
           />
 
-          {/* Executive & Admin Controls Routes */}
+          {/* Admin Management Routes */}
           <Route
             path="/admin"
             element={
@@ -147,7 +142,7 @@ export default function App() {
             path="/admin/requests"
             element={
               <AdminRoute>
-                <AdminRequests />
+                <AdminDashboard />
               </AdminRoute>
             }
           />
@@ -155,7 +150,7 @@ export default function App() {
             path="/admin/members"
             element={
               <AdminRoute>
-                <AdminMembers />
+                <AdminDashboard />
               </AdminRoute>
             }
           />
@@ -163,12 +158,12 @@ export default function App() {
             path="/admin/feedback"
             element={
               <AdminRoute>
-                <AdminFeedback />
+                <AdminDashboard />
               </AdminRoute>
             }
           />
 
-          {/* Fallback Redirection */}
+          {/* Fallback */}
           <Route path="*" element={<Navigate to="/login" replace />} />
         </Routes>
       </Router>
