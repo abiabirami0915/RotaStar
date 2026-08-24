@@ -53,7 +53,6 @@ import {
   Info,
   Crown,
   UserCheck,
-  ShieldCheck,
   Check,
 } from "lucide-react";
 
@@ -385,21 +384,19 @@ function SignupComponent() {
 }
 
 // ==========================================
-// 2. PROPOSE EVENT IDEAS WITH ROLE NOMINATIONS
+// 2. PROPOSE EVENT IDEAS WITH VOLUNTEERING
 // ==========================================
 function EventIdeasPage() {
   const navigate = useNavigate();
   const { currentUser, userData, isAdmin, isSuperAdmin } = useAuth();
 
   const [ideas, setIdeas] = useState([]);
-  const [title, setTitle] = useState("");
-  const [avenue, setAvenue] = useState("Community Service");
-  const [description, setDescription] = useState("");
-  const [budget, setBudget] = useState("");
-
-  // Preset Chairperson & Secretary inputs (if creator specifies them initially)
-  const [initialChair, setInitialChair] = useState("");
-  const [initialSec, setInitialSec] = useState("");
+  const [eventName, setEventName] = useState("");
+  const [eventChair, setEventChair] = useState("");
+  const [eventSecretary, setEventSecretary] = useState("");
+  const [eventDescription, setEventDescription] = useState("");
+  const [needSuggestions, setNeedSuggestions] = useState(false);
+  const [suggestionNotes, setSuggestionNotes] = useState("");
 
   const [submitting, setSubmitting] = useState(false);
   const [successMsg, setSuccessMsg] = useState(false);
@@ -423,30 +420,32 @@ function EventIdeasPage() {
 
   const handleProposeIdea = async (e) => {
     e.preventDefault();
-    if (!title.trim() || !description.trim()) return;
+    if (!eventName.trim() || !eventDescription.trim()) return;
 
     setSubmitting(true);
     try {
       await addDoc(collection(db, "eventIdeas"), {
-        title: title.trim(),
-        avenue: avenue,
-        description: description.trim(),
-        budget: budget.trim(),
+        eventName: eventName.trim(),
+        title: eventName.trim(),
+        eventDescription: eventDescription.trim(),
+        description: eventDescription.trim(),
+        needSuggestions: needSuggestions,
+        suggestionNotes: suggestionNotes.trim(),
         proposerName: userData?.name || currentUser?.displayName || "Member",
         proposerRole: userData?.role || "General Member",
         proposerUid: currentUser?.uid,
-        chairperson: initialChair.trim()
+        chairperson: eventChair.trim()
           ? {
-              name: initialChair.trim(),
-              role: "Designated by Proposer",
+              name: eventChair.trim(),
+              role: "Designated",
               uid: null,
               approved: true,
             }
           : null,
-        secretary: initialSec.trim()
+        secretary: eventSecretary.trim()
           ? {
-              name: initialSec.trim(),
-              role: "Designated by Proposer",
+              name: eventSecretary.trim(),
+              role: "Designated",
               uid: null,
               approved: true,
             }
@@ -456,11 +455,12 @@ function EventIdeasPage() {
         createdAt: serverTimestamp(),
       });
 
-      setTitle("");
-      setDescription("");
-      setBudget("");
-      setInitialChair("");
-      setInitialSec("");
+      setEventName("");
+      setEventChair("");
+      setEventSecretary("");
+      setEventDescription("");
+      setNeedSuggestions(false);
+      setSuggestionNotes("");
       setSuccessMsg(true);
       setTimeout(() => setSuccessMsg(false), 3000);
     } catch (err) {
@@ -476,16 +476,14 @@ function EventIdeasPage() {
     const ideaRef = doc(db, "eventIdeas", idea.id);
 
     if (idea.chairperson?.uid === currentUser.uid) {
-      // Allow user who volunteered to cancel nomination
       await updateDoc(ideaRef, { chairperson: null });
     } else if (!idea.chairperson) {
-      // Claim spot
       await updateDoc(ideaRef, {
         chairperson: {
           name: userData?.name || currentUser.displayName || "Member",
           role: userData?.role || "General Member",
           uid: currentUser.uid,
-          approved: isBoardAdmin, // auto-approved if board, else pending
+          approved: isBoardAdmin,
         },
       });
     }
@@ -497,10 +495,8 @@ function EventIdeasPage() {
     const ideaRef = doc(db, "eventIdeas", idea.id);
 
     if (idea.secretary?.uid === currentUser.uid) {
-      // Allow user who volunteered to cancel nomination
       await updateDoc(ideaRef, { secretary: null });
     } else if (!idea.secretary) {
-      // Claim spot
       await updateDoc(ideaRef, {
         secretary: {
           name: userData?.name || currentUser.displayName || "Member",
@@ -512,7 +508,7 @@ function EventIdeasPage() {
     }
   };
 
-  // Board decision: approve appointed candidate
+  // Board Decision Approval
   const handleApproveRole = async (ideaId, roleType) => {
     if (!isBoardAdmin) return;
     const ideaRef = doc(db, "eventIdeas", ideaId);
@@ -561,7 +557,7 @@ function EventIdeasPage() {
 
       <main className="max-w-5xl mx-auto px-6 py-8">
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          {/* SUBMIT FORM */}
+          {/* STREAMLINED PROPOSAL FORM */}
           <div className="bg-slate-900/90 border border-amber-500/30 rounded-3xl p-6 sm:p-7 shadow-2xl h-fit">
             <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-500/10 border border-amber-500/30 text-amber-400 text-xs font-bold uppercase tracking-wider mb-2">
               <Sparkles size={12} />
@@ -569,101 +565,96 @@ function EventIdeasPage() {
             </div>
             <h2 className="text-xl font-black text-white mb-1">Propose New Event</h2>
             <p className="text-xs text-slate-400 mb-5">
-              Submit your project ideas and invite volunteer leaders
+              Submit your event details and invite volunteer leaders
             </p>
 
             {successMsg && (
               <div className="mb-4 p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-xs flex items-center gap-2 animate-in fade-in">
                 <CheckCircle2 size={15} />
-                <span>Idea submitted with leadership options!</span>
+                <span>Event idea submitted successfully!</span>
               </div>
             )}
 
-            <form onSubmit={handleProposeIdea} className="space-y-3.5">
+            <form onSubmit={handleProposeIdea} className="space-y-4">
+              {/* 1. EVENT NAME */}
               <div>
                 <label className="block text-xs font-bold text-violet-300 uppercase tracking-wider mb-1">
-                  Event Title *
+                  Event Name *
                 </label>
                 <input
                   type="text"
                   required
-                  placeholder="e.g. Campus Blood Donation Drive"
-                  value={title}
-                  onChange={(e) => setTitle(e.target.value)}
+                  placeholder="e.g. Four Avenues Flagship Event"
+                  value={eventName}
+                  onChange={(e) => setEventName(e.target.value)}
                   className="w-full px-3.5 py-2.5 bg-slate-950 border border-violet-900/50 rounded-xl text-white text-sm outline-none focus:border-amber-400"
                 />
               </div>
 
-              <div>
-                <label className="block text-xs font-bold text-violet-300 uppercase tracking-wider mb-1">
-                  Project Avenue
-                </label>
-                <select
-                  value={avenue}
-                  onChange={(e) => setAvenue(e.target.value)}
-                  className="w-full px-3.5 py-2.5 bg-slate-950 border border-violet-900/50 rounded-xl text-white text-sm outline-none focus:border-amber-400"
-                >
-                  <option value="Club Service">Club Service</option>
-                  <option value="Community Service">Community Service</option>
-                  <option value="Professional Development">Professional Development</option>
-                  <option value="International Service">International Service</option>
-                  <option value="Youth Service">Youth Service</option>
-                  <option value="Green Rotaract & Environment">Green Rotaract</option>
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold text-violet-300 uppercase tracking-wider mb-1">
-                  Estimated Budget (Optional)
-                </label>
-                <input
-                  type="text"
-                  placeholder="e.g. ₹2,500 / Zero Cost"
-                  value={budget}
-                  onChange={(e) => setBudget(e.target.value)}
-                  className="w-full px-3.5 py-2.5 bg-slate-950 border border-violet-900/50 rounded-xl text-white text-sm outline-none focus:border-amber-400"
-                />
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 pt-1">
+              {/* 2. CHAIR & SECRETARY (OPTIONAL) */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
                 <div>
                   <label className="block text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-1">
-                    Preset Chair (Optional)
+                    Event Chair (Optional)
                   </label>
                   <input
                     type="text"
                     placeholder="e.g. Rtr. John"
-                    value={initialChair}
-                    onChange={(e) => setInitialChair(e.target.value)}
+                    value={eventChair}
+                    onChange={(e) => setEventChair(e.target.value)}
                     className="w-full px-3 py-2 bg-slate-950 border border-violet-900/50 rounded-xl text-white text-xs outline-none focus:border-amber-400"
                   />
                 </div>
                 <div>
                   <label className="block text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-1">
-                    Preset Secretary (Optional)
+                    Event Secretary (Optional)
                   </label>
                   <input
                     type="text"
                     placeholder="e.g. Rtr. Sarah"
-                    value={initialSec}
-                    onChange={(e) => setInitialSec(e.target.value)}
+                    value={eventSecretary}
+                    onChange={(e) => setEventSecretary(e.target.value)}
                     className="w-full px-3 py-2 bg-slate-950 border border-violet-900/50 rounded-xl text-white text-xs outline-none focus:border-amber-400"
                   />
                 </div>
               </div>
 
+              {/* 3. EVENT DESCRIPTION */}
               <div>
                 <label className="block text-xs font-bold text-violet-300 uppercase tracking-wider mb-1">
-                  Concept / Scope *
+                  Event Description (Explain the Event) *
                 </label>
                 <textarea
-                  rows={3}
+                  rows={4}
                   required
-                  placeholder="Explain objective, target beneficiaries, and execution plan..."
-                  value={description}
-                  onChange={(e) => setDescription(e.target.value)}
+                  placeholder="Explain the flow, target beneficiaries, purpose, and execution plan..."
+                  value={eventDescription}
+                  onChange={(e) => setEventDescription(e.target.value)}
                   className="w-full px-3.5 py-2.5 bg-slate-950 border border-violet-900/50 rounded-xl text-white text-sm outline-none focus:border-amber-400 resize-none"
                 />
+              </div>
+
+              {/* 4. NEED EVENT SUGGESTIONS */}
+              <div className="p-3.5 bg-slate-950/80 rounded-2xl border border-violet-900/40 space-y-2.5">
+                <label className="flex items-center gap-2.5 cursor-pointer text-xs font-bold text-amber-300">
+                  <input
+                    type="checkbox"
+                    checked={needSuggestions}
+                    onChange={(e) => setNeedSuggestions(e.target.checked)}
+                    className="w-4 h-4 rounded accent-amber-500 cursor-pointer"
+                  />
+                  <span>Need event suggestions / recommendations?</span>
+                </label>
+
+                {needSuggestions && (
+                  <input
+                    type="text"
+                    placeholder="What specific suggestions do you need? (e.g. Venue, Speaker, Budget ideas)"
+                    value={suggestionNotes}
+                    onChange={(e) => setSuggestionNotes(e.target.value)}
+                    className="w-full px-3 py-2 bg-slate-900 border border-amber-500/40 rounded-xl text-white text-xs outline-none focus:border-amber-400 animate-in fade-in"
+                  />
+                )}
               </div>
 
               <button
@@ -676,7 +667,7 @@ function EventIdeasPage() {
                 ) : (
                   <>
                     <Send size={14} />
-                    <span>Publish Idea & Open Nominations</span>
+                    <span>Submit Event Proposal</span>
                   </>
                 )}
               </button>
@@ -689,7 +680,7 @@ function EventIdeasPage() {
               <div>
                 <h3 className="font-bold text-base text-white">Community Idea Ledger</h3>
                 <p className="text-xs text-slate-400">
-                  Vote on initiatives and volunteer to lead as Chairperson or Secretary
+                  Vote on events and volunteer for open Event Chair / Secretary slots
                 </p>
               </div>
               <span className="text-xs font-bold text-amber-400 bg-amber-500/10 border border-amber-500/30 px-3 py-1 rounded-full">
@@ -716,23 +707,29 @@ function EventIdeasPage() {
                   >
                     <div>
                       <div className="flex items-center justify-between gap-3 mb-2">
-                        <span className="inline-flex items-center gap-1 text-[10px] font-black uppercase tracking-wider px-2.5 py-0.5 rounded-full bg-violet-500/15 border border-violet-500/30 text-violet-300">
-                          <Tag size={10} />
-                          <span>{idea.avenue}</span>
-                        </span>
-                        {idea.budget && (
-                          <span className="text-[11px] font-bold text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-lg border border-emerald-500/20">
-                            {idea.budget}
+                        <h4 className="font-extrabold text-base text-white">
+                          {idea.eventName || idea.title}
+                        </h4>
+                        {idea.needSuggestions && (
+                          <span className="text-[10px] font-black uppercase tracking-wider px-2.5 py-0.5 rounded-full bg-amber-500/15 border border-amber-500/30 text-amber-300">
+                            Suggestions Needed
                           </span>
                         )}
                       </div>
 
-                      <h4 className="font-extrabold text-base text-white mb-1.5">{idea.title}</h4>
-                      <p className="text-xs text-slate-300 leading-relaxed mb-4">{idea.description}</p>
+                      <p className="text-xs text-slate-300 leading-relaxed mb-3">
+                        {idea.eventDescription || idea.description}
+                      </p>
 
-                      {/* 🌟 LEADERSHIP SLOTS (CHAIRPERSON & SECRETARY) */}
+                      {idea.suggestionNotes && (
+                        <div className="p-3 rounded-xl bg-violet-950/60 border border-violet-500/30 text-xs text-violet-200 mb-3">
+                          <strong className="text-amber-400">Seeking Advice On:</strong> {idea.suggestionNotes}
+                        </div>
+                      )}
+
+                      {/* LEADERSHIP SLOTS */}
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 p-3.5 bg-slate-950/80 rounded-2xl border border-violet-900/40">
-                        {/* EVENT CHAIRPERSON SLOT */}
+                        {/* CHAIRPERSON */}
                         <div className="flex flex-col justify-between gap-2 p-3 rounded-xl bg-slate-900/70 border border-slate-800">
                           <div className="flex items-center justify-between">
                             <span className="text-[10px] font-black uppercase text-amber-400 flex items-center gap-1">
@@ -786,12 +783,12 @@ function EventIdeasPage() {
                               className="w-full py-1.5 rounded-lg bg-amber-500/15 hover:bg-amber-500/25 border border-amber-500/40 text-amber-300 text-[11px] font-bold flex items-center justify-center gap-1.5 transition cursor-pointer"
                             >
                               <UserCheck size={12} />
-                              <span>Volunteer as Event Chair</span>
+                              <span>I would like to take Event Chair</span>
                             </button>
                           )}
                         </div>
 
-                        {/* EVENT SECRETARY SLOT */}
+                        {/* SECRETARY */}
                         <div className="flex flex-col justify-between gap-2 p-3 rounded-xl bg-slate-900/70 border border-slate-800">
                           <div className="flex items-center justify-between">
                             <span className="text-[10px] font-black uppercase text-violet-400 flex items-center gap-1">
@@ -845,7 +842,7 @@ function EventIdeasPage() {
                               className="w-full py-1.5 rounded-lg bg-violet-600/15 hover:bg-violet-600/25 border border-violet-500/40 text-violet-200 text-[11px] font-bold flex items-center justify-center gap-1.5 transition cursor-pointer"
                             >
                               <UserCheck size={12} />
-                              <span>Volunteer as Event Sec</span>
+                              <span>I would like to take Event Secretary</span>
                             </button>
                           )}
                         </div>
