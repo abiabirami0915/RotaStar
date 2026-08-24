@@ -46,6 +46,11 @@ import {
   CheckCircle2,
   Tag,
   Users,
+  ChevronDown,
+  ChevronUp,
+  X,
+  ExternalLink,
+  Info,
 } from "lucide-react";
 
 // RAC PSVPEC ROLES LIST
@@ -450,12 +455,11 @@ function EventIdeasPage() {
 
   return (
     <div className="min-h-screen bg-[#030014] text-white">
-      {/* TOP NAV */}
       <nav className="border-b border-violet-900/40 bg-slate-950/80 backdrop-blur-md sticky top-0 z-50">
         <div className="max-w-5xl mx-auto px-6 h-20 flex items-center justify-between">
           <button
             onClick={() => navigate("/dashboard")}
-            className="flex items-center gap-2 text-xs font-bold text-slate-400 hover:text-amber-400 transition"
+            className="flex items-center gap-2 text-xs font-bold text-slate-400 hover:text-amber-400 transition cursor-pointer"
           >
             <ArrowLeft size={16} />
             <span>Back to Dashboard</span>
@@ -470,7 +474,7 @@ function EventIdeasPage() {
 
       <main className="max-w-5xl mx-auto px-6 py-8">
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          {/* SUBMIT IDEA FORM */}
+          {/* SUBMIT FORM */}
           <div className="bg-slate-900/90 border border-amber-500/30 rounded-3xl p-6 sm:p-7 shadow-2xl h-fit">
             <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-500/10 border border-amber-500/30 text-amber-400 text-xs font-bold uppercase tracking-wider mb-2">
               <Sparkles size={12} />
@@ -551,7 +555,7 @@ function EventIdeasPage() {
               <button
                 type="submit"
                 disabled={submitting}
-                className="w-full py-3.5 rounded-xl bg-gradient-to-r from-amber-500 to-amber-400 hover:from-amber-400 hover:to-amber-300 text-slate-950 font-black text-xs flex items-center justify-center gap-2 shadow-xl shadow-amber-500/10 transition disabled:opacity-50"
+                className="w-full py-3.5 rounded-xl bg-gradient-to-r from-amber-500 to-amber-400 hover:from-amber-400 hover:to-amber-300 text-slate-950 font-black text-xs flex items-center justify-center gap-2 shadow-xl shadow-amber-500/10 transition disabled:opacity-50 cursor-pointer"
               >
                 {submitting ? (
                   <Loader2 size={16} className="animate-spin" />
@@ -565,7 +569,7 @@ function EventIdeasPage() {
             </form>
           </div>
 
-          {/* COMMUNITY PROPOSALS LIST */}
+          {/* PROPOSALS LIST */}
           <div className="lg:col-span-2 space-y-4">
             <div className="flex items-center justify-between pb-2 border-b border-violet-900/40">
               <div>
@@ -614,7 +618,7 @@ function EventIdeasPage() {
 
                       <button
                         onClick={() => handleUpvote(idea)}
-                        className={`px-3 py-1.5 rounded-xl border flex items-center gap-1.5 font-bold transition text-xs ${
+                        className={`px-3 py-1.5 rounded-xl border flex items-center gap-1.5 font-bold transition text-xs cursor-pointer ${
                           isUpvoted
                             ? "bg-amber-500 text-slate-950 border-amber-400 shadow-md shadow-amber-500/20"
                             : "bg-slate-950 border-violet-900/60 text-slate-300 hover:text-amber-400"
@@ -636,11 +640,13 @@ function EventIdeasPage() {
 }
 
 // ==========================================
-// 3. CALENDAR & EVENTS COMPONENT
+// 3. CALENDAR & EVENTS (WITH READ MORE & MODAL)
 // ==========================================
 function EventsPage() {
   const navigate = useNavigate();
   const [events, setEvents] = useState([]);
+  const [expandedEventIds, setExpandedEventIds] = useState([]);
+  const [selectedModalEvent, setSelectedModalEvent] = useState(null);
 
   useEffect(() => {
     const q = query(collection(db, "events"));
@@ -651,13 +657,19 @@ function EventsPage() {
     return () => unsub();
   }, []);
 
+  const toggleExpand = (id) => {
+    setExpandedEventIds((prev) =>
+      prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id]
+    );
+  };
+
   return (
     <div className="min-h-screen bg-[#030014] text-white">
       <nav className="border-b border-violet-900/40 bg-slate-950/80 backdrop-blur-md sticky top-0 z-50">
         <div className="max-w-5xl mx-auto px-6 h-20 flex items-center justify-between">
           <button
             onClick={() => navigate("/dashboard")}
-            className="flex items-center gap-2 text-xs font-bold text-slate-400 hover:text-amber-400 transition"
+            className="flex items-center gap-2 text-xs font-bold text-slate-400 hover:text-amber-400 transition cursor-pointer"
           >
             <ArrowLeft size={16} />
             <span>Back to Dashboard</span>
@@ -674,7 +686,9 @@ function EventsPage() {
         <div className="mb-6 flex items-center justify-between">
           <div>
             <h1 className="text-2xl font-black text-white">Upcoming & Official Events</h1>
-            <p className="text-xs text-slate-400">Stay updated on club meetings, community service, and fellowships</p>
+            <p className="text-xs text-slate-400">
+              Stay updated on club meetings, community service, and fellowships
+            </p>
           </div>
         </div>
 
@@ -683,50 +697,176 @@ function EventsPage() {
             No upcoming events scheduled right now. Check back soon!
           </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {events.map((ev) => (
-              <div
-                key={ev.id}
-                className="p-6 rounded-3xl bg-slate-900/90 border border-violet-900/40 hover:border-amber-500/40 shadow-xl transition flex flex-col justify-between"
-              >
-                <div>
-                  <div className="flex items-center justify-between mb-3">
-                    <span className="text-[10px] font-black uppercase tracking-wider px-3 py-1 rounded-full bg-amber-500/10 border border-amber-500/30 text-amber-300">
-                      {ev.avenue || "General Event"}
-                    </span>
-                    {ev.points && (
-                      <span className="text-xs font-bold text-amber-400">+{ev.points} pts</span>
-                    )}
-                  </div>
-                  <h3 className="text-lg font-black text-white mb-2">{ev.title || ev.name}</h3>
-                  <p className="text-xs text-slate-300 mb-4 leading-relaxed">{ev.description}</p>
-                </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+            {events.map((ev) => {
+              const isExpanded = expandedEventIds.includes(ev.id);
+              const desc = ev.description || "";
+              const shouldTruncate = desc.length > 120;
 
-                <div className="space-y-1.5 text-xs text-slate-400 pt-4 border-t border-violet-950">
-                  {ev.date && (
-                    <div className="flex items-center gap-2 text-violet-300">
-                      <Calendar size={13} />
-                      <span>{ev.date?.toDate ? ev.date.toDate().toLocaleDateString() : ev.date}</span>
+              return (
+                <div
+                  key={ev.id}
+                  className="p-6 rounded-3xl bg-slate-900/90 border border-violet-900/40 hover:border-amber-500/40 shadow-xl transition flex flex-col justify-between"
+                >
+                  <div>
+                    <div className="flex items-center justify-between mb-3">
+                      <span className="text-[10px] font-black uppercase tracking-wider px-3 py-1 rounded-full bg-amber-500/10 border border-amber-500/30 text-amber-300">
+                        {ev.avenue || "General Event"}
+                      </span>
+                      {ev.points && (
+                        <span className="text-xs font-bold text-amber-400">+{ev.points} pts</span>
+                      )}
                     </div>
-                  )}
-                  {ev.time && (
-                    <div className="flex items-center gap-2">
-                      <Clock size={13} />
-                      <span>{ev.time}</span>
+
+                    <h3 className="text-lg font-black text-white mb-2">{ev.title || ev.name}</h3>
+
+                    {/* DESCRIPTION WITH READ MORE TOGGLE */}
+                    <div className="text-xs text-slate-300 leading-relaxed mb-3">
+                      <p>
+                        {shouldTruncate && !isExpanded
+                          ? `${desc.slice(0, 120)}...`
+                          : desc}
+                      </p>
+
+                      {shouldTruncate && (
+                        <button
+                          onClick={() => toggleExpand(ev.id)}
+                          className="mt-1 text-amber-400 hover:text-amber-300 font-bold inline-flex items-center gap-1 cursor-pointer"
+                        >
+                          <span>{isExpanded ? "Read Less" : "Read More"}</span>
+                          {isExpanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+                        </button>
+                      )}
                     </div>
-                  )}
-                  {ev.venue && (
-                    <div className="flex items-center gap-2 text-slate-300">
-                      <MapPin size={13} />
-                      <span>{ev.venue}</span>
+                  </div>
+
+                  <div>
+                    <div className="space-y-1.5 text-xs text-slate-400 py-3 border-t border-violet-950">
+                      {ev.date && (
+                        <div className="flex items-center gap-2 text-violet-300 font-semibold">
+                          <Calendar size={13} />
+                          <span>
+                            {ev.date?.toDate
+                              ? ev.date.toDate().toLocaleDateString(undefined, {
+                                  weekday: "short",
+                                  month: "short",
+                                  day: "numeric",
+                                  year: "numeric",
+                                })
+                              : ev.date}
+                          </span>
+                        </div>
+                      )}
+                      {ev.time && (
+                        <div className="flex items-center gap-2">
+                          <Clock size={13} />
+                          <span>{ev.time}</span>
+                        </div>
+                      )}
+                      {ev.venue && (
+                        <div className="flex items-center gap-2 text-slate-300">
+                          <MapPin size={13} />
+                          <span>{ev.venue}</span>
+                        </div>
+                      )}
                     </div>
-                  )}
+
+                    {/* EVENT DETAILS MODAL TRIGGER */}
+                    <div className="pt-2 flex items-center justify-between">
+                      <button
+                        onClick={() => setSelectedModalEvent(ev)}
+                        className="w-full py-2.5 rounded-xl bg-violet-600/15 border border-violet-500/30 hover:bg-violet-600/25 text-violet-200 text-xs font-bold transition flex items-center justify-center gap-1.5 cursor-pointer"
+                      >
+                        <Info size={14} className="text-amber-400" />
+                        <span>View Full Event Details</span>
+                      </button>
+                    </div>
+                  </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </main>
+
+      {/* 🌟 FULL EVENT DETAILS POPUP MODAL */}
+      {selectedModalEvent && (
+        <div className="fixed inset-0 z-50 bg-black/85 backdrop-blur-md flex items-center justify-center p-4">
+          <div className="bg-slate-900 border-2 border-amber-500/40 rounded-3xl p-6 sm:p-8 max-w-lg w-full shadow-2xl relative animate-in fade-in zoom-in duration-200">
+            <button
+              onClick={() => setSelectedModalEvent(null)}
+              className="absolute top-4 right-4 p-2 rounded-full text-slate-400 hover:text-white hover:bg-slate-800 transition cursor-pointer"
+            >
+              <X size={20} />
+            </button>
+
+            <div className="inline-block px-3 py-1 rounded-full bg-amber-500/10 border border-amber-500/30 text-amber-300 text-[10px] font-black uppercase mb-3">
+              {selectedModalEvent.avenue || "Rotaract Event"}
+            </div>
+
+            <h2 className="text-2xl font-black text-white mb-2">
+              {selectedModalEvent.title || selectedModalEvent.name}
+            </h2>
+
+            <div className="space-y-2 text-xs bg-slate-950 p-4 rounded-2xl border border-violet-900/40 mb-4">
+              {selectedModalEvent.date && (
+                <div className="flex items-center gap-2 text-amber-300 font-bold">
+                  <Calendar size={14} />
+                  <span>
+                    {selectedModalEvent.date?.toDate
+                      ? selectedModalEvent.date.toDate().toLocaleDateString(undefined, {
+                          weekday: "long",
+                          year: "numeric",
+                          month: "long",
+                          day: "numeric",
+                        })
+                      : selectedModalEvent.date}
+                  </span>
+                </div>
+              )}
+              {selectedModalEvent.time && (
+                <div className="flex items-center gap-2 text-slate-300">
+                  <Clock size={14} className="text-violet-400" />
+                  <span>Time: {selectedModalEvent.time}</span>
+                </div>
+              )}
+              {selectedModalEvent.venue && (
+                <div className="flex items-center gap-2 text-slate-300">
+                  <MapPin size={14} className="text-rose-400" />
+                  <span>Venue: {selectedModalEvent.venue}</span>
+                </div>
+              )}
+              {selectedModalEvent.points && (
+                <div className="flex items-center gap-2 text-emerald-400 font-semibold">
+                  <Trophy size={14} />
+                  <span>Points Allocated: +{selectedModalEvent.points} pts</span>
+                </div>
+              )}
+            </div>
+
+            <div>
+              <h4 className="text-xs font-bold text-violet-300 uppercase tracking-wider mb-1.5">
+                Full Description & Guidelines
+              </h4>
+              <p className="text-xs text-slate-300 leading-relaxed max-h-48 overflow-y-auto pr-2">
+                {selectedModalEvent.description || "No further details provided."}
+              </p>
+            </div>
+
+            {selectedModalEvent.registrationLink && (
+              <a
+                href={selectedModalEvent.registrationLink}
+                target="_blank"
+                rel="noreferrer"
+                className="mt-6 w-full py-3.5 rounded-xl bg-gradient-to-r from-amber-500 to-amber-400 hover:from-amber-400 hover:to-amber-300 text-slate-950 font-black text-xs flex items-center justify-center gap-2 shadow-xl transition cursor-pointer"
+              >
+                <span>Register / RSVP for Event</span>
+                <ExternalLink size={14} />
+              </a>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -754,7 +894,7 @@ function LeaderboardPage() {
         <div className="max-w-4xl mx-auto px-6 h-20 flex items-center justify-between">
           <button
             onClick={() => navigate("/dashboard")}
-            className="flex items-center gap-2 text-xs font-bold text-slate-400 hover:text-amber-400 transition"
+            className="flex items-center gap-2 text-xs font-bold text-slate-400 hover:text-amber-400 transition cursor-pointer"
           >
             <ArrowLeft size={16} />
             <span>Back to Dashboard</span>
@@ -864,7 +1004,7 @@ function RequestPointsPage() {
         <div className="max-w-3xl mx-auto px-6 h-20 flex items-center justify-between">
           <button
             onClick={() => navigate("/dashboard")}
-            className="flex items-center gap-2 text-xs font-bold text-slate-400 hover:text-amber-400 transition"
+            className="flex items-center gap-2 text-xs font-bold text-slate-400 hover:text-amber-400 transition cursor-pointer"
           >
             <ArrowLeft size={16} />
             <span>Back to Dashboard</span>
@@ -967,7 +1107,7 @@ function RequestPointsPage() {
               <button
                 type="submit"
                 disabled={submitting}
-                className="w-full py-3.5 rounded-xl bg-gradient-to-r from-amber-500 to-amber-400 hover:from-amber-400 hover:to-amber-300 text-slate-950 font-black text-sm flex items-center justify-center gap-2 shadow-xl transition disabled:opacity-50"
+                className="w-full py-3.5 rounded-xl bg-gradient-to-r from-amber-500 to-amber-400 hover:from-amber-400 hover:to-amber-300 text-slate-950 font-black text-sm flex items-center justify-center gap-2 shadow-xl transition disabled:opacity-50 cursor-pointer"
               >
                 {submitting ? <Loader2 size={16} className="animate-spin" /> : <span>Submit for Board Verification</span>}
               </button>
@@ -1017,7 +1157,7 @@ function FeedbackPage() {
         <div className="max-w-2xl mx-auto px-6 h-20 flex items-center justify-between">
           <button
             onClick={() => navigate("/dashboard")}
-            className="flex items-center gap-2 text-xs font-bold text-slate-400 hover:text-amber-400 transition"
+            className="flex items-center gap-2 text-xs font-bold text-slate-400 hover:text-amber-400 transition cursor-pointer"
           >
             <ArrowLeft size={16} />
             <span>Back to Dashboard</span>
@@ -1055,7 +1195,7 @@ function FeedbackPage() {
             <button
               type="submit"
               disabled={submitting}
-              className="w-full py-3.5 rounded-xl bg-gradient-to-r from-amber-500 to-amber-400 hover:from-amber-400 hover:to-amber-300 text-slate-950 font-black text-sm flex items-center justify-center gap-2 shadow-xl transition disabled:opacity-50"
+              className="w-full py-3.5 rounded-xl bg-gradient-to-r from-amber-500 to-amber-400 hover:from-amber-400 hover:to-amber-300 text-slate-950 font-black text-sm flex items-center justify-center gap-2 shadow-xl transition disabled:opacity-50 cursor-pointer"
             >
               {submitting ? <Loader2 size={16} className="animate-spin" /> : <span>Send Message</span>}
             </button>
