@@ -9,12 +9,15 @@ import {
   Shield,
   LogOut,
   User,
+  Users,
+  UserCheck,
   Crown,
   Sparkles,
   X,
   Zap,
   PartyPopper,
   Calendar,
+  CalendarDays,
   Lock,
   Code,
   Rocket,
@@ -27,8 +30,6 @@ import {
   Info,
   Trash2,
   Loader2,
-  CalendarDays,
-  UserCheck,
   Star,
   Clock,
   MapPin,
@@ -109,7 +110,7 @@ export default function Dashboard() {
   const [userRank, setUserRank] = useState("-");
   const [allMembers, setAllMembers] = useState([]);
 
-  // Completed Event Modals
+  // Modal States
   const [showAddCompletedModal, setShowAddCompletedModal] = useState(false);
   const [showViewEventsModal, setShowViewEventsModal] = useState(false);
   const [eventName, setEventName] = useState("");
@@ -127,7 +128,7 @@ export default function Dashboard() {
   const [announceType, setAnnounceType] = useState("urgent");
   const [announceSubmitting, setAnnounceSubmitting] = useState(false);
 
-  // Popups & Modal States
+  // Level & Badge States
   const [showLevelUpModal, setShowLevelUpModal] = useState(false);
   const [levelUpData, setLevelUpData] = useState({ oldLevel: 1, newLevel: 1, quote: "" });
   const [unlockedBadgeModal, setUnlockedBadgeModal] = useState(null);
@@ -155,7 +156,6 @@ export default function Dashboard() {
     rawRole.includes("secretary") ||
     rawRole.includes("board");
 
-  // Calculate conducted events count by avenue
   const avenueCounts = useMemo(() => {
     const counts = {
       "Club Service": 0,
@@ -185,7 +185,7 @@ export default function Dashboard() {
     return allMembers[0];
   }, [allMembers]);
 
-  // Live sync for completed events
+  // Live Sync: Completed Events
   useEffect(() => {
     const unsub = onSnapshot(
       collection(db, "completedEvents"),
@@ -198,14 +198,12 @@ export default function Dashboard() {
         });
         setCompletedEventsList(list);
       },
-      (err) => {
-        console.error("Error reading completedEvents collection:", err);
-      }
+      (err) => console.error("Error reading completedEvents:", err)
     );
     return () => unsub();
   }, []);
 
-  // Level-Up detection
+  // Level-Up Detection
   useEffect(() => {
     if (!currentUser || !userData) return;
     const storageKey = `rotastar_seen_level_${currentUser.uid}`;
@@ -229,7 +227,7 @@ export default function Dashboard() {
     localStorage.setItem(storageKey, levelData.currentLevel.toString());
   }, [currentUser, userData, levelData.currentLevel]);
 
-  // Badge Unlock detection
+  // Badge Unlock Detection
   useEffect(() => {
     if (!currentUser || !userData || memberBadges.length === 0) return;
     const storageKey = `rotastar_seen_badges_${currentUser.uid}`;
@@ -271,10 +269,10 @@ export default function Dashboard() {
     return () => unsub();
   }, []);
 
-  // Live Events Sync
+  // Upcoming Events Sync
   useEffect(() => {
-    const eventsQuery = query(collection(db, "events"));
-    const unsubscribe = onSnapshot(eventsQuery, (snapshot) => {
+    const q = query(collection(db, "events"));
+    const unsub = onSnapshot(q, (snapshot) => {
       const now = new Date();
       const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
 
@@ -306,7 +304,7 @@ export default function Dashboard() {
       setUpcomingEvents(eventsList);
     });
 
-    return () => unsubscribe();
+    return () => unsub();
   }, []);
 
   // Leaderboard Rank Sync
@@ -328,7 +326,7 @@ export default function Dashboard() {
     return () => unsubUsers();
   }, [currentUser]);
 
-  // Activities Sync
+  // Activity Sync
   useEffect(() => {
     if (!currentUser) return;
     const q = query(collection(db, "activities"), where("userId", "==", currentUser.uid));
@@ -351,7 +349,7 @@ export default function Dashboard() {
     return () => unsubActivities();
   }, [currentUser]);
 
-  // Handle Recording Completed Event
+  // Record Completed Event Handler
   const handleRecordCompletedEvent = async (e) => {
     e.preventDefault();
     if (!eventName.trim() || !eventDate) {
@@ -373,9 +371,7 @@ export default function Dashboard() {
 
     try {
       const docRef = await addDoc(collection(db, "completedEvents"), newEvent);
-
       setCompletedEventsList((prev) => [{ id: docRef.id, ...newEvent }, ...prev]);
-
       setShowAddCompletedModal(false);
       setEventName("");
       setEventDate("");
@@ -444,20 +440,13 @@ export default function Dashboard() {
   const renderBadgeIcon = (iconName, unlocked) => {
     const color = unlocked ? "text-amber-400" : "text-slate-600";
     switch (iconName) {
-      case "Crown":
-        return <Crown size={22} className={color} />;
-      case "Award":
-        return <Award size={22} className={color} />;
-      case "Trophy":
-        return <Trophy size={22} className={color} />;
-      case "Flame":
-        return <Flame size={22} className={color} />;
-      case "Shield":
-        return <Shield size={22} className={color} />;
-      case "Zap":
-        return <Zap size={22} className={color} />;
-      default:
-        return <Sparkles size={22} className={color} />;
+      case "Crown": return <Crown size={22} className={color} />;
+      case "Award": return <Award size={22} className={color} />;
+      case "Trophy": return <Trophy size={22} className={color} />;
+      case "Flame": return <Flame size={22} className={color} />;
+      case "Shield": return <Shield size={22} className={color} />;
+      case "Zap": return <Zap size={22} className={color} />;
+      default: return <Sparkles size={22} className={color} />;
     }
   };
 
@@ -542,7 +531,7 @@ export default function Dashboard() {
 
       {/* MAIN CONTAINER */}
       <main className="max-w-6xl mx-auto px-6 py-8">
-        {/* ⏰ UPCOMING EVENT REMINDER BANNER */}
+        {/* UPCOMING EVENT BANNER */}
         {nearestEvent && !dismissedEventReminder && (
           <div className="mb-6 p-4 sm:p-5 rounded-3xl bg-gradient-to-r from-amber-950/80 via-purple-950/80 to-slate-900/90 border border-amber-500/50 shadow-2xl backdrop-blur-md animate-in fade-in slide-in-from-top-3 duration-300">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
@@ -561,9 +550,7 @@ export default function Dashboard() {
                     }`}>
                       {nearestEvent.diffDays === 0 ? "Happening Today!" : nearestEvent.diffDays === 1 ? "Tomorrow" : `In ${nearestEvent.diffDays} Days`}
                     </span>
-                    <span className="text-xs text-amber-200/90 font-bold">
-                      Upcoming Event Reminder
-                    </span>
+                    <span className="text-xs text-amber-200/90 font-bold">Upcoming Event Reminder</span>
                   </div>
 
                   <h3 className="text-base sm:text-lg font-black text-white">
@@ -581,14 +568,12 @@ export default function Dashboard() {
                         })}
                       </span>
                     )}
-
                     {nearestEvent.time && (
                       <span className="flex items-center gap-1 text-violet-300">
                         <Clock size={13} />
                         {nearestEvent.time}
                       </span>
                     )}
-
                     {nearestEvent.venue && (
                       <span className="flex items-center gap-1 text-slate-400">
                         <MapPin size={13} />
@@ -611,7 +596,6 @@ export default function Dashboard() {
                 <button
                   onClick={() => setDismissedEventReminder(true)}
                   className="p-2 rounded-xl bg-black/30 hover:bg-black/50 text-slate-400 hover:text-white transition cursor-pointer"
-                  title="Dismiss Reminder"
                 >
                   <X size={16} />
                 </button>
@@ -620,12 +604,11 @@ export default function Dashboard() {
           </div>
         )}
 
-        {/* 📢 LIVE BROADCAST BANNERS */}
+        {/* BROADCAST BANNER */}
         {visibleAnnouncements.length > 0 && (
           <div className="space-y-3 mb-6">
             {visibleAnnouncements.map((ann) => {
               const style = ANNOUNCEMENT_PRIORITIES[ann.type] || ANNOUNCEMENT_PRIORITIES.info;
-
               return (
                 <div
                   key={ann.id}
@@ -638,16 +621,10 @@ export default function Dashboard() {
                         <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider border ${style.badge}`}>
                           {style.label}
                         </span>
-                        <span className="text-[10px] text-slate-400">
-                          by {ann.publishedBy || "Executive Board"}
-                        </span>
+                        <span className="text-[10px] text-slate-400">by {ann.publishedBy || "Executive Board"}</span>
                       </div>
-                      <h4 className="font-extrabold text-sm text-white">
-                        {ann.title}
-                      </h4>
-                      <p className="text-xs text-slate-300 mt-1 leading-relaxed">
-                        {ann.message}
-                      </p>
+                      <h4 className="font-extrabold text-sm text-white">{ann.title}</h4>
+                      <p className="text-xs text-slate-300 mt-1 leading-relaxed">{ann.message}</p>
                     </div>
                   </div>
 
@@ -656,7 +633,6 @@ export default function Dashboard() {
                       <button
                         onClick={() => handleDeleteAnnouncement(ann.id)}
                         className="p-1.5 rounded-xl bg-black/20 hover:bg-black/40 text-slate-400 hover:text-rose-400 transition cursor-pointer"
-                        title="Delete Announcement"
                       >
                         <Trash2 size={14} />
                       </button>
@@ -664,7 +640,6 @@ export default function Dashboard() {
                     <button
                       onClick={() => handleDismiss(ann.id)}
                       className="p-1.5 rounded-xl bg-black/20 hover:bg-black/40 text-slate-400 hover:text-white transition cursor-pointer"
-                      title="Dismiss"
                     >
                       <X size={14} />
                     </button>
@@ -675,20 +650,13 @@ export default function Dashboard() {
           </div>
         )}
 
-        {/* 🌟 1. TOP HEADER: HELLO RTR. STATUS CARD */}
+        {/* 🌟 1. HELLO STATUS CARD (AT THE TOP) */}
         <div className="bg-gradient-to-r from-violet-950/70 via-slate-900/90 to-amber-950/40 border border-violet-500/30 rounded-3xl p-6 sm:p-8 mb-6 shadow-2xl transition-all">
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-6">
-            <div
-              onClick={() => navigate("/profile")}
-              className="flex items-center gap-4 cursor-pointer group"
-            >
+            <div onClick={() => navigate("/profile")} className="flex items-center gap-4 cursor-pointer group">
               <div className="w-16 h-16 rounded-2xl overflow-hidden border-2 border-amber-500/50 bg-slate-950 flex items-center justify-center shrink-0 shadow-lg shadow-amber-500/10 group-hover:scale-105 transition-transform">
                 {userData?.photoURL || currentUser?.photoURL ? (
-                  <img
-                    src={userData?.photoURL || currentUser?.photoURL}
-                    alt="Avatar"
-                    className="w-full h-full object-cover"
-                  />
+                  <img src={userData?.photoURL || currentUser?.photoURL} alt="Avatar" className="w-full h-full object-cover" />
                 ) : (
                   <User size={32} className="text-violet-400" />
                 )}
@@ -703,14 +671,9 @@ export default function Dashboard() {
                   Hello, {userData?.name || currentUser?.displayName || "Member"}
                 </h1>
                 <p className="text-xs text-slate-400 mt-1">
-                  Role:{" "}
-                  <span className="capitalize text-violet-300 font-semibold">
-                    {userData?.role || "Member"}
-                  </span>
+                  Role: <span className="capitalize text-violet-300 font-semibold">{userData?.role || "Member"}</span>
                   {userData?.username && ` • @${userData.username}`}
-                  <span className="text-amber-400 font-medium ml-2 underline">
-                    Edit Profile →
-                  </span>
+                  <span className="text-amber-400 font-medium ml-2 underline">Edit Profile →</span>
                 </p>
               </div>
             </div>
@@ -731,12 +694,8 @@ export default function Dashboard() {
                   <Trophy size={20} />
                 </div>
                 <div>
-                  <p className="text-[10px] text-amber-300/80 font-bold uppercase tracking-wider">
-                    Current Level
-                  </p>
-                  <p className="text-lg font-black text-amber-400 tracking-wide">
-                    {levelData.levelTitle}
-                  </p>
+                  <p className="text-[10px] text-amber-300/80 font-bold uppercase tracking-wider">Current Level</p>
+                  <p className="text-lg font-black text-amber-400 tracking-wide">{levelData.levelTitle}</p>
                 </div>
               </div>
             </div>
@@ -759,12 +718,6 @@ export default function Dashboard() {
                 className="h-full rounded-full bg-gradient-to-r from-violet-600 via-amber-500 to-amber-300 transition-all duration-1000 ease-out shadow-lg shadow-amber-500/30"
                 style={{ width: `${levelData.percentage}%` }}
               />
-            </div>
-
-            <div className="flex items-center justify-between text-[10px] text-slate-500 font-semibold mt-2">
-              <span>{levelData.levelFloor} pts (L{levelData.currentLevel})</span>
-              <span>{points} pts (Current)</span>
-              <span>{levelData.levelCap} pts (L{levelData.nextLevel})</span>
             </div>
           </div>
         </div>
@@ -792,12 +745,7 @@ export default function Dashboard() {
               <Calendar size={16} className="text-amber-400" />
               <span>Monthly Streak</span>
             </div>
-            <p className="text-2xl sm:text-3xl font-black text-amber-400 flex items-baseline gap-1">
-              {monthlyStreak}{" "}
-              <span className="text-xs text-slate-400 font-normal">
-                {monthlyStreak === 1 ? "month" : "months"}
-              </span>
-            </p>
+            <p className="text-2xl sm:text-3xl font-black text-amber-400">{monthlyStreak} mo</p>
           </div>
 
           <div className="bg-slate-900/90 border border-violet-900/40 rounded-2xl p-5 shadow-xl">
@@ -805,12 +753,7 @@ export default function Dashboard() {
               <Award size={16} className="text-amber-400" />
               <span>Badges Unlocked</span>
             </div>
-            <p className="text-2xl sm:text-3xl font-black text-white">
-              {unlockedBadgesCount}{" "}
-              <span className="text-xs text-slate-500 font-normal">
-                / {memberBadges.length}
-              </span>
-            </p>
+            <p className="text-2xl sm:text-3xl font-black text-white">{unlockedBadgesCount} / {memberBadges.length}</p>
           </div>
         </div>
 
@@ -824,11 +767,7 @@ export default function Dashboard() {
                 <div className="relative">
                   <div className="w-20 h-20 rounded-3xl overflow-hidden border-2 border-amber-400 p-0.5 bg-slate-950 shadow-xl shadow-amber-500/20">
                     {starRotaractor.photoURL ? (
-                      <img
-                        src={starRotaractor.photoURL}
-                        alt="Star Rotaractor"
-                        className="w-full h-full object-cover rounded-[20px]"
-                      />
+                      <img src={starRotaractor.photoURL} alt="Star Rotaractor" className="w-full h-full object-cover rounded-[20px]" />
                     ) : (
                       <div className="w-full h-full flex items-center justify-center bg-slate-900 text-amber-400">
                         <User size={36} />
@@ -845,15 +784,8 @@ export default function Dashboard() {
                     <Sparkles size={11} />
                     <span>Star Rotaractor of the Month</span>
                   </div>
-                  <h3 className="text-xl sm:text-2xl font-black text-white">
-                    {starRotaractor.name || "Standout Rotaractor"}
-                  </h3>
-                  <p className="text-xs text-amber-300/90 font-medium">
-                    {starRotaractor.role || "General Member"} • {starRotaractor.department || "RAC PSVPEC"}
-                  </p>
-                  <p className="text-xs text-slate-300 italic mt-2 max-w-md">
-                    "Recognized for extraordinary leadership, steadfast meeting attendance, and leading community service impact."
-                  </p>
+                  <h3 className="text-xl sm:text-2xl font-black text-white">{starRotaractor.name || "Standout Rotaractor"}</h3>
+                  <p className="text-xs text-amber-300/90 font-medium">{starRotaractor.role || "General Member"} • {starRotaractor.department || "RAC PSVPEC"}</p>
                 </div>
               </div>
 
@@ -862,7 +794,6 @@ export default function Dashboard() {
                   <span className="text-[10px] uppercase font-bold text-slate-400">Monthly Contribution</span>
                   <p className="text-2xl font-black text-amber-400">{starRotaractor.points || starRotaractor.totalPoints || 0} pts</p>
                 </div>
-                <span className="text-[10px] text-amber-400/80 font-semibold">#1 Ranked Champion</span>
               </div>
             </div>
           </div>
@@ -959,14 +890,11 @@ export default function Dashboard() {
                 <Sparkles size={20} className="text-amber-400" />
                 Our Institutional Identity
               </h2>
-              <p className="text-xs text-slate-400">
-                The governing pillars and leadership behind RAC PSVPEC
-              </p>
             </div>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-            {/* 1. RAC PSVPEC TAB */}
+            {/* 1. RAC PSVPEC */}
             <div className="bg-gradient-to-b from-slate-900/95 to-slate-950 border border-amber-500/30 rounded-3xl p-6 shadow-2xl flex flex-col justify-between hover:border-amber-400/60 transition-all">
               <div>
                 <div className="flex items-center justify-between mb-3">
@@ -979,11 +907,9 @@ export default function Dashboard() {
                   </div>
                 </div>
 
-                <h3 className="text-xl font-black text-white mb-2">
-                  RAC PSVPEC
-                </h3>
+                <h3 className="text-xl font-black text-white mb-2">RAC PSVPEC</h3>
                 <p className="text-xs text-slate-300 leading-relaxed mb-4">
-                  Rotaract Club of Prince Shri Venkateshwara Padmavathy Engineering College is dedicated to youth leadership, community impact, and empowering students through service above self.
+                  Rotaract Club of Prince Shri Venkateshwara Padmavathy Engineering College is dedicated to youth leadership, community impact, and service above self.
                 </p>
 
                 <div className="bg-slate-950/80 rounded-2xl p-4 border border-violet-900/40 space-y-2.5 text-xs text-slate-300">
@@ -1001,86 +927,27 @@ export default function Dashboard() {
                   </p>
                 </div>
               </div>
-
-              <div className="pt-3 mt-4 border-t border-violet-900/40 text-[11px] text-amber-400/90 font-bold flex items-center justify-between">
-                <span>College Based Club</span>
-                <span>RAC PSVPEC</span>
-              </div>
             </div>
 
-            {/* 2. THEME A.U.R.A TAB */}
+            {/* 2. THEME A.U.R.A */}
             <div className="bg-gradient-to-b from-violet-950/60 to-slate-950 border border-violet-500/40 rounded-3xl p-6 shadow-2xl flex flex-col justify-between hover:border-violet-400/70 transition-all">
               <div>
                 <div className="inline-block px-2.5 py-0.5 rounded-full bg-violet-500/10 border border-violet-500/30 text-violet-300 text-[10px] font-black uppercase mb-3">
                   Leadership Theme
                 </div>
-
-                <h3 className="text-xl font-black text-white mb-1">
-                  Theme A.U.R.A
-                </h3>
-                <p className="text-xs font-extrabold text-amber-400 mb-3 tracking-wide">
-                  A.U.R.A - Activating unity, responsibilities and action
-                </p>
-
-                <p className="text-xs text-slate-300 leading-relaxed mb-4">
-                  Symbolizing radiance, high ethical standards, and purposeful action. A.U.R.A ignites our club's commitment to community excellence, fellowship, and visionary leadership.
-                </p>
-
-                <div className="bg-slate-950/80 rounded-2xl p-3.5 border border-violet-900/40 text-xs text-slate-300 space-y-1.5">
-                  <div className="text-[10px] uppercase font-extrabold text-violet-400 tracking-wider mb-1 flex items-center gap-1">
-                    <Star size={12} />
-                    <span>Core Pillars</span>
-                  </div>
-                  <p>• <strong className="text-violet-200">A</strong>ctivating Collective Purpose</p>
-                  <p>• <strong className="text-violet-200">U</strong>nity in Every Initiative</p>
-                  <p>• <strong className="text-violet-200">R</strong>esponsibility Toward Society</p>
-                  <p>• <strong className="text-violet-200">A</strong>ction with Tangible Impact</p>
-                </div>
-              </div>
-
-              <div className="pt-3 mt-4 border-t border-violet-900/40 text-[11px] text-violet-300 font-bold flex items-center justify-between">
-                <span>Radiance in Leadership</span>
-                <span>Tenure 2026–2027</span>
+                <h3 className="text-xl font-black text-white mb-1">Theme A.U.R.A</h3>
+                <p className="text-xs font-extrabold text-amber-400 mb-3 tracking-wide">A.U.R.A - Activating unity, responsibilities and action</p>
               </div>
             </div>
 
-            {/* 3. ROTARY INTERNATIONAL DISTRICT 3233 TAB */}
+            {/* 3. RID 3233 */}
             <div className="bg-gradient-to-b from-slate-900/95 to-slate-950 border border-amber-500/30 rounded-3xl p-6 shadow-2xl flex flex-col justify-between hover:border-amber-400/60 transition-all">
               <div>
                 <div className="inline-block px-2.5 py-0.5 rounded-full bg-amber-500/10 border border-amber-500/30 text-amber-300 text-[10px] font-black uppercase mb-3">
                   Rotary International District
                 </div>
-
-                <h3 className="text-xl font-black text-white mb-1">
-                  Rotary International District 3233
-                </h3>
-                <p className="text-xs font-extrabold text-amber-400 mb-3 tracking-wide">
-                  V.I.B.E - Vision.Innovate.Believe.Evolve
-                </p>
-
-                <p className="text-xs text-slate-300 leading-relaxed mb-4">
-                  Governing and inspiring Rotaract clubs across RID 3233 to deliver impactful community service and cross-district collaborations.
-                </p>
-
-                <div className="bg-slate-950/80 rounded-2xl p-3.5 border border-violet-900/40 space-y-1.5 text-xs text-slate-300">
-                  <div className="text-[10px] uppercase font-extrabold text-amber-400 tracking-wider mb-1 flex items-center gap-1">
-                    <Crown size={12} />
-                    <span>District Leadership 26-27</span>
-                  </div>
-                  <p>
-                    <span className="text-slate-500 font-medium">District Rotaract Representative 26-27:</span><br />
-                    <strong className="text-white">Rtr. PP. PHF. HariVignesh M</strong>
-                  </p>
-                  <p className="pt-1">
-                    <span className="text-slate-500 font-medium">District Rotaract Secretary 26-27:</span><br />
-                    <strong className="text-white">Rtr. PP. Naveen Kumar A</strong>
-                  </p>
-                </div>
-              </div>
-
-              <div className="pt-3 mt-4 border-t border-violet-900/40 text-[11px] text-amber-400/90 font-bold flex items-center justify-between">
-                <span>RID 3233</span>
-                <span>Rotary International</span>
+                <h3 className="text-xl font-black text-white mb-1">Rotary International District 3233</h3>
+                <p className="text-xs font-extrabold text-amber-400 mb-3 tracking-wide">V.I.B.E - Vision.Innovate.Believe.Evolve</p>
               </div>
             </div>
           </div>
@@ -1097,9 +964,7 @@ export default function Dashboard() {
               <h2 className="text-xl sm:text-2xl font-black text-white">
                 Events Conducted Milestone
               </h2>
-              <p className="text-xs text-slate-400 mt-0.5">
-                Official tally of successfully executed projects
-              </p>
+              <p className="text-xs text-slate-400 mt-0.5">Official tally of successfully executed projects</p>
             </div>
 
             <div className="flex flex-wrap items-center gap-2.5">
@@ -1138,9 +1003,7 @@ export default function Dashboard() {
                 onClick={() => setShowViewEventsModal(true)}
                 className={`p-4 rounded-2xl bg-slate-950/80 border ${style.border} flex flex-col justify-between text-center transition hover:scale-[1.02] cursor-pointer`}
               >
-                <span className={`text-[10px] font-black uppercase tracking-wider ${style.text} mb-2`}>
-                  {avName}
-                </span>
+                <span className={`text-[10px] font-black uppercase tracking-wider ${style.text} mb-2`}>{avName}</span>
                 <p className="text-2xl font-black text-white">{avenueCounts[avName] || 0}</p>
                 <span className="text-[10px] text-slate-500 mt-1">Events</span>
               </div>
@@ -1188,11 +1051,7 @@ export default function Dashboard() {
                 </div>
 
                 <div>
-                  <h4
-                    className={`text-xs font-bold ${
-                      badge.unlocked ? "text-white" : "text-slate-500"
-                    }`}
-                  >
+                  <h4 className={`text-xs font-bold ${badge.unlocked ? "text-white" : "text-slate-500"}`}>
                     {badge.title}
                   </h4>
                   <p className="text-[10px] text-slate-400 mt-1 leading-snug line-clamp-2">
@@ -1214,9 +1073,7 @@ export default function Dashboard() {
                 </div>
                 <div>
                   <h2 className="text-lg font-bold text-white">Admin Controls</h2>
-                  <p className="text-xs text-slate-400">
-                    Oversee points ledger, submissions, member directory, and feedback
-                  </p>
+                  <p className="text-xs text-slate-400">Oversee points ledger, submissions, member directory, and feedback</p>
                 </div>
               </div>
 
@@ -1226,12 +1083,8 @@ export default function Dashboard() {
                   className="flex items-center justify-between p-4 rounded-xl bg-slate-950 border border-violet-900/40 hover:border-amber-500/40 text-left transition cursor-pointer"
                 >
                   <div>
-                    <p className="font-semibold text-white text-sm">
-                      Point Management
-                    </p>
-                    <p className="text-xs text-slate-500 mt-0.5">
-                      Award or deduct
-                    </p>
+                    <p className="font-semibold text-white text-sm">Point Management</p>
+                    <p className="text-xs text-slate-500 mt-0.5">Award or deduct</p>
                   </div>
                   <ChevronRight size={16} className="text-amber-400" />
                 </button>
@@ -1241,12 +1094,8 @@ export default function Dashboard() {
                   className="flex items-center justify-between p-4 rounded-xl bg-slate-950 border border-violet-900/40 hover:border-amber-500/40 text-left transition cursor-pointer"
                 >
                   <div>
-                    <p className="font-semibold text-white text-sm">
-                      Point Requests
-                    </p>
-                    <p className="text-xs text-slate-500 mt-0.5">
-                      Approve/Reject
-                    </p>
+                    <p className="font-semibold text-white text-sm">Point Requests</p>
+                    <p className="text-xs text-slate-500 mt-0.5">Approve/Reject</p>
                   </div>
                   <ChevronRight size={16} className="text-amber-400" />
                 </button>
@@ -1260,9 +1109,7 @@ export default function Dashboard() {
                       <Users size={14} className="text-amber-400" />
                       View Members
                     </p>
-                    <p className="text-xs text-slate-500 mt-0.5">
-                      Roster & Delete
-                    </p>
+                    <p className="text-xs text-slate-500 mt-0.5">Roster & Delete</p>
                   </div>
                   <ChevronRight size={16} className="text-amber-400" />
                 </button>
@@ -1276,9 +1123,7 @@ export default function Dashboard() {
                       <MessageSquare size={14} className="text-amber-400" />
                       Feedback Ledger
                     </p>
-                    <p className="text-xs text-slate-500 mt-0.5">
-                      Review ideas
-                    </p>
+                    <p className="text-xs text-slate-500 mt-0.5">Review ideas</p>
                   </div>
                   <ChevronRight size={16} className="text-amber-400" />
                 </button>
@@ -1295,31 +1140,18 @@ export default function Dashboard() {
           </h2>
 
           {recentActivities.length === 0 ? (
-            <p className="text-center text-slate-500 text-sm py-8">
-              No recent activity recorded yet.
-            </p>
+            <p className="text-center text-slate-500 text-sm py-8">No recent activity recorded yet.</p>
           ) : (
             <div className="divide-y divide-violet-950/80">
               {recentActivities.map((act) => (
-                <div
-                  key={act.id}
-                  className="py-3 flex items-center justify-between text-sm"
-                >
+                <div key={act.id} className="py-3 flex items-center justify-between text-sm">
                   <div>
-                    <p className="font-semibold text-white">
-                      {act.activityName || "Activity"}
-                    </p>
+                    <p className="font-semibold text-white">{act.activityName || "Activity"}</p>
                     <p className="text-xs text-slate-500">
-                      {act.createdAt?.toDate
-                        ? act.createdAt.toDate().toLocaleDateString()
-                        : "Recent"}
+                      {act.createdAt?.toDate ? act.createdAt.toDate().toLocaleDateString() : "Recent"}
                     </p>
                   </div>
-                  <span
-                    className={`font-bold ${
-                      (act.points || 0) >= 0 ? "text-amber-400" : "text-rose-400"
-                    }`}
-                  >
+                  <span className={`font-bold ${(act.points || 0) >= 0 ? "text-amber-400" : "text-rose-400"}`}>
                     {(act.points || 0) >= 0 ? `+${act.points}` : act.points} pts
                   </span>
                 </div>
@@ -1328,7 +1160,7 @@ export default function Dashboard() {
           )}
         </section>
 
-        {/* 🚀 CREATOR FOOTER CARD */}
+        {/* CREATOR FOOTER */}
         <section className="bg-gradient-to-r from-violet-950/70 via-slate-900/90 to-amber-950/40 border border-violet-900/50 rounded-3xl p-6 sm:p-8 shadow-2xl">
           <div className="flex flex-col md:flex-row items-start gap-6">
             <div className="p-4 bg-amber-500/10 border border-amber-500/30 rounded-2xl text-amber-400 shrink-0 shadow-lg shadow-amber-500/10">
@@ -1341,16 +1173,11 @@ export default function Dashboard() {
                   <Crown size={13} className="text-amber-400" />
                   <span>About This Platform</span>
                 </div>
-                <h2 className="text-xl sm:text-2xl font-black text-white">
-                  Why RotaStar Was Created
-                </h2>
+                <h2 className="text-xl sm:text-2xl font-black text-white">Why RotaStar Was Created</h2>
               </div>
 
               <p className="text-sm text-slate-300 leading-relaxed">
-                RotaStar was initiated by the President and Secretary of RAC PSVPEC with a singular goal:{" "}
-                <strong className="text-amber-400 font-semibold">
-                  to inspire active member involvement and celebrate impactful service.
-                </strong>
+                RotaStar was initiated by the President and Secretary of RAC PSVPEC to inspire active member involvement and celebrate impactful service.
               </p>
 
               <div className="pt-4 border-t border-violet-900/60 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
@@ -1359,15 +1186,11 @@ export default function Dashboard() {
                     <Code size={18} />
                   </div>
                   <div>
-                    <p className="text-xs text-slate-400 uppercase tracking-wider font-semibold">
-                      Developed & Designed with pride by:
-                    </p>
+                    <p className="text-xs text-slate-400 uppercase tracking-wider font-semibold">Developed & Designed with pride by:</p>
                     <p className="text-sm font-bold text-amber-400 flex items-center gap-1 mt-0.5">
                       👑 Rtr. Abirami G <span className="text-slate-400 font-normal">| Secretary (2026–2027)</span>
                     </p>
-                    <p className="text-xs text-violet-300 font-medium">
-                      Rotaract Club of Prince Shri Venkateshwara Padmavathy Engineering College
-                    </p>
+                    <p className="text-xs text-violet-300 font-medium">Rotaract Club of Prince Shri Venkateshwara Padmavathy Engineering College</p>
                   </div>
                 </div>
 
