@@ -43,7 +43,6 @@ import {
   collection,
   query,
   where,
-  orderBy,
   onSnapshot,
   addDoc,
   deleteDoc,
@@ -111,7 +110,7 @@ export default function Dashboard() {
   const [userRank, setUserRank] = useState("-");
   const [allMembers, setAllMembers] = useState([]);
 
-  // Completed Event Modal States (Admin)
+  // Completed Event Modal States
   const [showAddCompletedModal, setShowAddCompletedModal] = useState(false);
   const [eventName, setEventName] = useState("");
   const [eventDate, setEventDate] = useState("");
@@ -186,12 +185,23 @@ export default function Dashboard() {
     return allMembers[0];
   }, [allMembers]);
 
-  // Sync Conducted Events List from Firestore
+  // Robust live sync for completed events without requiring composite indexes
   useEffect(() => {
-    const q = query(collection(db, "completedEvents"), orderBy("createdAt", "desc"));
-    const unsub = onSnapshot(q, (snapshot) => {
-      setCompletedEventsList(snapshot.docs.map((d) => ({ id: d.id, ...d.data() })));
-    });
+    const unsub = onSnapshot(
+      collection(db, "completedEvents"),
+      (snapshot) => {
+        const list = snapshot.docs.map((d) => ({ id: d.id, ...d.data() }));
+        list.sort((a, b) => {
+          const dateA = new Date(a.eventDate || a.createdAt?.toDate?.() || 0).getTime();
+          const dateB = new Date(b.eventDate || b.createdAt?.toDate?.() || 0).getTime();
+          return dateB - dateA;
+        });
+        setCompletedEventsList(list);
+      },
+      (err) => {
+        console.error("Error reading completedEvents collection:", err);
+      }
+    );
     return () => unsub();
   }, []);
 
@@ -253,11 +263,12 @@ export default function Dashboard() {
 
   // Announcements Sync
   useEffect(() => {
-    const q = query(collection(db, "announcements"), orderBy("createdAt", "desc"));
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      setAnnouncements(snapshot.docs.map((d) => ({ id: d.id, ...d.data() })));
+    const unsub = onSnapshot(collection(db, "announcements"), (snapshot) => {
+      const list = snapshot.docs.map((d) => ({ id: d.id, ...d.data() }));
+      list.sort((a, b) => (b.createdAt?.toDate?.() || 0) - (a.createdAt?.toDate?.() || 0));
+      setAnnouncements(list);
     });
-    return () => unsubscribe();
+    return () => unsub();
   }, []);
 
   // Live Events Sync
@@ -340,21 +351,24 @@ export default function Dashboard() {
     return () => unsubActivities();
   }, [currentUser]);
 
-  // Add Conducted Event Log
+  // Add Conducted Event Log (Handles Optional Fields Gracefully)
   const handleRecordCompletedEvent = async (e) => {
     e.preventDefault();
-    if (!eventName.trim() || !eventDate) return;
+    if (!eventName.trim() || !eventDate) {
+      alert("Please provide the Event Name and Date.");
+      return;
+    }
 
     setRecordSubmitting(true);
     try {
       await addDoc(collection(db, "completedEvents"), {
         eventName: eventName.trim(),
         eventDate: eventDate,
-        avenue: eventAvenue,
-        chairperson: chairperson.trim() || "Not Assigned",
-        secretary: secretary.trim() || "Not Assigned",
-        description: shortDescription.trim(),
-        loggedBy: userData?.name || "Executive Board",
+        avenue: eventAvenue || "Community Service",
+        chairperson: chairperson.trim() || "-",
+        secretary: secretary.trim() || "-",
+        description: shortDescription.trim() || "",
+        loggedBy: userData?.name || currentUser?.displayName || "Executive Board",
         createdAt: serverTimestamp(),
       });
 
@@ -366,6 +380,7 @@ export default function Dashboard() {
       setShortDescription("");
     } catch (err) {
       console.error("Error logging completed event:", err);
+      alert("Failed to save event: " + err.message);
     } finally {
       setRecordSubmitting(false);
     }
@@ -656,7 +671,7 @@ export default function Dashboard() {
           </div>
         )}
 
-        {/* 🌟 1. TOP HEADER: HELLO RTR. STATUS CARD */}
+        {/* 🌟 1. TOP HEADER: HELLO STATUS CARD */}
         <div className="bg-gradient-to-r from-violet-950/70 via-slate-900/90 to-amber-950/40 border border-violet-500/30 rounded-3xl p-6 sm:p-8 mb-6 shadow-2xl transition-all">
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-6">
             <div
@@ -1472,7 +1487,7 @@ export default function Dashboard() {
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">
-                    Event Chairperson
+                    Event Chairperson (Optional)
                   </label>
                   <input
                     type="text"
@@ -1485,7 +1500,7 @@ export default function Dashboard() {
 
                 <div>
                   <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">
-                    Event Secretary
+                    Event Secretary (Optional)
                   </label>
                   <input
                     type="text"
@@ -1499,7 +1514,7 @@ export default function Dashboard() {
 
               <div>
                 <label className="block text-xs font-bold text-violet-300 uppercase tracking-wider mb-1">
-                  Short Description
+                  Short Description (Optional)
                 </label>
                 <textarea
                   rows={2}
