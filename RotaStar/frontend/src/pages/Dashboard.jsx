@@ -185,15 +185,15 @@ export default function Dashboard() {
     return allMembers[0];
   }, [allMembers]);
 
-  // Robust live sync for completed events without requiring composite indexes
+  // Live sync for completed events
   useEffect(() => {
     const unsub = onSnapshot(
       collection(db, "completedEvents"),
       (snapshot) => {
         const list = snapshot.docs.map((d) => ({ id: d.id, ...d.data() }));
         list.sort((a, b) => {
-          const dateA = new Date(a.eventDate || a.createdAt?.toDate?.() || 0).getTime();
-          const dateB = new Date(b.eventDate || b.createdAt?.toDate?.() || 0).getTime();
+          const dateA = new Date(a.eventDate || a.createdAt || 0).getTime();
+          const dateB = new Date(b.eventDate || b.createdAt || 0).getTime();
           return dateB - dateA;
         });
         setCompletedEventsList(list);
@@ -351,26 +351,31 @@ export default function Dashboard() {
     return () => unsubActivities();
   }, [currentUser]);
 
-  // Add Conducted Event Log (Handles Optional Fields Gracefully)
+  // Handle Recording Completed Event
   const handleRecordCompletedEvent = async (e) => {
     e.preventDefault();
     if (!eventName.trim() || !eventDate) {
-      alert("Please provide the Event Name and Date.");
+      alert("Please enter the event name and date.");
       return;
     }
 
     setRecordSubmitting(true);
+    const newEvent = {
+      eventName: eventName.trim(),
+      eventDate: eventDate,
+      avenue: eventAvenue || "Community Service",
+      chairperson: chairperson.trim() || "-",
+      secretary: secretary.trim() || "-",
+      description: shortDescription.trim() || "",
+      loggedBy: userData?.name || currentUser?.displayName || "Executive Board",
+      createdAt: new Date().toISOString(),
+    };
+
     try {
-      await addDoc(collection(db, "completedEvents"), {
-        eventName: eventName.trim(),
-        eventDate: eventDate,
-        avenue: eventAvenue || "Community Service",
-        chairperson: chairperson.trim() || "-",
-        secretary: secretary.trim() || "-",
-        description: shortDescription.trim() || "",
-        loggedBy: userData?.name || currentUser?.displayName || "Executive Board",
-        createdAt: serverTimestamp(),
-      });
+      const docRef = await addDoc(collection(db, "completedEvents"), newEvent);
+
+      // Optimistic update
+      setCompletedEventsList((prev) => [{ id: docRef.id, ...newEvent }, ...prev]);
 
       setShowAddCompletedModal(false);
       setEventName("");
@@ -671,7 +676,7 @@ export default function Dashboard() {
           </div>
         )}
 
-        {/* 🌟 1. TOP HEADER: HELLO STATUS CARD */}
+        {/* 🌟 1. HELLO STATUS CARD (PLACED AT THE TOP) */}
         <div className="bg-gradient-to-r from-violet-950/70 via-slate-900/90 to-amber-950/40 border border-violet-500/30 rounded-3xl p-6 sm:p-8 mb-6 shadow-2xl transition-all">
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-6">
             <div
