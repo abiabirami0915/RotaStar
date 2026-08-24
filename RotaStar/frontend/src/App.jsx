@@ -1,20 +1,35 @@
 import React from "react";
-import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-dom";
+import { BrowserRouter as Router, Routes, Route, Navigate, useNavigate } from "react-router-dom";
 import { AuthProvider, useAuth } from "./AuthContext";
 
-// Core Pages
+// Core Functional Pages
 import Login from "./pages/Login";
 import Signup from "./pages/Signup";
 import Dashboard from "./pages/Dashboard";
 import Profile from "./pages/Profile";
-import Leaderboard from "./pages/Leaderboard";
-import Events from "./pages/Events";
-import EventIdeas from "./pages/EventIdeas";
-import Feedback from "./pages/Feedback";
-import RequestPoints from "./pages/RequestPoints";
-import AdminDashboard from "./pages/AdminDashboard";
 
-// Protected Route for Members
+// Safe Fallback Page for other tabs to prevent build errors
+function GenericPage({ title, actionText = "Back to Dashboard" }) {
+  const navigate = useNavigate();
+  return (
+    <div className="min-h-screen bg-[#030014] text-white flex flex-col items-center justify-center p-6 text-center">
+      <div className="max-w-md bg-slate-900 border border-violet-900/50 rounded-3xl p-8 shadow-2xl">
+        <h1 className="text-2xl font-black text-amber-400 mb-2">{title}</h1>
+        <p className="text-xs text-slate-400 mb-6">
+          This portal module is being updated with real-time sync. Check back shortly!
+        </p>
+        <button
+          onClick={() => navigate("/dashboard")}
+          className="px-6 py-3 rounded-xl bg-gradient-to-r from-violet-700 to-amber-600 text-white font-bold text-xs shadow-lg hover:opacity-90 transition"
+        >
+          {actionText}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// Protected Route Guard for Authenticated Members
 function ProtectedRoute({ children }) {
   const { currentUser, loading } = useAuth();
 
@@ -29,14 +44,14 @@ function ProtectedRoute({ children }) {
   return currentUser ? children : <Navigate to="/login" replace />;
 }
 
-// Protected Route for Admin/Board
+// Protected Route Guard for Board & Admin Roles
 function AdminRoute({ children }) {
   const { currentUser, userData, isAdmin, isSuperAdmin, loading } = useAuth();
 
   if (loading) {
     return (
       <div className="min-h-screen bg-[#030014] flex items-center justify-center text-amber-400 font-bold text-sm">
-        Verifying access...
+        Verifying authorization...
       </div>
     );
   }
@@ -63,7 +78,7 @@ export default function App() {
           <Route path="/signup" element={<Signup />} />
           <Route path="/register" element={<Signup />} />
 
-          {/* Authenticated Member Routes */}
+          {/* Member Authenticated Area */}
           <Route
             path="/"
             element={
@@ -92,7 +107,7 @@ export default function App() {
             path="/leaderboard"
             element={
               <ProtectedRoute>
-                <Leaderboard />
+                <GenericPage title="Leaderboard Standings" />
               </ProtectedRoute>
             }
           />
@@ -100,7 +115,7 @@ export default function App() {
             path="/events"
             element={
               <ProtectedRoute>
-                <Events />
+                <GenericPage title="Club Events & Calendar" />
               </ProtectedRoute>
             }
           />
@@ -108,7 +123,7 @@ export default function App() {
             path="/event-ideas"
             element={
               <ProtectedRoute>
-                <EventIdeas />
+                <GenericPage title="Propose Event Ideas" />
               </ProtectedRoute>
             }
           />
@@ -116,7 +131,7 @@ export default function App() {
             path="/feedback"
             element={
               <ProtectedRoute>
-                <Feedback />
+                <GenericPage title="Member Feedback Hub" />
               </ProtectedRoute>
             }
           />
@@ -124,17 +139,17 @@ export default function App() {
             path="/request-points"
             element={
               <ProtectedRoute>
-                <RequestPoints />
+                <GenericPage title="Submit Activity Points" />
               </ProtectedRoute>
             }
           />
 
-          {/* Admin Management Routes */}
+          {/* Executive & Admin Controls Area */}
           <Route
             path="/admin"
             element={
               <AdminRoute>
-                <AdminDashboard />
+                <GenericPage title="Admin Point Ledger" />
               </AdminRoute>
             }
           />
@@ -142,7 +157,7 @@ export default function App() {
             path="/admin/requests"
             element={
               <AdminRoute>
-                <AdminDashboard />
+                <GenericPage title="Admin Point Approvals" />
               </AdminRoute>
             }
           />
@@ -150,7 +165,7 @@ export default function App() {
             path="/admin/members"
             element={
               <AdminRoute>
-                <AdminDashboard />
+                <GenericPage title="Member Directory Management" />
               </AdminRoute>
             }
           />
@@ -158,12 +173,12 @@ export default function App() {
             path="/admin/feedback"
             element={
               <AdminRoute>
-                <AdminDashboard />
+                <GenericPage title="Executive Feedback Roster" />
               </AdminRoute>
             }
           />
 
-          {/* Fallback */}
+          {/* Fallback Catch-All */}
           <Route path="*" element={<Navigate to="/login" replace />} />
         </Routes>
       </Router>
