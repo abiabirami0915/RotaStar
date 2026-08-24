@@ -8,6 +8,7 @@ import {
   onSnapshot,
   addDoc,
   setDoc,
+  deleteDoc,
   doc,
   serverTimestamp,
   updateDoc,
@@ -55,6 +56,7 @@ import {
   UserCheck,
   Check,
   MessageCircle,
+  Trash2,
 } from "lucide-react";
 
 // RAC PSVPEC ROLES LIST
@@ -385,7 +387,7 @@ function SignupComponent() {
 }
 
 // ==========================================
-// 2. PROPOSE EVENT IDEAS COMPONENT
+// 2. PROPOSE EVENT IDEAS (WITH ADMIN DELETE)
 // ==========================================
 function EventIdeasPage() {
   const navigate = useNavigate();
@@ -400,7 +402,6 @@ function EventIdeasPage() {
   const [needSuggestions, setNeedSuggestions] = useState(false);
   const [suggestionNotes, setSuggestionNotes] = useState("");
 
-  // Comment input per idea: { [ideaId]: string }
   const [commentInputs, setCommentInputs] = useState({});
   const [submitting, setSubmitting] = useState(false);
   const [successMsg, setSuccessMsg] = useState(false);
@@ -477,6 +478,18 @@ function EventIdeasPage() {
     }
   };
 
+  // Admin Delete Functionality
+  const handleDeleteIdea = async (ideaId) => {
+    if (!isBoardAdmin) return;
+    if (window.confirm("Are you sure you want to delete this event proposal permanently?")) {
+      try {
+        await deleteDoc(doc(db, "eventIdeas", ideaId));
+      } catch (err) {
+        console.error("Delete error:", err);
+      }
+    }
+  };
+
   // Volunteer or withdraw for Chairperson
   const handleVolunteerChair = async (idea) => {
     if (!currentUser) return;
@@ -524,7 +537,7 @@ function EventIdeasPage() {
     });
   };
 
-  // Submit suggestion/recommendation comment to make the event better
+  // Submit suggestion/recommendation comment
   const handleAddSuggestionComment = async (ideaId) => {
     const text = commentInputs[ideaId]?.trim();
     if (!text || !currentUser) return;
@@ -757,17 +770,31 @@ function EventIdeasPage() {
                     className="p-5 sm:p-6 rounded-3xl bg-slate-900/90 border border-violet-900/40 hover:border-violet-500/40 shadow-xl transition flex flex-col justify-between gap-4"
                   >
                     <div>
-                      {/* HEADER */}
+                      {/* HEADER WITH ADMIN DELETE BUTTON */}
                       <div className="flex items-center justify-between gap-3 mb-2">
-                        <span className="inline-flex items-center gap-1 text-[10px] font-black uppercase tracking-wider px-2.5 py-0.5 rounded-full bg-violet-500/15 border border-violet-500/30 text-violet-300">
-                          <Tag size={10} />
-                          <span>{idea.avenue || "Community Service"}</span>
-                        </span>
-
-                        {idea.needSuggestions && (
-                          <span className="text-[10px] font-black uppercase tracking-wider px-2.5 py-0.5 rounded-full bg-amber-500/15 border border-amber-500/30 text-amber-300">
-                            Suggestions Welcome
+                        <div className="flex items-center gap-2">
+                          <span className="inline-flex items-center gap-1 text-[10px] font-black uppercase tracking-wider px-2.5 py-0.5 rounded-full bg-violet-500/15 border border-violet-500/30 text-violet-300">
+                            <Tag size={10} />
+                            <span>{idea.avenue || "Community Service"}</span>
                           </span>
+
+                          {idea.needSuggestions && (
+                            <span className="text-[10px] font-black uppercase tracking-wider px-2.5 py-0.5 rounded-full bg-amber-500/15 border border-amber-500/30 text-amber-300">
+                              Suggestions Welcome
+                            </span>
+                          )}
+                        </div>
+
+                        {/* 🗑️ ADMIN-ONLY DELETE BUTTON */}
+                        {isBoardAdmin && (
+                          <button
+                            onClick={() => handleDeleteIdea(idea.id)}
+                            className="p-1.5 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-400 hover:bg-rose-500/20 transition flex items-center gap-1 text-[11px] font-bold cursor-pointer"
+                            title="Delete this event proposal"
+                          >
+                            <Trash2 size={13} />
+                            <span className="hidden sm:inline">Delete</span>
+                          </button>
                         )}
                       </div>
 
