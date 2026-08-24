@@ -51,6 +51,10 @@ import {
   X,
   ExternalLink,
   Info,
+  Crown,
+  UserCheck,
+  ShieldCheck,
+  Check,
 } from "lucide-react";
 
 // RAC PSVPEC ROLES LIST
@@ -381,19 +385,33 @@ function SignupComponent() {
 }
 
 // ==========================================
-// 2. PROPOSE EVENT IDEAS COMPONENT
+// 2. PROPOSE EVENT IDEAS WITH ROLE NOMINATIONS
 // ==========================================
 function EventIdeasPage() {
   const navigate = useNavigate();
-  const { currentUser, userData } = useAuth();
+  const { currentUser, userData, isAdmin, isSuperAdmin } = useAuth();
 
   const [ideas, setIdeas] = useState([]);
   const [title, setTitle] = useState("");
   const [avenue, setAvenue] = useState("Community Service");
   const [description, setDescription] = useState("");
   const [budget, setBudget] = useState("");
+
+  // Preset Chairperson & Secretary inputs (if creator specifies them initially)
+  const [initialChair, setInitialChair] = useState("");
+  const [initialSec, setInitialSec] = useState("");
+
   const [submitting, setSubmitting] = useState(false);
   const [successMsg, setSuccessMsg] = useState(false);
+
+  const rawRole = (userData?.role || "").toString().toLowerCase().trim();
+  const isBoardAdmin =
+    Boolean(isAdmin) ||
+    Boolean(isSuperAdmin) ||
+    rawRole.includes("admin") ||
+    rawRole.includes("president") ||
+    rawRole.includes("secretary") ||
+    rawRole.includes("board");
 
   useEffect(() => {
     const q = query(collection(db, "eventIdeas"), orderBy("createdAt", "desc"));
@@ -417,6 +435,22 @@ function EventIdeasPage() {
         proposerName: userData?.name || currentUser?.displayName || "Member",
         proposerRole: userData?.role || "General Member",
         proposerUid: currentUser?.uid,
+        chairperson: initialChair.trim()
+          ? {
+              name: initialChair.trim(),
+              role: "Designated by Proposer",
+              uid: null,
+              approved: true,
+            }
+          : null,
+        secretary: initialSec.trim()
+          ? {
+              name: initialSec.trim(),
+              role: "Designated by Proposer",
+              uid: null,
+              approved: true,
+            }
+          : null,
         upvotes: 1,
         upvoters: [currentUser?.uid],
         createdAt: serverTimestamp(),
@@ -425,6 +459,8 @@ function EventIdeasPage() {
       setTitle("");
       setDescription("");
       setBudget("");
+      setInitialChair("");
+      setInitialSec("");
       setSuccessMsg(true);
       setTimeout(() => setSuccessMsg(false), 3000);
     } catch (err) {
@@ -432,6 +468,57 @@ function EventIdeasPage() {
     } finally {
       setSubmitting(false);
     }
+  };
+
+  // Volunteer or withdraw for Chairperson
+  const handleVolunteerChair = async (idea) => {
+    if (!currentUser) return;
+    const ideaRef = doc(db, "eventIdeas", idea.id);
+
+    if (idea.chairperson?.uid === currentUser.uid) {
+      // Allow user who volunteered to cancel nomination
+      await updateDoc(ideaRef, { chairperson: null });
+    } else if (!idea.chairperson) {
+      // Claim spot
+      await updateDoc(ideaRef, {
+        chairperson: {
+          name: userData?.name || currentUser.displayName || "Member",
+          role: userData?.role || "General Member",
+          uid: currentUser.uid,
+          approved: isBoardAdmin, // auto-approved if board, else pending
+        },
+      });
+    }
+  };
+
+  // Volunteer or withdraw for Secretary
+  const handleVolunteerSecretary = async (idea) => {
+    if (!currentUser) return;
+    const ideaRef = doc(db, "eventIdeas", idea.id);
+
+    if (idea.secretary?.uid === currentUser.uid) {
+      // Allow user who volunteered to cancel nomination
+      await updateDoc(ideaRef, { secretary: null });
+    } else if (!idea.secretary) {
+      // Claim spot
+      await updateDoc(ideaRef, {
+        secretary: {
+          name: userData?.name || currentUser.displayName || "Member",
+          role: userData?.role || "General Member",
+          uid: currentUser.uid,
+          approved: isBoardAdmin,
+        },
+      });
+    }
+  };
+
+  // Board decision: approve appointed candidate
+  const handleApproveRole = async (ideaId, roleType) => {
+    if (!isBoardAdmin) return;
+    const ideaRef = doc(db, "eventIdeas", ideaId);
+    await updateDoc(ideaRef, {
+      [`${roleType}.approved`]: true,
+    });
   };
 
   const handleUpvote = async (idea) => {
@@ -478,21 +565,21 @@ function EventIdeasPage() {
           <div className="bg-slate-900/90 border border-amber-500/30 rounded-3xl p-6 sm:p-7 shadow-2xl h-fit">
             <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-500/10 border border-amber-500/30 text-amber-400 text-xs font-bold uppercase tracking-wider mb-2">
               <Sparkles size={12} />
-              <span>Brainstorm</span>
+              <span>Pitch Initiative</span>
             </div>
             <h2 className="text-xl font-black text-white mb-1">Propose New Event</h2>
             <p className="text-xs text-slate-400 mb-5">
-              Submit your ideas directly to the Executive Board
+              Submit your project ideas and invite volunteer leaders
             </p>
 
             {successMsg && (
               <div className="mb-4 p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-xs flex items-center gap-2 animate-in fade-in">
                 <CheckCircle2 size={15} />
-                <span>Idea submitted to the Board!</span>
+                <span>Idea submitted with leadership options!</span>
               </div>
             )}
 
-            <form onSubmit={handleProposeIdea} className="space-y-4">
+            <form onSubmit={handleProposeIdea} className="space-y-3.5">
               <div>
                 <label className="block text-xs font-bold text-violet-300 uppercase tracking-wider mb-1">
                   Event Title *
@@ -538,14 +625,41 @@ function EventIdeasPage() {
                 />
               </div>
 
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 pt-1">
+                <div>
+                  <label className="block text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-1">
+                    Preset Chair (Optional)
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="e.g. Rtr. John"
+                    value={initialChair}
+                    onChange={(e) => setInitialChair(e.target.value)}
+                    className="w-full px-3 py-2 bg-slate-950 border border-violet-900/50 rounded-xl text-white text-xs outline-none focus:border-amber-400"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-1">
+                    Preset Secretary (Optional)
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="e.g. Rtr. Sarah"
+                    value={initialSec}
+                    onChange={(e) => setInitialSec(e.target.value)}
+                    className="w-full px-3 py-2 bg-slate-950 border border-violet-900/50 rounded-xl text-white text-xs outline-none focus:border-amber-400"
+                  />
+                </div>
+              </div>
+
               <div>
                 <label className="block text-xs font-bold text-violet-300 uppercase tracking-wider mb-1">
                   Concept / Scope *
                 </label>
                 <textarea
-                  rows={4}
+                  rows={3}
                   required
-                  placeholder="Explain objective, target beneficiaries, and proposed execution..."
+                  placeholder="Explain objective, target beneficiaries, and execution plan..."
                   value={description}
                   onChange={(e) => setDescription(e.target.value)}
                   className="w-full px-3.5 py-2.5 bg-slate-950 border border-violet-900/50 rounded-xl text-white text-sm outline-none focus:border-amber-400 resize-none"
@@ -562,22 +676,24 @@ function EventIdeasPage() {
                 ) : (
                   <>
                     <Send size={14} />
-                    <span>Submit Proposal</span>
+                    <span>Publish Idea & Open Nominations</span>
                   </>
                 )}
               </button>
             </form>
           </div>
 
-          {/* PROPOSALS LIST */}
+          {/* COMMUNITY PROPOSALS LIST */}
           <div className="lg:col-span-2 space-y-4">
             <div className="flex items-center justify-between pb-2 border-b border-violet-900/40">
               <div>
                 <h3 className="font-bold text-base text-white">Community Idea Ledger</h3>
-                <p className="text-xs text-slate-400">Vote on initiatives you want the club to organize</p>
+                <p className="text-xs text-slate-400">
+                  Vote on initiatives and volunteer to lead as Chairperson or Secretary
+                </p>
               </div>
               <span className="text-xs font-bold text-amber-400 bg-amber-500/10 border border-amber-500/30 px-3 py-1 rounded-full">
-                {ideas.length} Proposed
+                {ideas.length} Ideas
               </span>
             </div>
 
@@ -588,10 +704,15 @@ function EventIdeasPage() {
             ) : (
               ideas.map((idea) => {
                 const isUpvoted = (idea.upvoters || []).includes(currentUser?.uid);
+                const hasChair = Boolean(idea.chairperson);
+                const hasSecretary = Boolean(idea.secretary);
+                const isMyChairClaim = idea.chairperson?.uid === currentUser?.uid;
+                const isMySecClaim = idea.secretary?.uid === currentUser?.uid;
+
                 return (
                   <div
                     key={idea.id}
-                    className="p-5 rounded-3xl bg-slate-900/90 border border-violet-900/40 hover:border-violet-500/40 shadow-xl transition flex flex-col justify-between gap-4"
+                    className="p-5 sm:p-6 rounded-3xl bg-slate-900/90 border border-violet-900/40 hover:border-violet-500/40 shadow-xl transition flex flex-col justify-between gap-4"
                   >
                     <div>
                       <div className="flex items-center justify-between gap-3 mb-2">
@@ -607,12 +728,133 @@ function EventIdeasPage() {
                       </div>
 
                       <h4 className="font-extrabold text-base text-white mb-1.5">{idea.title}</h4>
-                      <p className="text-xs text-slate-300 leading-relaxed">{idea.description}</p>
+                      <p className="text-xs text-slate-300 leading-relaxed mb-4">{idea.description}</p>
+
+                      {/* 🌟 LEADERSHIP SLOTS (CHAIRPERSON & SECRETARY) */}
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 p-3.5 bg-slate-950/80 rounded-2xl border border-violet-900/40">
+                        {/* EVENT CHAIRPERSON SLOT */}
+                        <div className="flex flex-col justify-between gap-2 p-3 rounded-xl bg-slate-900/70 border border-slate-800">
+                          <div className="flex items-center justify-between">
+                            <span className="text-[10px] font-black uppercase text-amber-400 flex items-center gap-1">
+                              <Crown size={12} />
+                              <span>Event Chairperson</span>
+                            </span>
+                            {hasChair && (
+                              <span
+                                className={`text-[9px] font-bold px-1.5 py-0.5 rounded ${
+                                  idea.chairperson.approved
+                                    ? "bg-emerald-500/20 text-emerald-300"
+                                    : "bg-amber-500/20 text-amber-300"
+                                }`}
+                              >
+                                {idea.chairperson.approved ? "Appointed" : "Nominated"}
+                              </span>
+                            )}
+                          </div>
+
+                          {hasChair ? (
+                            <div>
+                              <p className="text-xs font-extrabold text-white truncate">
+                                {idea.chairperson.name}
+                              </p>
+                              <p className="text-[10px] text-slate-400">{idea.chairperson.role}</p>
+
+                              <div className="flex items-center gap-2 mt-2">
+                                {isMyChairClaim && (
+                                  <button
+                                    onClick={() => handleVolunteerChair(idea)}
+                                    className="text-[10px] text-rose-400 hover:underline font-bold cursor-pointer"
+                                  >
+                                    Withdraw Nomination
+                                  </button>
+                                )}
+
+                                {isBoardAdmin && !idea.chairperson.approved && (
+                                  <button
+                                    onClick={() => handleApproveRole(idea.id, "chairperson")}
+                                    className="px-2 py-0.5 rounded-lg bg-emerald-500/20 text-emerald-300 hover:bg-emerald-500/30 border border-emerald-500/40 text-[10px] font-bold flex items-center gap-1 cursor-pointer"
+                                  >
+                                    <Check size={10} />
+                                    <span>Approve</span>
+                                  </button>
+                                )}
+                              </div>
+                            </div>
+                          ) : (
+                            <button
+                              onClick={() => handleVolunteerChair(idea)}
+                              className="w-full py-1.5 rounded-lg bg-amber-500/15 hover:bg-amber-500/25 border border-amber-500/40 text-amber-300 text-[11px] font-bold flex items-center justify-center gap-1.5 transition cursor-pointer"
+                            >
+                              <UserCheck size={12} />
+                              <span>Volunteer as Event Chair</span>
+                            </button>
+                          )}
+                        </div>
+
+                        {/* EVENT SECRETARY SLOT */}
+                        <div className="flex flex-col justify-between gap-2 p-3 rounded-xl bg-slate-900/70 border border-slate-800">
+                          <div className="flex items-center justify-between">
+                            <span className="text-[10px] font-black uppercase text-violet-400 flex items-center gap-1">
+                              <Sparkles size={12} />
+                              <span>Event Secretary</span>
+                            </span>
+                            {hasSecretary && (
+                              <span
+                                className={`text-[9px] font-bold px-1.5 py-0.5 rounded ${
+                                  idea.secretary.approved
+                                    ? "bg-emerald-500/20 text-emerald-300"
+                                    : "bg-amber-500/20 text-amber-300"
+                                }`}
+                              >
+                                {idea.secretary.approved ? "Appointed" : "Nominated"}
+                              </span>
+                            )}
+                          </div>
+
+                          {hasSecretary ? (
+                            <div>
+                              <p className="text-xs font-extrabold text-white truncate">
+                                {idea.secretary.name}
+                              </p>
+                              <p className="text-[10px] text-slate-400">{idea.secretary.role}</p>
+
+                              <div className="flex items-center gap-2 mt-2">
+                                {isMySecClaim && (
+                                  <button
+                                    onClick={() => handleVolunteerSecretary(idea)}
+                                    className="text-[10px] text-rose-400 hover:underline font-bold cursor-pointer"
+                                  >
+                                    Withdraw Nomination
+                                  </button>
+                                )}
+
+                                {isBoardAdmin && !idea.secretary.approved && (
+                                  <button
+                                    onClick={() => handleApproveRole(idea.id, "secretary")}
+                                    className="px-2 py-0.5 rounded-lg bg-emerald-500/20 text-emerald-300 hover:bg-emerald-500/30 border border-emerald-500/40 text-[10px] font-bold flex items-center gap-1 cursor-pointer"
+                                  >
+                                    <Check size={10} />
+                                    <span>Approve</span>
+                                  </button>
+                                )}
+                              </div>
+                            </div>
+                          ) : (
+                            <button
+                              onClick={() => handleVolunteerSecretary(idea)}
+                              className="w-full py-1.5 rounded-lg bg-violet-600/15 hover:bg-violet-600/25 border border-violet-500/40 text-violet-200 text-[11px] font-bold flex items-center justify-center gap-1.5 transition cursor-pointer"
+                            >
+                              <UserCheck size={12} />
+                              <span>Volunteer as Event Sec</span>
+                            </button>
+                          )}
+                        </div>
+                      </div>
                     </div>
 
                     <div className="pt-3 border-t border-violet-950 flex items-center justify-between text-xs text-slate-400">
                       <div>
-                        Proposed by <strong className="text-amber-300">{idea.proposerName}</strong>{" "}
+                        Pitched by <strong className="text-amber-300">{idea.proposerName}</strong>{" "}
                         <span className="text-[10px] text-slate-500">({idea.proposerRole})</span>
                       </div>
 
@@ -720,7 +962,6 @@ function EventsPage() {
 
                     <h3 className="text-lg font-black text-white mb-2">{ev.title || ev.name}</h3>
 
-                    {/* DESCRIPTION WITH READ MORE TOGGLE */}
                     <div className="text-xs text-slate-300 leading-relaxed mb-3">
                       <p>
                         {shouldTruncate && !isExpanded
@@ -771,7 +1012,6 @@ function EventsPage() {
                       )}
                     </div>
 
-                    {/* EVENT DETAILS MODAL TRIGGER */}
                     <div className="pt-2 flex items-center justify-between">
                       <button
                         onClick={() => setSelectedModalEvent(ev)}
@@ -789,7 +1029,7 @@ function EventsPage() {
         )}
       </main>
 
-      {/* 🌟 FULL EVENT DETAILS POPUP MODAL */}
+      {/* FULL EVENT DETAILS MODAL */}
       {selectedModalEvent && (
         <div className="fixed inset-0 z-50 bg-black/85 backdrop-blur-md flex items-center justify-center p-4">
           <div className="bg-slate-900 border-2 border-amber-500/40 rounded-3xl p-6 sm:p-8 max-w-lg w-full shadow-2xl relative animate-in fade-in zoom-in duration-200">
