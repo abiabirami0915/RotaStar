@@ -33,11 +33,10 @@ import {
   Clock,
   MapPin,
   BellRing,
-  PieChart,
-  Users,
   PlusCircle,
   Layers,
   Check,
+  ListFilter,
 } from "lucide-react";
 import {
   collection,
@@ -110,8 +109,9 @@ export default function Dashboard() {
   const [userRank, setUserRank] = useState("-");
   const [allMembers, setAllMembers] = useState([]);
 
-  // Completed Event Modal States
+  // Completed Event Modals
   const [showAddCompletedModal, setShowAddCompletedModal] = useState(false);
+  const [showViewEventsModal, setShowViewEventsModal] = useState(false);
   const [eventName, setEventName] = useState("");
   const [eventDate, setEventDate] = useState("");
   const [eventAvenue, setEventAvenue] = useState("Community Service");
@@ -374,7 +374,6 @@ export default function Dashboard() {
     try {
       const docRef = await addDoc(collection(db, "completedEvents"), newEvent);
 
-      // Optimistic update
       setCompletedEventsList((prev) => [{ id: docRef.id, ...newEvent }, ...prev]);
 
       setShowAddCompletedModal(false);
@@ -676,7 +675,7 @@ export default function Dashboard() {
           </div>
         )}
 
-        {/* 🌟 1. HELLO STATUS CARD (PLACED AT THE TOP) */}
+        {/* 🌟 1. TOP HEADER: HELLO RTR. STATUS CARD */}
         <div className="bg-gradient-to-r from-violet-950/70 via-slate-900/90 to-amber-950/40 border border-violet-500/30 rounded-3xl p-6 sm:p-8 mb-6 shadow-2xl transition-all">
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-6">
             <div
@@ -1087,7 +1086,7 @@ export default function Dashboard() {
           </div>
         </section>
 
-        {/* 🏆 2. BOTTOM SECTION: OFFICIAL CLUB EVENT CONDUCTED MILESTONE COUNTER */}
+        {/* 🏆 2. CLEAN CONDUCTED EVENTS MILESTONE SECTION (MODAL DRIVEN) */}
         <section className="bg-slate-900/90 border border-amber-500/30 rounded-3xl p-6 sm:p-7 shadow-2xl mb-8 relative overflow-hidden">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6 pb-4 border-b border-violet-950/80">
             <div>
@@ -1099,34 +1098,45 @@ export default function Dashboard() {
                 Events Conducted Milestone
               </h2>
               <p className="text-xs text-slate-400 mt-0.5">
-                Calculated automatically from logged event history
+                Official tally of successfully executed projects
               </p>
             </div>
 
-            <div className="flex items-center gap-3">
+            <div className="flex flex-wrap items-center gap-2.5">
               <div className="px-5 py-2.5 rounded-2xl bg-gradient-to-r from-amber-500/20 to-amber-400/10 border border-amber-500/40 text-center">
                 <span className="text-[10px] uppercase font-bold text-amber-300 block">Total Completed</span>
                 <span className="text-2xl font-black text-amber-400">{totalCompletedCount} Events</span>
               </div>
 
+              {/* View Ledger Modal Trigger */}
+              <button
+                onClick={() => setShowViewEventsModal(true)}
+                className="px-4 py-2.5 rounded-2xl bg-slate-950 border border-violet-900/60 hover:border-amber-400 text-white text-xs font-bold transition flex items-center gap-1.5 cursor-pointer shadow-lg"
+              >
+                <ListFilter size={14} className="text-amber-400" />
+                <span>View Event Ledger</span>
+              </button>
+
+              {/* Record Event Trigger */}
               {showAdminPanel && (
                 <button
                   onClick={() => setShowAddCompletedModal(true)}
                   className="px-4 py-2.5 rounded-2xl bg-gradient-to-r from-amber-500 to-amber-400 hover:from-amber-400 hover:to-amber-300 text-slate-950 text-xs font-black transition flex items-center gap-1.5 cursor-pointer shadow-lg"
                 >
                   <PlusCircle size={14} />
-                  <span>+ Record Completed Event</span>
+                  <span>+ Record Event</span>
                 </button>
               )}
             </div>
           </div>
 
           {/* AVENUE BREAKDOWN TILES */}
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 mb-6">
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
             {Object.entries(AVENUE_STYLES).map(([avName, style]) => (
               <div
                 key={avName}
-                className={`p-4 rounded-2xl bg-slate-950/80 border ${style.border} flex flex-col justify-between text-center transition`}
+                onClick={() => setShowViewEventsModal(true)}
+                className={`p-4 rounded-2xl bg-slate-950/80 border ${style.border} flex flex-col justify-between text-center transition hover:scale-[1.02] cursor-pointer`}
               >
                 <span className={`text-[10px] font-black uppercase tracking-wider ${style.text} mb-2`}>
                   {avName}
@@ -1135,55 +1145,6 @@ export default function Dashboard() {
                 <span className="text-[10px] text-slate-500 mt-1">Events</span>
               </div>
             ))}
-          </div>
-
-          {/* DETAILED CONDUCTED EVENTS LEDGER */}
-          <div className="pt-2">
-            <h4 className="text-xs font-bold text-violet-300 uppercase tracking-wider mb-3">
-              Official Conducted Events Log ({completedEventsList.length})
-            </h4>
-
-            {completedEventsList.length === 0 ? (
-              <p className="text-xs text-slate-500 italic text-center py-4 bg-slate-950/60 rounded-2xl border border-violet-950">
-                No conducted events logged yet. Click "+ Record Completed Event" above to enter event details.
-              </p>
-            ) : (
-              <div className="space-y-2.5 max-h-72 overflow-y-auto pr-1">
-                {completedEventsList.map((ev) => (
-                  <div
-                    key={ev.id}
-                    className="p-3.5 rounded-2xl bg-slate-950 border border-violet-900/40 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs"
-                  >
-                    <div>
-                      <div className="flex items-center gap-2 mb-1">
-                        <span className="text-[9px] font-black uppercase tracking-wider px-2 py-0.5 rounded bg-violet-500/20 text-violet-300 border border-violet-500/30">
-                          {ev.avenue}
-                        </span>
-                        <span className="text-amber-400 font-bold">{ev.eventDate}</span>
-                      </div>
-
-                      <h5 className="font-extrabold text-sm text-white">{ev.eventName}</h5>
-                      {ev.description && <p className="text-slate-300 text-[11px] mt-0.5">{ev.description}</p>}
-
-                      <div className="flex flex-wrap gap-x-4 gap-y-1 text-[11px] text-slate-400 mt-1.5 font-medium">
-                        <span>Chair: <strong className="text-amber-300">{ev.chairperson}</strong></span>
-                        <span>Sec: <strong className="text-violet-300">{ev.secretary}</strong></span>
-                      </div>
-                    </div>
-
-                    {showAdminPanel && (
-                      <button
-                        onClick={() => handleDeleteCompletedEvent(ev.id)}
-                        className="p-1.5 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/30 text-rose-400 transition self-end sm:self-center shrink-0 cursor-pointer"
-                        title="Delete record"
-                      >
-                        <Trash2 size={13} />
-                      </button>
-                    )}
-                  </div>
-                ))}
-              </div>
-            )}
           </div>
         </section>
 
@@ -1419,6 +1380,87 @@ export default function Dashboard() {
           </div>
         </section>
       </main>
+
+      {/* 📋 DEDICATED VIEW CONDUCTED EVENTS LEDGER MODAL */}
+      {showViewEventsModal && (
+        <div className="fixed inset-0 z-50 bg-black/85 backdrop-blur-md flex items-center justify-center p-4">
+          <div className="bg-slate-900 border-2 border-violet-500/40 rounded-3xl p-6 sm:p-8 max-w-2xl w-full shadow-2xl relative animate-in fade-in zoom-in duration-200">
+            <button
+              onClick={() => setShowViewEventsModal(false)}
+              className="absolute top-4 right-4 p-2 rounded-full text-slate-400 hover:text-white hover:bg-slate-800 transition cursor-pointer"
+            >
+              <X size={20} />
+            </button>
+
+            <div className="flex items-center justify-between gap-3 mb-5 pr-8">
+              <div className="flex items-center gap-3">
+                <div className="p-2.5 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-400">
+                  <Layers size={22} />
+                </div>
+                <div>
+                  <h2 className="text-xl font-bold text-white">Conducted Events Log</h2>
+                  <p className="text-xs text-slate-400">Official ledger of executed projects ({completedEventsList.length})</p>
+                </div>
+              </div>
+
+              {showAdminPanel && (
+                <button
+                  onClick={() => {
+                    setShowViewEventsModal(false);
+                    setShowAddCompletedModal(true);
+                  }}
+                  className="px-3.5 py-2 rounded-xl bg-amber-500 text-slate-950 font-bold text-xs flex items-center gap-1 cursor-pointer"
+                >
+                  <PlusCircle size={14} />
+                  <span>+ Record</span>
+                </button>
+              )}
+            </div>
+
+            {completedEventsList.length === 0 ? (
+              <div className="p-8 text-center text-slate-500 bg-slate-950/60 rounded-2xl border border-violet-950 text-sm">
+                No conducted events logged yet.
+              </div>
+            ) : (
+              <div className="space-y-3 max-h-96 overflow-y-auto pr-1.5">
+                {completedEventsList.map((ev) => (
+                  <div
+                    key={ev.id}
+                    className="p-4 rounded-2xl bg-slate-950 border border-violet-900/50 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs"
+                  >
+                    <div>
+                      <div className="flex items-center gap-2 mb-1">
+                        <span className="text-[9px] font-black uppercase tracking-wider px-2 py-0.5 rounded bg-violet-500/20 text-violet-300 border border-violet-500/30">
+                          {ev.avenue}
+                        </span>
+                        <span className="text-amber-400 font-bold">{ev.eventDate}</span>
+                      </div>
+
+                      <h5 className="font-extrabold text-sm text-white">{ev.eventName}</h5>
+                      {ev.description && <p className="text-slate-300 text-[11px] mt-0.5">{ev.description}</p>}
+
+                      <div className="flex flex-wrap gap-x-4 gap-y-1 text-[11px] text-slate-400 mt-1.5 font-medium">
+                        <span>Chair: <strong className="text-amber-300">{ev.chairperson}</strong></span>
+                        <span>Sec: <strong className="text-violet-300">{ev.secretary}</strong></span>
+                      </div>
+                    </div>
+
+                    {showAdminPanel && (
+                      <button
+                        onClick={() => handleDeleteCompletedEvent(ev.id)}
+                        className="p-2 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/30 text-rose-400 transition self-end sm:self-center shrink-0 cursor-pointer"
+                        title="Delete record"
+                      >
+                        <Trash2 size={14} />
+                      </button>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* 🛠️ ADMIN RECORD COMPLETED EVENT MODAL */}
       {showAddCompletedModal && (
