@@ -817,9 +817,6 @@ export default function Dashboard() {
                     <UserCheck size={12} />
                     <span>Leadership Hierarchy</span>
                   </div>
-                  <p><span className="text-slate-500 font-medium">Past President:</span> <strong className="text-white">Rtr. Dharsan Arunkumar V P</strong></p>
-                  <p><span className="text-slate-500 font-medium">Immediate Past President:</span> <strong className="text-white">Rtr. Adarsh G</strong></p>
-                  <p><span className="text-slate-500 font-medium">Secretary 25-26:</span> <strong className="text-white">Rtr. Adhithyan S</strong></p>
                   <p><span className="text-amber-400 font-medium">President 26-27:</span> <strong className="text-amber-300">Rtr. Jeevanaa Y</strong></p>
                   <p><span className="text-amber-400 font-medium">Secretary 26-27:</span> <strong className="text-amber-300">Rtr. Abirami G</strong></p>
                 </div>
