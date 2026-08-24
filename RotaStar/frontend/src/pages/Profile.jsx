@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { doc, updateDoc, onSnapshot } from "firebase/firestore";
 import { updateProfile } from "firebase/auth";
-import { db } from "../firebase/firebase";
+import { db, auth } from "../firebase/firebase";
 import { useAuth } from "../AuthContext";
 import {
   User,
@@ -54,22 +54,58 @@ export default function Profile() {
     return () => unsub();
   }, [currentUser]);
 
-  // Handle local image file picker and convert to compressed data URI
-  const handleImageFileChange = (e) => {
+  // Client-side image compression using HTML5 Canvas (<60KB for Firestore)
+  const compressImage = (file) => {
+    return new Promise((resolve) => {
+      const reader = new FileReader();
+      reader.readAsDataURL(file);
+      reader.onload = (event) => {
+        const img = new Image();
+        img.src = event.target.result;
+        img.onload = () => {
+          const canvas = document.createElement("canvas");
+          const MAX_WIDTH = 250;
+          const MAX_HEIGHT = 250;
+          let width = img.width;
+          let height = img.height;
+
+          if (width > height) {
+            if (width > MAX_WIDTH) {
+              height *= MAX_WIDTH / width;
+              width = MAX_WIDTH;
+            }
+          } else {
+            if (height > MAX_HEIGHT) {
+              width *= MAX_HEIGHT / height;
+              height = MAX_HEIGHT;
+            }
+          }
+
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext("2d");
+          ctx.drawImage(img, 0, 0, width, height);
+
+          // Compress as JPEG at 70% quality
+          const dataUrl = canvas.toDataURL("image/jpeg", 0.7);
+          resolve(dataUrl);
+        };
+      };
+    });
+  };
+
+  const handleImageFileChange = async (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    if (file.size > 2 * 1024 * 1024) {
-      setErrorMsg("Image size should be under 2MB.");
-      return;
-    }
-
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      setPhotoURL(event.target.result);
+    try {
+      const compressedDataUrl = await compressImage(file);
+      setPhotoURL(compressedDataUrl);
       setErrorMsg("");
-    };
-    reader.readAsDataURL(file);
+    } catch (err) {
+      console.error("Compression error:", err);
+      setErrorMsg("Could not process image file. Please try a different photo.");
+    }
   };
 
   const handleUpdateProfile = async (e) => {
@@ -92,13 +128,12 @@ export default function Profile() {
         phone: phone.trim(),
         department: department.trim(),
         yearOfStudy: yearOfStudy,
-        photoURL: photoURL,
+        photoURL: photoURL || "",
       });
 
       if (auth.currentUser) {
         await updateProfile(auth.currentUser, {
           displayName: name.trim(),
-          photoURL: photoURL.startsWith("data:") ? "" : photoURL,
         });
       }
 
@@ -106,7 +141,7 @@ export default function Profile() {
       setTimeout(() => setSuccessMsg(false), 3000);
     } catch (err) {
       console.error("Profile update error:", err);
-      setErrorMsg("Failed to update profile. Please try again.");
+      setErrorMsg(err.message || "Failed to update profile. Please try again.");
     } finally {
       setSaving(false);
     }
@@ -142,7 +177,7 @@ export default function Profile() {
 
       <main className="max-w-3xl mx-auto px-6 py-8">
         <div className="bg-slate-900/90 border border-violet-900/40 rounded-3xl p-6 sm:p-8 shadow-2xl">
-          {/* HEADER AVATAR WITH DIRECT UPLOAD TRIGGER */}
+          {/* AVATAR + UPLOAD HEADER */}
           <div className="flex flex-col sm:flex-row items-center gap-5 pb-6 border-b border-violet-950/80 mb-6">
             <div className="relative group">
               <div className="w-24 h-24 rounded-3xl overflow-hidden border-2 border-amber-500/50 bg-slate-950 flex items-center justify-center shadow-lg shadow-amber-500/10 shrink-0">
@@ -153,14 +188,13 @@ export default function Profile() {
                 )}
               </div>
 
-              {/* Camera upload overlay */}
               <button
                 type="button"
                 onClick={() => fileInputRef.current?.click()}
                 className="absolute inset-0 bg-black/60 rounded-3xl opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center text-amber-300 text-[10px] font-bold gap-1 cursor-pointer"
               >
                 <Camera size={20} />
-                <span>Upload</span>
+                <span>Change</span>
               </button>
 
               <input
