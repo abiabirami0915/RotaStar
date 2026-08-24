@@ -1,11 +1,22 @@
-import React, { useState } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { Routes, Route, Navigate, useNavigate, Link } from "react-router-dom";
 import { createUserWithEmailAndPassword, updateProfile } from "firebase/auth";
-import { doc, setDoc, serverTimestamp } from "firebase/firestore";
+import {
+  collection,
+  query,
+  orderBy,
+  onSnapshot,
+  addDoc,
+  setDoc,
+  doc,
+  serverTimestamp,
+  updateDoc,
+  increment,
+} from "firebase/firestore";
 import { auth, db } from "./firebase/firebase";
 import { AuthProvider, useAuth } from "./AuthContext";
 
-// Existing Pages
+// Existing Working Pages
 import Login from "./pages/Login";
 import Dashboard from "./pages/Dashboard";
 import Profile from "./pages/Profile";
@@ -16,15 +27,28 @@ import {
   Lock,
   Sparkles,
   ArrowRight,
+  ArrowLeft,
   Briefcase,
   GraduationCap,
   Phone,
   AlertCircle,
   Loader2,
   Star,
+  Trophy,
+  Calendar,
+  Lightbulb,
+  MessageSquarePlus,
+  FileText,
+  ThumbsUp,
+  MapPin,
+  Clock,
+  Send,
+  CheckCircle2,
+  Tag,
+  Users,
 } from "lucide-react";
 
-// EXACT RAC PSVPEC CLUB ROLES LIST
+// RAC PSVPEC ROLES LIST
 const CLUB_ROLES = [
   "General Member",
   "President",
@@ -53,7 +77,9 @@ const CLUB_ROLES = [
   "PRO Head",
 ];
 
-// INLINE SIGNUP COMPONENT
+// ==========================================
+// 1. SIGNUP COMPONENT
+// ==========================================
 function SignupComponent() {
   const navigate = useNavigate();
 
@@ -349,28 +375,700 @@ function SignupComponent() {
   );
 }
 
-// SAFE FALLBACK ROUTE
-function SafeModule({ title }) {
+// ==========================================
+// 2. PROPOSE EVENT IDEAS COMPONENT
+// ==========================================
+function EventIdeasPage() {
   const navigate = useNavigate();
+  const { currentUser, userData } = useAuth();
+
+  const [ideas, setIdeas] = useState([]);
+  const [title, setTitle] = useState("");
+  const [avenue, setAvenue] = useState("Community Service");
+  const [description, setDescription] = useState("");
+  const [budget, setBudget] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+  const [successMsg, setSuccessMsg] = useState(false);
+
+  useEffect(() => {
+    const q = query(collection(db, "eventIdeas"), orderBy("createdAt", "desc"));
+    const unsub = onSnapshot(q, (snapshot) => {
+      setIdeas(snapshot.docs.map((d) => ({ id: d.id, ...d.data() })));
+    });
+    return () => unsub();
+  }, []);
+
+  const handleProposeIdea = async (e) => {
+    e.preventDefault();
+    if (!title.trim() || !description.trim()) return;
+
+    setSubmitting(true);
+    try {
+      await addDoc(collection(db, "eventIdeas"), {
+        title: title.trim(),
+        avenue: avenue,
+        description: description.trim(),
+        budget: budget.trim(),
+        proposerName: userData?.name || currentUser?.displayName || "Member",
+        proposerRole: userData?.role || "General Member",
+        proposerUid: currentUser?.uid,
+        upvotes: 1,
+        upvoters: [currentUser?.uid],
+        createdAt: serverTimestamp(),
+      });
+
+      setTitle("");
+      setDescription("");
+      setBudget("");
+      setSuccessMsg(true);
+      setTimeout(() => setSuccessMsg(false), 3000);
+    } catch (err) {
+      console.error("Propose idea error:", err);
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleUpvote = async (idea) => {
+    if (!currentUser) return;
+    const upvoters = idea.upvoters || [];
+    const hasUpvoted = upvoters.includes(currentUser.uid);
+
+    const ideaRef = doc(db, "eventIdeas", idea.id);
+    if (hasUpvoted) {
+      await updateDoc(ideaRef, {
+        upvotes: increment(-1),
+        upvoters: upvoters.filter((id) => id !== currentUser.uid),
+      });
+    } else {
+      await updateDoc(ideaRef, {
+        upvotes: increment(1),
+        upvoters: [...upvoters, currentUser.uid],
+      });
+    }
+  };
+
   return (
-    <div className="min-h-screen bg-[#030014] text-white flex flex-col items-center justify-center p-6 text-center">
-      <div className="max-w-md bg-slate-900 border border-violet-900/50 rounded-3xl p-8 shadow-2xl">
-        <h1 className="text-2xl font-black text-amber-400 mb-2">{title}</h1>
-        <p className="text-xs text-slate-400 mb-6">
-          This portal module is being synchronized with the live server.
-        </p>
-        <button
-          onClick={() => navigate("/dashboard")}
-          className="px-6 py-3 rounded-xl bg-gradient-to-r from-violet-700 to-amber-600 text-white font-bold text-xs shadow-lg hover:opacity-90 transition"
-        >
-          Return to Dashboard
-        </button>
-      </div>
+    <div className="min-h-screen bg-[#030014] text-white">
+      {/* TOP NAV */}
+      <nav className="border-b border-violet-900/40 bg-slate-950/80 backdrop-blur-md sticky top-0 z-50">
+        <div className="max-w-5xl mx-auto px-6 h-20 flex items-center justify-between">
+          <button
+            onClick={() => navigate("/dashboard")}
+            className="flex items-center gap-2 text-xs font-bold text-slate-400 hover:text-amber-400 transition"
+          >
+            <ArrowLeft size={16} />
+            <span>Back to Dashboard</span>
+          </button>
+          <div className="flex items-center gap-1.5 font-black text-lg">
+            <Lightbulb size={18} className="text-amber-400" />
+            <span className="text-white">Event</span>
+            <span className="text-amber-400">Ideas Hub</span>
+          </div>
+        </div>
+      </nav>
+
+      <main className="max-w-5xl mx-auto px-6 py-8">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+          {/* SUBMIT IDEA FORM */}
+          <div className="bg-slate-900/90 border border-amber-500/30 rounded-3xl p-6 sm:p-7 shadow-2xl h-fit">
+            <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-500/10 border border-amber-500/30 text-amber-400 text-xs font-bold uppercase tracking-wider mb-2">
+              <Sparkles size={12} />
+              <span>Brainstorm</span>
+            </div>
+            <h2 className="text-xl font-black text-white mb-1">Propose New Event</h2>
+            <p className="text-xs text-slate-400 mb-5">
+              Submit your ideas directly to the Executive Board
+            </p>
+
+            {successMsg && (
+              <div className="mb-4 p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-xs flex items-center gap-2 animate-in fade-in">
+                <CheckCircle2 size={15} />
+                <span>Idea submitted to the Board!</span>
+              </div>
+            )}
+
+            <form onSubmit={handleProposeIdea} className="space-y-4">
+              <div>
+                <label className="block text-xs font-bold text-violet-300 uppercase tracking-wider mb-1">
+                  Event Title *
+                </label>
+                <input
+                  type="text"
+                  required
+                  placeholder="e.g. Campus Blood Donation Drive"
+                  value={title}
+                  onChange={(e) => setTitle(e.target.value)}
+                  className="w-full px-3.5 py-2.5 bg-slate-950 border border-violet-900/50 rounded-xl text-white text-sm outline-none focus:border-amber-400"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-violet-300 uppercase tracking-wider mb-1">
+                  Project Avenue
+                </label>
+                <select
+                  value={avenue}
+                  onChange={(e) => setAvenue(e.target.value)}
+                  className="w-full px-3.5 py-2.5 bg-slate-950 border border-violet-900/50 rounded-xl text-white text-sm outline-none focus:border-amber-400"
+                >
+                  <option value="Club Service">Club Service</option>
+                  <option value="Community Service">Community Service</option>
+                  <option value="Professional Development">Professional Development</option>
+                  <option value="International Service">International Service</option>
+                  <option value="Youth Service">Youth Service</option>
+                  <option value="Green Rotaract & Environment">Green Rotaract</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-violet-300 uppercase tracking-wider mb-1">
+                  Estimated Budget (Optional)
+                </label>
+                <input
+                  type="text"
+                  placeholder="e.g. ₹2,500 / Zero Cost"
+                  value={budget}
+                  onChange={(e) => setBudget(e.target.value)}
+                  className="w-full px-3.5 py-2.5 bg-slate-950 border border-violet-900/50 rounded-xl text-white text-sm outline-none focus:border-amber-400"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-violet-300 uppercase tracking-wider mb-1">
+                  Concept / Scope *
+                </label>
+                <textarea
+                  rows={4}
+                  required
+                  placeholder="Explain objective, target beneficiaries, and proposed execution..."
+                  value={description}
+                  onChange={(e) => setDescription(e.target.value)}
+                  className="w-full px-3.5 py-2.5 bg-slate-950 border border-violet-900/50 rounded-xl text-white text-sm outline-none focus:border-amber-400 resize-none"
+                />
+              </div>
+
+              <button
+                type="submit"
+                disabled={submitting}
+                className="w-full py-3.5 rounded-xl bg-gradient-to-r from-amber-500 to-amber-400 hover:from-amber-400 hover:to-amber-300 text-slate-950 font-black text-xs flex items-center justify-center gap-2 shadow-xl shadow-amber-500/10 transition disabled:opacity-50"
+              >
+                {submitting ? (
+                  <Loader2 size={16} className="animate-spin" />
+                ) : (
+                  <>
+                    <Send size={14} />
+                    <span>Submit Proposal</span>
+                  </>
+                )}
+              </button>
+            </form>
+          </div>
+
+          {/* COMMUNITY PROPOSALS LIST */}
+          <div className="lg:col-span-2 space-y-4">
+            <div className="flex items-center justify-between pb-2 border-b border-violet-900/40">
+              <div>
+                <h3 className="font-bold text-base text-white">Community Idea Ledger</h3>
+                <p className="text-xs text-slate-400">Vote on initiatives you want the club to organize</p>
+              </div>
+              <span className="text-xs font-bold text-amber-400 bg-amber-500/10 border border-amber-500/30 px-3 py-1 rounded-full">
+                {ideas.length} Proposed
+              </span>
+            </div>
+
+            {ideas.length === 0 ? (
+              <div className="p-8 rounded-3xl bg-slate-900/60 border border-violet-900/40 text-center text-slate-500 text-sm">
+                No event proposals submitted yet. Be the first to pitch one!
+              </div>
+            ) : (
+              ideas.map((idea) => {
+                const isUpvoted = (idea.upvoters || []).includes(currentUser?.uid);
+                return (
+                  <div
+                    key={idea.id}
+                    className="p-5 rounded-3xl bg-slate-900/90 border border-violet-900/40 hover:border-violet-500/40 shadow-xl transition flex flex-col justify-between gap-4"
+                  >
+                    <div>
+                      <div className="flex items-center justify-between gap-3 mb-2">
+                        <span className="inline-flex items-center gap-1 text-[10px] font-black uppercase tracking-wider px-2.5 py-0.5 rounded-full bg-violet-500/15 border border-violet-500/30 text-violet-300">
+                          <Tag size={10} />
+                          <span>{idea.avenue}</span>
+                        </span>
+                        {idea.budget && (
+                          <span className="text-[11px] font-bold text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-lg border border-emerald-500/20">
+                            {idea.budget}
+                          </span>
+                        )}
+                      </div>
+
+                      <h4 className="font-extrabold text-base text-white mb-1.5">{idea.title}</h4>
+                      <p className="text-xs text-slate-300 leading-relaxed">{idea.description}</p>
+                    </div>
+
+                    <div className="pt-3 border-t border-violet-950 flex items-center justify-between text-xs text-slate-400">
+                      <div>
+                        Proposed by <strong className="text-amber-300">{idea.proposerName}</strong>{" "}
+                        <span className="text-[10px] text-slate-500">({idea.proposerRole})</span>
+                      </div>
+
+                      <button
+                        onClick={() => handleUpvote(idea)}
+                        className={`px-3 py-1.5 rounded-xl border flex items-center gap-1.5 font-bold transition text-xs ${
+                          isUpvoted
+                            ? "bg-amber-500 text-slate-950 border-amber-400 shadow-md shadow-amber-500/20"
+                            : "bg-slate-950 border-violet-900/60 text-slate-300 hover:text-amber-400"
+                        }`}
+                      >
+                        <ThumbsUp size={13} />
+                        <span>{idea.upvotes || 0}</span>
+                      </button>
+                    </div>
+                  </div>
+                );
+              })
+            )}
+          </div>
+        </div>
+      </main>
     </div>
   );
 }
 
+// ==========================================
+// 3. CALENDAR & EVENTS COMPONENT
+// ==========================================
+function EventsPage() {
+  const navigate = useNavigate();
+  const [events, setEvents] = useState([]);
+
+  useEffect(() => {
+    const q = query(collection(db, "events"));
+    const unsub = onSnapshot(q, (snapshot) => {
+      const list = snapshot.docs.map((d) => ({ id: d.id, ...d.data() }));
+      setEvents(list);
+    });
+    return () => unsub();
+  }, []);
+
+  return (
+    <div className="min-h-screen bg-[#030014] text-white">
+      <nav className="border-b border-violet-900/40 bg-slate-950/80 backdrop-blur-md sticky top-0 z-50">
+        <div className="max-w-5xl mx-auto px-6 h-20 flex items-center justify-between">
+          <button
+            onClick={() => navigate("/dashboard")}
+            className="flex items-center gap-2 text-xs font-bold text-slate-400 hover:text-amber-400 transition"
+          >
+            <ArrowLeft size={16} />
+            <span>Back to Dashboard</span>
+          </button>
+          <div className="flex items-center gap-1.5 font-black text-lg">
+            <Calendar size={18} className="text-amber-400" />
+            <span className="text-white">Club</span>
+            <span className="text-amber-400">Events</span>
+          </div>
+        </div>
+      </nav>
+
+      <main className="max-w-5xl mx-auto px-6 py-8">
+        <div className="mb-6 flex items-center justify-between">
+          <div>
+            <h1 className="text-2xl font-black text-white">Upcoming & Official Events</h1>
+            <p className="text-xs text-slate-400">Stay updated on club meetings, community service, and fellowships</p>
+          </div>
+        </div>
+
+        {events.length === 0 ? (
+          <div className="p-12 rounded-3xl bg-slate-900/70 border border-violet-900/40 text-center text-slate-400 text-sm">
+            No upcoming events scheduled right now. Check back soon!
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {events.map((ev) => (
+              <div
+                key={ev.id}
+                className="p-6 rounded-3xl bg-slate-900/90 border border-violet-900/40 hover:border-amber-500/40 shadow-xl transition flex flex-col justify-between"
+              >
+                <div>
+                  <div className="flex items-center justify-between mb-3">
+                    <span className="text-[10px] font-black uppercase tracking-wider px-3 py-1 rounded-full bg-amber-500/10 border border-amber-500/30 text-amber-300">
+                      {ev.avenue || "General Event"}
+                    </span>
+                    {ev.points && (
+                      <span className="text-xs font-bold text-amber-400">+{ev.points} pts</span>
+                    )}
+                  </div>
+                  <h3 className="text-lg font-black text-white mb-2">{ev.title || ev.name}</h3>
+                  <p className="text-xs text-slate-300 mb-4 leading-relaxed">{ev.description}</p>
+                </div>
+
+                <div className="space-y-1.5 text-xs text-slate-400 pt-4 border-t border-violet-950">
+                  {ev.date && (
+                    <div className="flex items-center gap-2 text-violet-300">
+                      <Calendar size={13} />
+                      <span>{ev.date?.toDate ? ev.date.toDate().toLocaleDateString() : ev.date}</span>
+                    </div>
+                  )}
+                  {ev.time && (
+                    <div className="flex items-center gap-2">
+                      <Clock size={13} />
+                      <span>{ev.time}</span>
+                    </div>
+                  )}
+                  {ev.venue && (
+                    <div className="flex items-center gap-2 text-slate-300">
+                      <MapPin size={13} />
+                      <span>{ev.venue}</span>
+                    </div>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </main>
+    </div>
+  );
+}
+
+// ==========================================
+// 4. LEADERBOARD COMPONENT
+// ==========================================
+function LeaderboardPage() {
+  const navigate = useNavigate();
+  const { currentUser } = useAuth();
+  const [users, setUsers] = useState([]);
+
+  useEffect(() => {
+    const unsub = onSnapshot(collection(db, "users"), (snapshot) => {
+      const list = snapshot.docs.map((d) => ({ id: d.id, ...d.data() }));
+      list.sort((a, b) => (b.totalPoints || 0) - (a.totalPoints || 0));
+      setUsers(list);
+    });
+    return () => unsub();
+  }, []);
+
+  return (
+    <div className="min-h-screen bg-[#030014] text-white">
+      <nav className="border-b border-violet-900/40 bg-slate-950/80 backdrop-blur-md sticky top-0 z-50">
+        <div className="max-w-4xl mx-auto px-6 h-20 flex items-center justify-between">
+          <button
+            onClick={() => navigate("/dashboard")}
+            className="flex items-center gap-2 text-xs font-bold text-slate-400 hover:text-amber-400 transition"
+          >
+            <ArrowLeft size={16} />
+            <span>Back to Dashboard</span>
+          </button>
+          <div className="flex items-center gap-1.5 font-black text-lg">
+            <Trophy size={18} className="text-amber-400" />
+            <span className="text-white">Member</span>
+            <span className="text-amber-400">Standings</span>
+          </div>
+        </div>
+      </nav>
+
+      <main className="max-w-4xl mx-auto px-6 py-8">
+        <div className="bg-slate-900/90 border border-violet-900/40 rounded-3xl p-6 sm:p-8 shadow-2xl">
+          <h2 className="text-xl font-black text-white mb-1">Rotaract Star Leaderboard</h2>
+          <p className="text-xs text-slate-400 mb-6">Top performing champions across all avenues of service</p>
+
+          <div className="divide-y divide-violet-950">
+            {users.map((u, index) => {
+              const isMe = u.id === currentUser?.uid;
+              return (
+                <div
+                  key={u.id}
+                  className={`py-3.5 px-4 rounded-2xl flex items-center justify-between transition ${
+                    isMe ? "bg-amber-500/10 border border-amber-500/30" : "hover:bg-slate-950/60"
+                  }`}
+                >
+                  <div className="flex items-center gap-3.5">
+                    <span
+                      className={`w-7 text-center font-black text-sm ${
+                        index === 0
+                          ? "text-amber-400"
+                          : index === 1
+                          ? "text-slate-300"
+                          : index === 2
+                          ? "text-amber-600"
+                          : "text-slate-500"
+                      }`}
+                    >
+                      #{index + 1}
+                    </span>
+                    <div>
+                      <p className="font-extrabold text-sm text-white flex items-center gap-2">
+                        <span>{u.name || "Member"}</span>
+                        {isMe && <span className="text-[10px] bg-amber-400 text-slate-950 font-bold px-1.5 py-0.2 rounded">YOU</span>}
+                      </p>
+                      <p className="text-[11px] text-slate-400">{u.role || "General Member"}</p>
+                    </div>
+                  </div>
+
+                  <span className="font-black text-base text-amber-400">{u.totalPoints || 0} pts</span>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      </main>
+    </div>
+  );
+}
+
+// ==========================================
+// 5. CLAIM POINTS COMPONENT
+// ==========================================
+function RequestPointsPage() {
+  const navigate = useNavigate();
+  const { currentUser, userData } = useAuth();
+
+  const [activityName, setActivityName] = useState("");
+  const [category, setCategory] = useState("Community Service");
+  const [pointsRequested, setPointsRequested] = useState("10");
+  const [proofUrl, setProofUrl] = useState("");
+  const [description, setDescription] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+  const [submitted, setSubmitted] = useState(false);
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setSubmitting(true);
+
+    try {
+      await addDoc(collection(db, "pointRequests"), {
+        userId: currentUser?.uid,
+        userName: userData?.name || currentUser?.displayName || "Member",
+        userRole: userData?.role || "General Member",
+        activityName: activityName.trim(),
+        category,
+        pointsRequested: Number(pointsRequested),
+        proofUrl: proofUrl.trim(),
+        description: description.trim(),
+        status: "pending",
+        createdAt: serverTimestamp(),
+      });
+
+      setSubmitted(true);
+      setTimeout(() => navigate("/dashboard"), 2000);
+    } catch (err) {
+      console.error("Point request error:", err);
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <div className="min-h-screen bg-[#030014] text-white">
+      <nav className="border-b border-violet-900/40 bg-slate-950/80 backdrop-blur-md sticky top-0 z-50">
+        <div className="max-w-3xl mx-auto px-6 h-20 flex items-center justify-between">
+          <button
+            onClick={() => navigate("/dashboard")}
+            className="flex items-center gap-2 text-xs font-bold text-slate-400 hover:text-amber-400 transition"
+          >
+            <ArrowLeft size={16} />
+            <span>Back to Dashboard</span>
+          </button>
+          <div className="flex items-center gap-1.5 font-black text-lg">
+            <FileText size={18} className="text-amber-400" />
+            <span className="text-white">Claim</span>
+            <span className="text-amber-400">Merit Points</span>
+          </div>
+        </div>
+      </nav>
+
+      <main className="max-w-3xl mx-auto px-6 py-8">
+        <div className="bg-slate-900/90 border border-violet-900/40 rounded-3xl p-6 sm:p-8 shadow-2xl">
+          <h2 className="text-xl font-black text-white mb-1">Submit Point Claim</h2>
+          <p className="text-xs text-slate-400 mb-6">
+            Log your attendance, event participation, and service hours for Board verification
+          </p>
+
+          {submitted ? (
+            <div className="p-8 bg-emerald-500/10 border border-emerald-500/30 rounded-2xl text-center text-emerald-400 text-sm font-bold">
+              🎉 Point claim submitted successfully! Redirecting to Dashboard...
+            </div>
+          ) : (
+            <form onSubmit={handleSubmit} className="space-y-4">
+              <div>
+                <label className="block text-xs font-bold text-violet-300 uppercase tracking-wider mb-1">
+                  Activity Name *
+                </label>
+                <input
+                  type="text"
+                  required
+                  placeholder="e.g. Attended GBM #4 / Beach Cleanup Drive"
+                  value={activityName}
+                  onChange={(e) => setActivityName(e.target.value)}
+                  className="w-full px-4 py-3 bg-slate-950 border border-violet-900/50 rounded-xl text-white text-sm outline-none focus:border-amber-400"
+                />
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-bold text-violet-300 uppercase tracking-wider mb-1">
+                    Avenue / Category
+                  </label>
+                  <select
+                    value={category}
+                    onChange={(e) => setCategory(e.target.value)}
+                    className="w-full px-4 py-3 bg-slate-950 border border-violet-900/50 rounded-xl text-white text-sm outline-none focus:border-amber-400"
+                  >
+                    <option value="Club Service">Club Service</option>
+                    <option value="Community Service">Community Service</option>
+                    <option value="Professional Development">Professional Development</option>
+                    <option value="International Service">International Service</option>
+                    <option value="Youth Service">Youth Service</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-violet-300 uppercase tracking-wider mb-1">
+                    Points Claimed (pts)
+                  </label>
+                  <input
+                    type="number"
+                    required
+                    min="1"
+                    max="100"
+                    value={pointsRequested}
+                    onChange={(e) => setPointsRequested(e.target.value)}
+                    className="w-full px-4 py-3 bg-slate-950 border border-violet-900/50 rounded-xl text-white text-sm outline-none focus:border-amber-400"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-violet-300 uppercase tracking-wider mb-1">
+                  Evidence / Photo URL (Google Drive / Imgur Link)
+                </label>
+                <input
+                  type="url"
+                  placeholder="https://drive.google.com/..."
+                  value={proofUrl}
+                  onChange={(e) => setProofUrl(e.target.value)}
+                  className="w-full px-4 py-3 bg-slate-950 border border-violet-900/50 rounded-xl text-white text-sm outline-none focus:border-amber-400"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-violet-300 uppercase tracking-wider mb-1">
+                  Role / Description of Work
+                </label>
+                <textarea
+                  rows={3}
+                  placeholder="Briefly describe your tasks or contributions..."
+                  value={description}
+                  onChange={(e) => setDescription(e.target.value)}
+                  className="w-full px-4 py-3 bg-slate-950 border border-violet-900/50 rounded-xl text-white text-sm outline-none focus:border-amber-400 resize-none"
+                />
+              </div>
+
+              <button
+                type="submit"
+                disabled={submitting}
+                className="w-full py-3.5 rounded-xl bg-gradient-to-r from-amber-500 to-amber-400 hover:from-amber-400 hover:to-amber-300 text-slate-950 font-black text-sm flex items-center justify-center gap-2 shadow-xl transition disabled:opacity-50"
+              >
+                {submitting ? <Loader2 size={16} className="animate-spin" /> : <span>Submit for Board Verification</span>}
+              </button>
+            </form>
+          )}
+        </div>
+      </main>
+    </div>
+  );
+}
+
+// ==========================================
+// 6. FEEDBACK COMPONENT
+// ==========================================
+function FeedbackPage() {
+  const navigate = useNavigate();
+  const { currentUser, userData } = useAuth();
+  const [feedback, setFeedback] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+  const [done, setDone] = useState(false);
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    if (!feedback.trim()) return;
+
+    setSubmitting(true);
+    try {
+      await addDoc(collection(db, "feedback"), {
+        userId: currentUser?.uid,
+        userName: userData?.name || currentUser?.displayName || "Member",
+        message: feedback.trim(),
+        createdAt: serverTimestamp(),
+      });
+      setDone(true);
+      setFeedback("");
+      setTimeout(() => setDone(false), 3000);
+    } catch (err) {
+      console.error("Feedback error:", err);
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <div className="min-h-screen bg-[#030014] text-white">
+      <nav className="border-b border-violet-900/40 bg-slate-950/80 backdrop-blur-md sticky top-0 z-50">
+        <div className="max-w-2xl mx-auto px-6 h-20 flex items-center justify-between">
+          <button
+            onClick={() => navigate("/dashboard")}
+            className="flex items-center gap-2 text-xs font-bold text-slate-400 hover:text-amber-400 transition"
+          >
+            <ArrowLeft size={16} />
+            <span>Back to Dashboard</span>
+          </button>
+          <div className="flex items-center gap-1.5 font-black text-lg">
+            <MessageSquarePlus size={18} className="text-amber-400" />
+            <span className="text-white">Member</span>
+            <span className="text-amber-400">Feedback</span>
+          </div>
+        </div>
+      </nav>
+
+      <main className="max-w-2xl mx-auto px-6 py-8">
+        <div className="bg-slate-900/90 border border-violet-900/40 rounded-3xl p-6 sm:p-8 shadow-2xl">
+          <h2 className="text-xl font-black text-white mb-1">Your Voice Matters</h2>
+          <p className="text-xs text-slate-400 mb-6">
+            Share suggestions, report concerns, or propose improvements directly to club leaders.
+          </p>
+
+          {done && (
+            <div className="mb-4 p-3.5 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-xs font-bold">
+              Thank you! Your feedback has been forwarded to the Executive Board.
+            </div>
+          )}
+
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <textarea
+              rows={5}
+              required
+              placeholder="Type your message here..."
+              value={feedback}
+              onChange={(e) => setFeedback(e.target.value)}
+              className="w-full px-4 py-3 bg-slate-950 border border-violet-900/50 rounded-xl text-white text-sm outline-none focus:border-amber-400 resize-none"
+            />
+            <button
+              type="submit"
+              disabled={submitting}
+              className="w-full py-3.5 rounded-xl bg-gradient-to-r from-amber-500 to-amber-400 hover:from-amber-400 hover:to-amber-300 text-slate-950 font-black text-sm flex items-center justify-center gap-2 shadow-xl transition disabled:opacity-50"
+            >
+              {submitting ? <Loader2 size={16} className="animate-spin" /> : <span>Send Message</span>}
+            </button>
+          </form>
+        </div>
+      </main>
+    </div>
+  );
+}
+
+// ==========================================
 // ROUTE GUARDS
+// ==========================================
 function ProtectedRoute({ children }) {
   const { currentUser, loading } = useAuth();
   if (loading) {
@@ -404,16 +1102,19 @@ function AdminRoute({ children }) {
   return currentUser && hasAccess ? children : <Navigate to="/dashboard" replace />;
 }
 
+// ==========================================
+// APP ROUTING TABLE
+// ==========================================
 export default function App() {
   return (
     <AuthProvider>
       <Routes>
-        {/* Public Access */}
+        {/* Authentication */}
         <Route path="/login" element={<Login />} />
         <Route path="/signup" element={<SignupComponent />} />
         <Route path="/register" element={<SignupComponent />} />
 
-        {/* Member Area */}
+        {/* Member Core Pages */}
         <Route
           path="/"
           element={
@@ -439,18 +1140,81 @@ export default function App() {
           }
         />
 
-        {/* Feature Hubs */}
-        <Route path="/leaderboard" element={<ProtectedRoute><SafeModule title="Leaderboard Standings" /></ProtectedRoute>} />
-        <Route path="/events" element={<ProtectedRoute><SafeModule title="Club Events & Calendar" /></ProtectedRoute>} />
-        <Route path="/event-ideas" element={<ProtectedRoute><SafeModule title="Propose Event Ideas" /></ProtectedRoute>} />
-        <Route path="/feedback" element={<ProtectedRoute><SafeModule title="Member Feedback Hub" /></ProtectedRoute>} />
-        <Route path="/request-points" element={<ProtectedRoute><SafeModule title="Submit Activity Points" /></ProtectedRoute>} />
+        {/* Live Functional Feature Hubs */}
+        <Route
+          path="/event-ideas"
+          element={
+            <ProtectedRoute>
+              <EventIdeasPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/events"
+          element={
+            <ProtectedRoute>
+              <EventsPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/leaderboard"
+          element={
+            <ProtectedRoute>
+              <LeaderboardPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/request-points"
+          element={
+            <ProtectedRoute>
+              <RequestPointsPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/feedback"
+          element={
+            <ProtectedRoute>
+              <FeedbackPage />
+            </ProtectedRoute>
+          }
+        />
 
-        {/* Admin Hubs */}
-        <Route path="/admin" element={<AdminRoute><SafeModule title="Admin Point Ledger" /></AdminRoute>} />
-        <Route path="/admin/requests" element={<AdminRoute><SafeModule title="Admin Point Approvals" /></AdminRoute>} />
-        <Route path="/admin/members" element={<AdminRoute><SafeModule title="Member Directory Management" /></AdminRoute>} />
-        <Route path="/admin/feedback" element={<AdminRoute><SafeModule title="Executive Feedback Roster" /></AdminRoute>} />
+        {/* Executive Backing Area */}
+        <Route
+          path="/admin"
+          element={
+            <AdminRoute>
+              <LeaderboardPage />
+            </AdminRoute>
+          }
+        />
+        <Route
+          path="/admin/requests"
+          element={
+            <AdminRoute>
+              <RequestPointsPage />
+            </AdminRoute>
+          }
+        />
+        <Route
+          path="/admin/members"
+          element={
+            <AdminRoute>
+              <LeaderboardPage />
+            </AdminRoute>
+          }
+        />
+        <Route
+          path="/admin/feedback"
+          element={
+            <AdminRoute>
+              <FeedbackPage />
+            </AdminRoute>
+          }
+        />
 
         {/* Fallback */}
         <Route path="*" element={<Navigate to="/login" replace />} />
