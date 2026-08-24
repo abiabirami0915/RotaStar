@@ -35,7 +35,7 @@ import {
   BellRing,
   PieChart,
   Users,
-  Edit3,
+  PlusCircle,
   Layers,
   Check,
 } from "lucide-react";
@@ -48,7 +48,6 @@ import {
   addDoc,
   deleteDoc,
   doc,
-  setDoc,
   serverTimestamp,
 } from "firebase/firestore";
 import { db } from "../firebase/firebase";
@@ -89,11 +88,13 @@ const ANNOUNCEMENT_PRIORITIES = {
   },
 };
 
-const AVENUE_COLORS = {
-  "Club Service": { hex: "#8B5CF6", bg: "bg-violet-500", text: "text-violet-400", light: "bg-violet-500/10 border-violet-500/30" },
-  "Community Service": { hex: "#F59E0B", bg: "bg-amber-500", text: "text-amber-400", light: "bg-amber-500/10 border-amber-500/30" },
-  "Professional Development": { hex: "#06B6D4", bg: "bg-cyan-500", text: "text-cyan-400", light: "bg-cyan-500/10 border-cyan-500/30" },
-  "International Service": { hex: "#10B981", bg: "bg-emerald-500", text: "text-emerald-400", light: "bg-emerald-500/10 border-emerald-500/30" },
+const AVENUE_STYLES = {
+  "Club Service": { hex: "#8B5CF6", bg: "bg-violet-500", text: "text-violet-300", border: "border-violet-500/30" },
+  "Community Service": { hex: "#F59E0B", bg: "bg-amber-500", text: "text-amber-300", border: "border-amber-500/30" },
+  "Professional Development": { hex: "#06B6D4", bg: "bg-cyan-500", text: "text-cyan-300", border: "border-cyan-500/30" },
+  "International Service": { hex: "#10B981", bg: "bg-emerald-500", text: "text-emerald-300", border: "border-emerald-500/30" },
+  "Multi-Avenue": { hex: "#D946EF", bg: "bg-fuchsia-500", text: "text-fuchsia-300", border: "border-fuchsia-500/30" },
+  "General / GBM": { hex: "#94A3B8", bg: "bg-slate-500", text: "text-slate-300", border: "border-slate-700" },
 };
 
 export default function Dashboard() {
@@ -104,32 +105,21 @@ export default function Dashboard() {
   const [recentActivities, setRecentActivities] = useState([]);
   const [announcements, setAnnouncements] = useState([]);
   const [upcomingEvents, setUpcomingEvents] = useState([]);
+  const [completedEventsList, setCompletedEventsList] = useState([]);
   const [dismissedIds, setDismissedIds] = useState([]);
   const [dismissedEventReminder, setDismissedEventReminder] = useState(false);
   const [userRank, setUserRank] = useState("-");
   const [allMembers, setAllMembers] = useState([]);
 
-  // Club Avenue Event Count Tracker State (Synced with Firestore)
-  const [clubMilestones, setClubMilestones] = useState({
-    clubService: 0,
-    communityService: 0,
-    professionalDevelopment: 0,
-    internationalService: 0,
-    multiAvenue: 0,
-    generalEvents: 0,
-  });
-
-  // Milestone Modal States (Admin)
-  const [showMilestoneModal, setShowMilestoneModal] = useState(false);
-  const [editMilestones, setEditMilestones] = useState({
-    clubService: 0,
-    communityService: 0,
-    professionalDevelopment: 0,
-    internationalService: 0,
-    multiAvenue: 0,
-    generalEvents: 0,
-  });
-  const [milestoneSubmitting, setMilestoneSubmitting] = useState(false);
+  // Completed Event Modal States (Admin)
+  const [showAddCompletedModal, setShowAddCompletedModal] = useState(false);
+  const [eventName, setEventName] = useState("");
+  const [eventDate, setEventDate] = useState("");
+  const [eventAvenue, setEventAvenue] = useState("Community Service");
+  const [chairperson, setChairperson] = useState("");
+  const [secretary, setSecretary] = useState("");
+  const [shortDescription, setShortDescription] = useState("");
+  const [recordSubmitting, setRecordSubmitting] = useState(false);
 
   // Announcement Modal States
   const [showAnnounceModal, setShowAnnounceModal] = useState(false);
@@ -166,43 +156,46 @@ export default function Dashboard() {
     rawRole.includes("secretary") ||
     rawRole.includes("board");
 
-  const totalEventsConducted = useMemo(() => {
-    return (
-      (clubMilestones.clubService || 0) +
-      (clubMilestones.communityService || 0) +
-      (clubMilestones.professionalDevelopment || 0) +
-      (clubMilestones.internationalService || 0) +
-      (clubMilestones.multiAvenue || 0) +
-      (clubMilestones.generalEvents || 0)
-    );
-  }, [clubMilestones]);
+  // Calculate conducted events count by avenue
+  const avenueCounts = useMemo(() => {
+    const counts = {
+      "Club Service": 0,
+      "Community Service": 0,
+      "Professional Development": 0,
+      "International Service": 0,
+      "Multi-Avenue": 0,
+      "General / GBM": 0,
+    };
+
+    completedEventsList.forEach((ev) => {
+      const av = ev.avenue || "Community Service";
+      if (counts[av] !== undefined) {
+        counts[av] += 1;
+      } else {
+        counts["General / GBM"] += 1;
+      }
+    });
+
+    return counts;
+  }, [completedEventsList]);
+
+  const totalCompletedCount = completedEventsList.length;
 
   const starRotaractor = useMemo(() => {
     if (allMembers.length === 0) return null;
     return allMembers[0];
   }, [allMembers]);
 
-  // Sync Club Milestone Statistics
+  // Sync Conducted Events List from Firestore
   useEffect(() => {
-    const unsub = onSnapshot(doc(db, "clubMeta", "eventMilestones"), (docSnap) => {
-      if (docSnap.exists()) {
-        const data = docSnap.data();
-        const loaded = {
-          clubService: Number(data.clubService) || 0,
-          communityService: Number(data.communityService) || 0,
-          professionalDevelopment: Number(data.professionalDevelopment) || 0,
-          internationalService: Number(data.internationalService) || 0,
-          multiAvenue: Number(data.multiAvenue) || 0,
-          generalEvents: Number(data.generalEvents) || 0,
-        };
-        setClubMilestones(loaded);
-        setEditMilestones(loaded);
-      }
+    const q = query(collection(db, "completedEvents"), orderBy("createdAt", "desc"));
+    const unsub = onSnapshot(q, (snapshot) => {
+      setCompletedEventsList(snapshot.docs.map((d) => ({ id: d.id, ...d.data() })));
     });
     return () => unsub();
   }, []);
 
-  // 1. Level-Up detection
+  // Level-Up detection
   useEffect(() => {
     if (!currentUser || !userData) return;
     const storageKey = `rotastar_seen_level_${currentUser.uid}`;
@@ -226,7 +219,7 @@ export default function Dashboard() {
     localStorage.setItem(storageKey, levelData.currentLevel.toString());
   }, [currentUser, userData, levelData.currentLevel]);
 
-  // 2. Badge Unlock detection
+  // Badge Unlock detection
   useEffect(() => {
     if (!currentUser || !userData || memberBadges.length === 0) return;
     const storageKey = `rotastar_seen_badges_${currentUser.uid}`;
@@ -258,7 +251,7 @@ export default function Dashboard() {
     }
   }, [currentUser, userData, memberBadges, hasInitializedBadges]);
 
-  // 3. Announcements Sync
+  // Announcements Sync
   useEffect(() => {
     const q = query(collection(db, "announcements"), orderBy("createdAt", "desc"));
     const unsubscribe = onSnapshot(q, (snapshot) => {
@@ -267,7 +260,7 @@ export default function Dashboard() {
     return () => unsubscribe();
   }, []);
 
-  // 4. Live Events Sync
+  // Live Events Sync
   useEffect(() => {
     const eventsQuery = query(collection(db, "events"));
     const unsubscribe = onSnapshot(eventsQuery, (snapshot) => {
@@ -305,7 +298,7 @@ export default function Dashboard() {
     return () => unsubscribe();
   }, []);
 
-  // 5. Leaderboard Rank & Members Sync
+  // Leaderboard Rank Sync
   useEffect(() => {
     const unsubUsers = onSnapshot(collection(db, "users"), (snapshot) => {
       const list = snapshot.docs.map((docSnap) => ({
@@ -324,7 +317,7 @@ export default function Dashboard() {
     return () => unsubUsers();
   }, [currentUser]);
 
-  // 6. Activities Sync
+  // Activities Sync
   useEffect(() => {
     if (!currentUser) return;
     const q = query(collection(db, "activities"), where("userId", "==", currentUser.uid));
@@ -347,29 +340,45 @@ export default function Dashboard() {
     return () => unsubActivities();
   }, [currentUser]);
 
-  const handleUpdateMilestones = async (e) => {
+  // Add Conducted Event Log
+  const handleRecordCompletedEvent = async (e) => {
     e.preventDefault();
-    setMilestoneSubmitting(true);
+    if (!eventName.trim() || !eventDate) return;
+
+    setRecordSubmitting(true);
     try {
-      await setDoc(
-        doc(db, "clubMeta", "eventMilestones"),
-        {
-          clubService: Number(editMilestones.clubService) || 0,
-          communityService: Number(editMilestones.communityService) || 0,
-          professionalDevelopment: Number(editMilestones.professionalDevelopment) || 0,
-          internationalService: Number(editMilestones.internationalService) || 0,
-          multiAvenue: Number(editMilestones.multiAvenue) || 0,
-          generalEvents: Number(editMilestones.generalEvents) || 0,
-          updatedAt: serverTimestamp(),
-          updatedBy: userData?.name || "Admin",
-        },
-        { merge: true }
-      );
-      setShowMilestoneModal(false);
+      await addDoc(collection(db, "completedEvents"), {
+        eventName: eventName.trim(),
+        eventDate: eventDate,
+        avenue: eventAvenue,
+        chairperson: chairperson.trim() || "Not Assigned",
+        secretary: secretary.trim() || "Not Assigned",
+        description: shortDescription.trim(),
+        loggedBy: userData?.name || "Executive Board",
+        createdAt: serverTimestamp(),
+      });
+
+      setShowAddCompletedModal(false);
+      setEventName("");
+      setEventDate("");
+      setChairperson("");
+      setSecretary("");
+      setShortDescription("");
     } catch (err) {
-      console.error("Update milestone error:", err);
+      console.error("Error logging completed event:", err);
     } finally {
-      setMilestoneSubmitting(false);
+      setRecordSubmitting(false);
+    }
+  };
+
+  const handleDeleteCompletedEvent = async (id) => {
+    if (!showAdminPanel) return;
+    if (window.confirm("Are you sure you want to remove this conducted event record?")) {
+      try {
+        await deleteDoc(doc(db, "completedEvents", id));
+      } catch (err) {
+        console.error("Error deleting completed event:", err);
+      }
     }
   };
 
@@ -647,152 +656,7 @@ export default function Dashboard() {
           </div>
         )}
 
-        {/* 🌟 STAR ROTARACTOR SPOTLIGHT */}
-        {starRotaractor && (
-          <div className="mb-6 p-6 sm:p-7 rounded-3xl bg-gradient-to-r from-amber-500/15 via-purple-950/40 to-slate-900/90 border-2 border-amber-500/40 shadow-2xl backdrop-blur-xl relative overflow-hidden">
-            <div className="absolute -right-10 -bottom-10 w-40 h-40 bg-amber-500/10 rounded-full blur-3xl pointer-events-none" />
-
-            <div className="flex flex-col sm:flex-row items-center justify-between gap-6 relative z-10">
-              <div className="flex flex-col sm:flex-row items-center sm:items-start gap-4 text-center sm:text-left">
-                <div className="relative">
-                  <div className="w-20 h-20 rounded-3xl overflow-hidden border-2 border-amber-400 p-0.5 bg-slate-950 shadow-xl shadow-amber-500/20">
-                    {starRotaractor.photoURL ? (
-                      <img
-                        src={starRotaractor.photoURL}
-                        alt="Star Rotaractor"
-                        className="w-full h-full object-cover rounded-[20px]"
-                      />
-                    ) : (
-                      <div className="w-full h-full flex items-center justify-center bg-slate-900 text-amber-400">
-                        <User size={36} />
-                      </div>
-                    )}
-                  </div>
-                  <div className="absolute -top-2 -right-2 p-1.5 bg-amber-400 text-slate-950 rounded-full shadow-lg animate-bounce">
-                    <Crown size={14} />
-                  </div>
-                </div>
-
-                <div>
-                  <div className="inline-flex items-center gap-1.5 px-3 py-0.5 rounded-full bg-amber-400/20 border border-amber-400/50 text-amber-300 text-[10px] font-black uppercase tracking-widest mb-1.5">
-                    <Sparkles size={11} />
-                    <span>Star Rotaractor of the Month</span>
-                  </div>
-                  <h3 className="text-xl sm:text-2xl font-black text-white">
-                    {starRotaractor.name || "Standout Rotaractor"}
-                  </h3>
-                  <p className="text-xs text-amber-300/90 font-medium">
-                    {starRotaractor.role || "General Member"} • {starRotaractor.department || "RAC PSVPEC"}
-                  </p>
-                  <p className="text-xs text-slate-300 italic mt-2 max-w-md">
-                    "Recognized for extraordinary leadership, steadfast meeting attendance, and leading community service impact."
-                  </p>
-                </div>
-              </div>
-
-              <div className="flex flex-col items-center sm:items-end gap-2 shrink-0">
-                <div className="px-5 py-3 rounded-2xl bg-slate-950/80 border border-amber-500/30 text-center">
-                  <span className="text-[10px] uppercase font-bold text-slate-400">Monthly Contribution</span>
-                  <p className="text-2xl font-black text-amber-400">{starRotaractor.points || starRotaractor.totalPoints || 0} pts</p>
-                </div>
-                <span className="text-[10px] text-amber-400/80 font-semibold">#1 Ranked Champion</span>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* 🏆 OFFICIAL CLUB EVENT COUNTER & AVENUE MILESTONES */}
-        <section className="bg-slate-900/90 border border-amber-500/30 rounded-3xl p-6 sm:p-7 shadow-2xl mb-6 relative overflow-hidden">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6 pb-4 border-b border-violet-950/80">
-            <div>
-              <div className="inline-flex items-center gap-1.5 px-3 py-0.5 rounded-full bg-amber-500/10 border border-amber-500/30 text-amber-300 text-[10px] font-black uppercase tracking-wider mb-1.5">
-                <Layers size={12} />
-                <span>RAC PSVPEC Official Record</span>
-              </div>
-              <h2 className="text-xl sm:text-2xl font-black text-white">
-                Events Conducted Milestone
-              </h2>
-              <p className="text-xs text-slate-400 mt-0.5">
-                Total completed initiatives across all avenues of service
-              </p>
-            </div>
-
-            <div className="flex items-center gap-3">
-              <div className="px-5 py-2.5 rounded-2xl bg-gradient-to-r from-amber-500/20 to-amber-400/10 border border-amber-500/40 text-center">
-                <span className="text-[10px] uppercase font-bold text-amber-300 block">Total Completed</span>
-                <span className="text-2xl font-black text-amber-400">{totalEventsConducted} Events</span>
-              </div>
-
-              {showAdminPanel && (
-                <button
-                  onClick={() => setShowMilestoneModal(true)}
-                  className="px-4 py-2.5 rounded-2xl bg-violet-600/20 hover:bg-violet-600/30 border border-violet-500/40 text-violet-200 text-xs font-bold transition flex items-center gap-1.5 cursor-pointer shadow-lg"
-                >
-                  <Edit3 size={14} className="text-amber-400" />
-                  <span>Update Count</span>
-                </button>
-              )}
-            </div>
-          </div>
-
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
-            {/* 1. CLUB SERVICE */}
-            <div className="p-4 rounded-2xl bg-slate-950/80 border border-violet-500/30 flex flex-col justify-between text-center hover:border-violet-400 transition">
-              <span className="text-[10px] font-black uppercase tracking-wider text-violet-300 mb-2">
-                Club Service
-              </span>
-              <p className="text-2xl font-black text-white">{clubMilestones.clubService || 0}</p>
-              <span className="text-[10px] text-slate-500 mt-1">Events</span>
-            </div>
-
-            {/* 2. COMMUNITY SERVICE */}
-            <div className="p-4 rounded-2xl bg-slate-950/80 border border-amber-500/30 flex flex-col justify-between text-center hover:border-amber-400 transition">
-              <span className="text-[10px] font-black uppercase tracking-wider text-amber-300 mb-2">
-                Community Service
-              </span>
-              <p className="text-2xl font-black text-amber-400">{clubMilestones.communityService || 0}</p>
-              <span className="text-[10px] text-slate-500 mt-1">Events</span>
-            </div>
-
-            {/* 3. PROFESSIONAL DEVELOPMENT */}
-            <div className="p-4 rounded-2xl bg-slate-950/80 border border-cyan-500/30 flex flex-col justify-between text-center hover:border-cyan-400 transition">
-              <span className="text-[10px] font-black uppercase tracking-wider text-cyan-300 mb-2">
-                Prof. Service
-              </span>
-              <p className="text-2xl font-black text-cyan-400">{clubMilestones.professionalDevelopment || 0}</p>
-              <span className="text-[10px] text-slate-500 mt-1">Events</span>
-            </div>
-
-            {/* 4. INTERNATIONAL SERVICE */}
-            <div className="p-4 rounded-2xl bg-slate-950/80 border border-emerald-500/30 flex flex-col justify-between text-center hover:border-emerald-400 transition">
-              <span className="text-[10px] font-black uppercase tracking-wider text-emerald-300 mb-2">
-                Intl. Service
-              </span>
-              <p className="text-2xl font-black text-emerald-400">{clubMilestones.internationalService || 0}</p>
-              <span className="text-[10px] text-slate-500 mt-1">Events</span>
-            </div>
-
-            {/* 5. MULTI-AVENUE */}
-            <div className="p-4 rounded-2xl bg-slate-950/80 border border-fuchsia-500/30 flex flex-col justify-between text-center hover:border-fuchsia-400 transition">
-              <span className="text-[10px] font-black uppercase tracking-wider text-fuchsia-300 mb-2">
-                Multi-Avenue
-              </span>
-              <p className="text-2xl font-black text-fuchsia-400">{clubMilestones.multiAvenue || 0}</p>
-              <span className="text-[10px] text-slate-500 mt-1">Events</span>
-            </div>
-
-            {/* 6. GENERAL EVENTS */}
-            <div className="p-4 rounded-2xl bg-slate-950/80 border border-slate-700 flex flex-col justify-between text-center hover:border-slate-500 transition">
-              <span className="text-[10px] font-black uppercase tracking-wider text-slate-300 mb-2">
-                General
-              </span>
-              <p className="text-2xl font-black text-white">{clubMilestones.generalEvents || 0}</p>
-              <span className="text-[10px] text-slate-500 mt-1">Meetings & GBM</span>
-            </div>
-          </div>
-        </section>
-
-        {/* HERO STATUS CARD */}
+        {/* 🌟 1. TOP HEADER: HELLO RTR. STATUS CARD */}
         <div className="bg-gradient-to-r from-violet-950/70 via-slate-900/90 to-amber-950/40 border border-violet-500/30 rounded-3xl p-6 sm:p-8 mb-6 shadow-2xl transition-all">
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-6">
             <div
@@ -930,6 +794,60 @@ export default function Dashboard() {
             </p>
           </div>
         </div>
+
+        {/* 🌟 STAR ROTARACTOR SPOTLIGHT */}
+        {starRotaractor && (
+          <div className="mb-6 p-6 sm:p-7 rounded-3xl bg-gradient-to-r from-amber-500/15 via-purple-950/40 to-slate-900/90 border-2 border-amber-500/40 shadow-2xl backdrop-blur-xl relative overflow-hidden">
+            <div className="absolute -right-10 -bottom-10 w-40 h-40 bg-amber-500/10 rounded-full blur-3xl pointer-events-none" />
+
+            <div className="flex flex-col sm:flex-row items-center justify-between gap-6 relative z-10">
+              <div className="flex flex-col sm:flex-row items-center sm:items-start gap-4 text-center sm:text-left">
+                <div className="relative">
+                  <div className="w-20 h-20 rounded-3xl overflow-hidden border-2 border-amber-400 p-0.5 bg-slate-950 shadow-xl shadow-amber-500/20">
+                    {starRotaractor.photoURL ? (
+                      <img
+                        src={starRotaractor.photoURL}
+                        alt="Star Rotaractor"
+                        className="w-full h-full object-cover rounded-[20px]"
+                      />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center bg-slate-900 text-amber-400">
+                        <User size={36} />
+                      </div>
+                    )}
+                  </div>
+                  <div className="absolute -top-2 -right-2 p-1.5 bg-amber-400 text-slate-950 rounded-full shadow-lg animate-bounce">
+                    <Crown size={14} />
+                  </div>
+                </div>
+
+                <div>
+                  <div className="inline-flex items-center gap-1.5 px-3 py-0.5 rounded-full bg-amber-400/20 border border-amber-400/50 text-amber-300 text-[10px] font-black uppercase tracking-widest mb-1.5">
+                    <Sparkles size={11} />
+                    <span>Star Rotaractor of the Month</span>
+                  </div>
+                  <h3 className="text-xl sm:text-2xl font-black text-white">
+                    {starRotaractor.name || "Standout Rotaractor"}
+                  </h3>
+                  <p className="text-xs text-amber-300/90 font-medium">
+                    {starRotaractor.role || "General Member"} • {starRotaractor.department || "RAC PSVPEC"}
+                  </p>
+                  <p className="text-xs text-slate-300 italic mt-2 max-w-md">
+                    "Recognized for extraordinary leadership, steadfast meeting attendance, and leading community service impact."
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex flex-col items-center sm:items-end gap-2 shrink-0">
+                <div className="px-5 py-3 rounded-2xl bg-slate-950/80 border border-amber-500/30 text-center">
+                  <span className="text-[10px] uppercase font-bold text-slate-400">Monthly Contribution</span>
+                  <p className="text-2xl font-black text-amber-400">{starRotaractor.points || starRotaractor.totalPoints || 0} pts</p>
+                </div>
+                <span className="text-[10px] text-amber-400/80 font-semibold">#1 Ranked Champion</span>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* PRIMARY ACTIONS GRID */}
         <div className="grid grid-cols-2 lg:grid-cols-5 gap-3 mb-8">
@@ -1146,6 +1064,106 @@ export default function Dashboard() {
                 <span>Rotary International</span>
               </div>
             </div>
+          </div>
+        </section>
+
+        {/* 🏆 2. BOTTOM SECTION: OFFICIAL CLUB EVENT CONDUCTED MILESTONE COUNTER */}
+        <section className="bg-slate-900/90 border border-amber-500/30 rounded-3xl p-6 sm:p-7 shadow-2xl mb-8 relative overflow-hidden">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6 pb-4 border-b border-violet-950/80">
+            <div>
+              <div className="inline-flex items-center gap-1.5 px-3 py-0.5 rounded-full bg-amber-500/10 border border-amber-500/30 text-amber-300 text-[10px] font-black uppercase tracking-wider mb-1.5">
+                <Layers size={12} />
+                <span>RAC PSVPEC Official Record</span>
+              </div>
+              <h2 className="text-xl sm:text-2xl font-black text-white">
+                Events Conducted Milestone
+              </h2>
+              <p className="text-xs text-slate-400 mt-0.5">
+                Calculated automatically from logged event history
+              </p>
+            </div>
+
+            <div className="flex items-center gap-3">
+              <div className="px-5 py-2.5 rounded-2xl bg-gradient-to-r from-amber-500/20 to-amber-400/10 border border-amber-500/40 text-center">
+                <span className="text-[10px] uppercase font-bold text-amber-300 block">Total Completed</span>
+                <span className="text-2xl font-black text-amber-400">{totalCompletedCount} Events</span>
+              </div>
+
+              {showAdminPanel && (
+                <button
+                  onClick={() => setShowAddCompletedModal(true)}
+                  className="px-4 py-2.5 rounded-2xl bg-gradient-to-r from-amber-500 to-amber-400 hover:from-amber-400 hover:to-amber-300 text-slate-950 text-xs font-black transition flex items-center gap-1.5 cursor-pointer shadow-lg"
+                >
+                  <PlusCircle size={14} />
+                  <span>+ Record Completed Event</span>
+                </button>
+              )}
+            </div>
+          </div>
+
+          {/* AVENUE BREAKDOWN TILES */}
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 mb-6">
+            {Object.entries(AVENUE_STYLES).map(([avName, style]) => (
+              <div
+                key={avName}
+                className={`p-4 rounded-2xl bg-slate-950/80 border ${style.border} flex flex-col justify-between text-center transition`}
+              >
+                <span className={`text-[10px] font-black uppercase tracking-wider ${style.text} mb-2`}>
+                  {avName}
+                </span>
+                <p className="text-2xl font-black text-white">{avenueCounts[avName] || 0}</p>
+                <span className="text-[10px] text-slate-500 mt-1">Events</span>
+              </div>
+            ))}
+          </div>
+
+          {/* DETAILED CONDUCTED EVENTS LEDGER */}
+          <div className="pt-2">
+            <h4 className="text-xs font-bold text-violet-300 uppercase tracking-wider mb-3">
+              Official Conducted Events Log ({completedEventsList.length})
+            </h4>
+
+            {completedEventsList.length === 0 ? (
+              <p className="text-xs text-slate-500 italic text-center py-4 bg-slate-950/60 rounded-2xl border border-violet-950">
+                No conducted events logged yet. Click "+ Record Completed Event" above to enter event details.
+              </p>
+            ) : (
+              <div className="space-y-2.5 max-h-72 overflow-y-auto pr-1">
+                {completedEventsList.map((ev) => (
+                  <div
+                    key={ev.id}
+                    className="p-3.5 rounded-2xl bg-slate-950 border border-violet-900/40 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs"
+                  >
+                    <div>
+                      <div className="flex items-center gap-2 mb-1">
+                        <span className="text-[9px] font-black uppercase tracking-wider px-2 py-0.5 rounded bg-violet-500/20 text-violet-300 border border-violet-500/30">
+                          {ev.avenue}
+                        </span>
+                        <span className="text-amber-400 font-bold">{ev.eventDate}</span>
+                      </div>
+
+                      <h5 className="font-extrabold text-sm text-white">{ev.eventName}</h5>
+                      {ev.description && <p className="text-slate-300 text-[11px] mt-0.5">{ev.description}</p>}
+
+                      <div className="flex flex-wrap gap-x-4 gap-y-1 text-[11px] text-slate-400 mt-1.5 font-medium">
+                        <span>Chair: <strong className="text-amber-300">{ev.chairperson}</strong></span>
+                        <span>Sec: <strong className="text-violet-300">{ev.secretary}</strong></span>
+                      </div>
+                    </div>
+
+                    {showAdminPanel && (
+                      <button
+                        onClick={() => handleDeleteCompletedEvent(ev.id)}
+                        className="p-1.5 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/30 text-rose-400 transition self-end sm:self-center shrink-0 cursor-pointer"
+                        title="Delete record"
+                      >
+                        <Trash2 size={13} />
+                      </button>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         </section>
 
@@ -1382,12 +1400,12 @@ export default function Dashboard() {
         </section>
       </main>
 
-      {/* 🛠️ ADMIN EVENT MILESTONES UPDATE MODAL */}
-      {showMilestoneModal && (
+      {/* 🛠️ ADMIN RECORD COMPLETED EVENT MODAL */}
+      {showAddCompletedModal && (
         <div className="fixed inset-0 z-50 bg-black/85 backdrop-blur-md flex items-center justify-center p-4">
           <div className="bg-slate-900 border-2 border-amber-500/40 rounded-3xl p-6 sm:p-8 max-w-lg w-full shadow-2xl relative animate-in fade-in zoom-in duration-200">
             <button
-              onClick={() => setShowMilestoneModal(false)}
+              onClick={() => setShowAddCompletedModal(false)}
               className="absolute top-4 right-4 p-2 rounded-full text-slate-400 hover:text-white hover:bg-slate-800 transition cursor-pointer"
             >
               <X size={20} />
@@ -1395,119 +1413,115 @@ export default function Dashboard() {
 
             <div className="flex items-center gap-3 mb-5">
               <div className="p-2.5 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-400">
-                <Layers size={22} />
+                <PlusCircle size={22} />
               </div>
               <div>
-                <h2 className="text-xl font-bold text-white">Update Events Conducted</h2>
-                <p className="text-xs text-slate-400">Update official records per avenue of service</p>
+                <h2 className="text-xl font-bold text-white">Record Completed Event</h2>
+                <p className="text-xs text-slate-400">Add to official club records and auto-calculate totals</p>
               </div>
             </div>
 
-            <form onSubmit={handleUpdateMilestones} className="space-y-3.5">
-              <div className="grid grid-cols-2 gap-3">
+            <form onSubmit={handleRecordCompletedEvent} className="space-y-3.5">
+              <div>
+                <label className="block text-xs font-bold text-violet-300 uppercase tracking-wider mb-1">
+                  Event Name *
+                </label>
+                <input
+                  type="text"
+                  required
+                  placeholder="e.g. Joy of Giving Blood Donation"
+                  value={eventName}
+                  onChange={(e) => setEventName(e.target.value)}
+                  className="w-full px-3.5 py-2.5 bg-slate-950 border border-violet-900/50 rounded-xl text-white text-sm outline-none focus:border-amber-400"
+                />
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label className="block text-xs font-bold text-violet-300 uppercase tracking-wider mb-1">
-                    Club Service
+                    Event Date *
                   </label>
                   <input
-                    type="number"
-                    min="0"
-                    value={editMilestones.clubService}
-                    onChange={(e) =>
-                      setEditMilestones((prev) => ({ ...prev, clubService: e.target.value }))
-                    }
-                    className="w-full px-3.5 py-2 bg-slate-950 border border-violet-900/50 rounded-xl text-white text-sm outline-none focus:border-amber-400"
+                    type="date"
+                    required
+                    value={eventDate}
+                    onChange={(e) => setEventDate(e.target.value)}
+                    className="w-full px-3.5 py-2.5 bg-slate-950 border border-violet-900/50 rounded-xl text-white text-sm outline-none focus:border-amber-400"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-xs font-bold text-amber-300 uppercase tracking-wider mb-1">
-                    Community Service
+                  <label className="block text-xs font-bold text-violet-300 uppercase tracking-wider mb-1">
+                    Avenue of Service *
+                  </label>
+                  <select
+                    value={eventAvenue}
+                    onChange={(e) => setEventAvenue(e.target.value)}
+                    className="w-full px-3.5 py-2.5 bg-slate-950 border border-violet-900/50 rounded-xl text-white text-sm outline-none focus:border-amber-400"
+                  >
+                    <option value="Community Service">Community Service</option>
+                    <option value="Club Service">Club Service</option>
+                    <option value="Professional Development">Professional Development</option>
+                    <option value="International Service">International Service</option>
+                    <option value="Multi-Avenue">Multi-Avenue</option>
+                    <option value="General / GBM">General / GBM</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">
+                    Event Chairperson
                   </label>
                   <input
-                    type="number"
-                    min="0"
-                    value={editMilestones.communityService}
-                    onChange={(e) =>
-                      setEditMilestones((prev) => ({ ...prev, communityService: e.target.value }))
-                    }
-                    className="w-full px-3.5 py-2 bg-slate-950 border border-violet-900/50 rounded-xl text-white text-sm outline-none focus:border-amber-400"
+                    type="text"
+                    placeholder="e.g. Rtr. John"
+                    value={chairperson}
+                    onChange={(e) => setChairperson(e.target.value)}
+                    className="w-full px-3.5 py-2 bg-slate-950 border border-violet-900/50 rounded-xl text-white text-xs outline-none focus:border-amber-400"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-xs font-bold text-cyan-300 uppercase tracking-wider mb-1">
-                    Prof. Development
+                  <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">
+                    Event Secretary
                   </label>
                   <input
-                    type="number"
-                    min="0"
-                    value={editMilestones.professionalDevelopment}
-                    onChange={(e) =>
-                      setEditMilestones((prev) => ({ ...prev, professionalDevelopment: e.target.value }))
-                    }
-                    className="w-full px-3.5 py-2 bg-slate-950 border border-violet-900/50 rounded-xl text-white text-sm outline-none focus:border-amber-400"
+                    type="text"
+                    placeholder="e.g. Rtr. Sarah"
+                    value={secretary}
+                    onChange={(e) => setSecretary(e.target.value)}
+                    className="w-full px-3.5 py-2 bg-slate-950 border border-violet-900/50 rounded-xl text-white text-xs outline-none focus:border-amber-400"
                   />
                 </div>
+              </div>
 
-                <div>
-                  <label className="block text-xs font-bold text-emerald-300 uppercase tracking-wider mb-1">
-                    Intl. Service
-                  </label>
-                  <input
-                    type="number"
-                    min="0"
-                    value={editMilestones.internationalService}
-                    onChange={(e) =>
-                      setEditMilestones((prev) => ({ ...prev, internationalService: e.target.value }))
-                    }
-                    className="w-full px-3.5 py-2 bg-slate-950 border border-violet-900/50 rounded-xl text-white text-sm outline-none focus:border-amber-400"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-bold text-fuchsia-300 uppercase tracking-wider mb-1">
-                    Multi-Avenue
-                  </label>
-                  <input
-                    type="number"
-                    min="0"
-                    value={editMilestones.multiAvenue}
-                    onChange={(e) =>
-                      setEditMilestones((prev) => ({ ...prev, multiAvenue: e.target.value }))
-                    }
-                    className="w-full px-3.5 py-2 bg-slate-950 border border-violet-900/50 rounded-xl text-white text-sm outline-none focus:border-amber-400"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-bold text-slate-300 uppercase tracking-wider mb-1">
-                    General / GBM
-                  </label>
-                  <input
-                    type="number"
-                    min="0"
-                    value={editMilestones.generalEvents}
-                    onChange={(e) =>
-                      setEditMilestones((prev) => ({ ...prev, generalEvents: e.target.value }))
-                    }
-                    className="w-full px-3.5 py-2 bg-slate-950 border border-violet-900/50 rounded-xl text-white text-sm outline-none focus:border-amber-400"
-                  />
-                </div>
+              <div>
+                <label className="block text-xs font-bold text-violet-300 uppercase tracking-wider mb-1">
+                  Short Description
+                </label>
+                <textarea
+                  rows={2}
+                  placeholder="Summary of beneficiaries, participation, and results..."
+                  value={shortDescription}
+                  onChange={(e) => setShortDescription(e.target.value)}
+                  className="w-full px-3.5 py-2 bg-slate-950 border border-violet-900/50 rounded-xl text-white text-xs outline-none focus:border-amber-400 resize-none"
+                />
               </div>
 
               <div className="pt-2">
                 <button
                   type="submit"
-                  disabled={milestoneSubmitting}
+                  disabled={recordSubmitting}
                   className="w-full py-3.5 rounded-xl bg-gradient-to-r from-amber-500 to-amber-400 hover:from-amber-400 hover:to-amber-300 text-slate-950 font-black text-xs flex items-center justify-center gap-2 shadow-xl transition disabled:opacity-50 cursor-pointer"
                 >
-                  {milestoneSubmitting ? (
+                  {recordSubmitting ? (
                     <Loader2 size={16} className="animate-spin text-slate-950" />
                   ) : (
                     <>
                       <Check size={16} />
-                      <span>Save Official Club Milestones</span>
+                      <span>Record & Auto-Update Milestones</span>
                     </>
                   )}
                 </button>
