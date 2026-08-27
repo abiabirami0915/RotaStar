@@ -2,10 +2,11 @@ import React, { useState, useEffect } from "react";
 import { db } from "../firebase/firebase";
 import {
   collection,
-  getDocs,
+  onSnapshot,
   writeBatch,
   doc,
   deleteDoc,
+  getDocs,
   query,
   where,
   serverTimestamp,
@@ -46,59 +47,53 @@ export default function AdminPoints() {
     text: "",
   });
 
-  // =========================================================
-  // RotaStar Official Point System
-  // =========================================================
   const defaultCategories = [
     { name: "Club Meeting", points: 25 },
     { name: "Club Service Offline", points: 25 },
+    { name: "Community Service", points: 25 },
+    { name: "Professional Development", points: 25 },
+    { name: "International Service", points: 25 },
     { name: "Rotary Event", points: 50 },
     { name: "DRC", points: 75 },
     { name: "Assembly", points: 100 },
-    { name: "Event Secretary", points: 50 },
+    { name: "Event Chair / Secretary", points: 50 },
     { name: "Active Bonus", points: 10 },
     { name: "Other Activity", points: 50 },
     { name: "Custom / Penalty", points: 0 },
   ];
 
-  // =========================================================
-  // Load members from Firestore
-  // =========================================================
+  // Live real-time members listener
   useEffect(() => {
-    const fetchMembers = async () => {
-      try {
-        const querySnapshot = await getDocs(collection(db, "users"));
-
-        const memberList = querySnapshot.docs.map((docSnap) => ({
+    const unsub = onSnapshot(
+      collection(db, "users"),
+      (snapshot) => {
+        const memberList = snapshot.docs.map((docSnap) => ({
           id: docSnap.id,
           ...docSnap.data(),
         }));
 
-        // Sort alphabetically
         memberList.sort((a, b) =>
           (a.name || "").localeCompare(b.name || "")
         );
 
         setMembers(memberList);
 
-        if (memberList.length > 0) {
+        if (memberList.length > 0 && !selectedMemberId) {
           setSelectedMemberId(memberList[0].id);
         }
-      } catch (error) {
+      },
+      (error) => {
         console.error("Error fetching members:", error);
         setStatusMessage({
           type: "error",
           text: "Unable to load members from Firestore.",
         });
       }
-    };
+    );
 
-    fetchMembers();
+    return () => unsub();
   }, []);
 
-  // =========================================================
-  // Category Change
-  // =========================================================
   const handleCategoryChange = (categoryName) => {
     setCategory(categoryName);
 
@@ -113,12 +108,8 @@ export default function AdminPoints() {
     }
   };
 
-  // =========================================================
-  // Award / Deduct Points
-  // =========================================================
   const handleSubmit = async (event) => {
     event.preventDefault();
-
     setStatusMessage({ type: "", text: "" });
 
     if (!selectedMemberId) {
@@ -165,18 +156,30 @@ export default function AdminPoints() {
 
       const batch = writeBatch(db);
 
-      // 1. Update user total points
+      // 1. Update user total points in Firestore
       const userRef = doc(db, "users", selectedMemberId);
       batch.update(userRef, {
         totalPoints: increment(finalPoints),
         lastPointUpdateAt: serverTimestamp(),
       });
 
-      // 2. Create point history
+      // 2. Add activity log entry so member Dashboard reflects it live
+      const activityRef = doc(collection(db, "activities"));
+      batch.set(activityRef, {
+        userId: selectedMemberId,
+        userName: selectedMember.name || "Member",
+        activityName: reason.trim(),
+        category: category,
+        points: finalPoints,
+        adminName: userData?.name || currentUser?.displayName || "Executive Board",
+        createdAt: serverTimestamp(),
+      });
+
+      // 3. Create point history ledger
       const pointHistoryRef = doc(collection(db, "points"));
       batch.set(pointHistoryRef, {
         userId: selectedMemberId,
-        memberName: selectedMember.name || "Unknown Member",
+        memberName: selectedMember.name || "Member",
         points: finalPoints,
         category: category,
         reason: reason.trim(),
@@ -187,60 +190,29 @@ export default function AdminPoints() {
         status: "Approved",
       });
 
-      // 3. Create audit log
-      const auditRef = doc(collection(db, "audit_logs"));
-      batch.set(auditRef, {
-        adminUid: currentUser?.uid || "",
-        adminName:
-          userData?.name || currentUser?.displayName || currentUser?.email || "Admin",
-        action:
-          actionType === "award"
-            ? "POINT_AWARD"
-            : "POINT_DEDUCTION",
-        targetUserId: selectedMemberId,
-        targetMemberName: selectedMember.name || "Unknown Member",
-        pointsChange: finalPoints,
-        category: category,
-        reason: reason.trim(),
-        timestamp: serverTimestamp(),
-      });
-
       await batch.commit();
-
-      // Update local member state
-      setMembers((previousMembers) =>
-        previousMembers.map((member) => {
-          if (member.id !== selectedMemberId) return member;
-          return {
-            ...member,
-            totalPoints: (member.totalPoints || 0) + finalPoints,
-          };
-        })
-      );
 
       setStatusMessage({
         type: "success",
         text:
           actionType === "award"
-            ? `Successfully awarded ${Math.abs(finalPoints)} points to ${selectedMember.name}.`
-            : `Successfully deducted ${Math.abs(finalPoints)} points from ${selectedMember.name}.`,
+            ? `Successfully awarded +${Math.abs(finalPoints)} points to ${selectedMember.name}.`
+            : `Successfully deducted -${Math.abs(finalPoints)} points from ${selectedMember.name}.`,
       });
 
       setReason("");
+      setTimeout(() => setStatusMessage({ type: "", text: "" }), 3500);
     } catch (error) {
       console.error("Error executing point transaction:", error);
       setStatusMessage({
         type: "error",
-        text: "Failed to process transaction. Check Firestore permissions and console.",
+        text: error.message || "Failed to process transaction.",
       });
     } finally {
       setLoading(false);
     }
   };
 
-  // =========================================================
-  // Super Admin: Delete Member & Related Data
-  // =========================================================
   const handleDeleteMember = async () => {
     if (!userToDelete || !isSuperAdmin) return;
 
@@ -248,10 +220,8 @@ export default function AdminPoints() {
     try {
       const memberId = userToDelete.id;
 
-      // 1. Delete user record
       await deleteDoc(doc(db, "users", memberId));
 
-      // 2. Cascade delete from activities
       const actQuery = query(
         collection(db, "activities"),
         where("userId", "==", memberId)
@@ -261,7 +231,6 @@ export default function AdminPoints() {
         deleteDoc(doc(db, "activities", docSnap.id))
       );
 
-      // 3. Cascade delete from point requests
       const reqQuery = query(
         collection(db, "pointRequests"),
         where("userId", "==", memberId)
@@ -273,13 +242,6 @@ export default function AdminPoints() {
 
       await Promise.all([...actDeletes, ...reqDeletes]);
 
-      // Update local UI state
-      const updatedMembers = members.filter((m) => m.id !== memberId);
-      setMembers(updatedMembers);
-      if (selectedMemberId === memberId) {
-        setSelectedMemberId(updatedMembers.length > 0 ? updatedMembers[0].id : "");
-      }
-
       setStatusMessage({
         type: "success",
         text: `Member ${userToDelete.name || userToDelete.email} was permanently deleted.`,
@@ -289,7 +251,7 @@ export default function AdminPoints() {
       console.error("Error deleting member:", error);
       setStatusMessage({
         type: "error",
-        text: "Failed to delete member. Check Firestore permissions.",
+        text: "Failed to delete member.",
       });
     } finally {
       setDeleteLoading(false);
@@ -303,7 +265,6 @@ export default function AdminPoints() {
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 p-4 sm:p-8">
       <div className="max-w-3xl mx-auto space-y-6">
-
         {/* HEADER */}
         <div className="flex items-center justify-between border-b border-slate-800 pb-4">
           <div className="flex items-center gap-3">
@@ -318,7 +279,7 @@ export default function AdminPoints() {
 
           <button
             onClick={() => navigate("/dashboard")}
-            className="flex items-center gap-2 px-3 py-2 rounded-lg bg-slate-900 border border-slate-800 text-slate-300 hover:bg-slate-800 transition-all text-sm"
+            className="flex items-center gap-2 px-3 py-2 rounded-lg bg-slate-900 border border-slate-800 text-slate-300 hover:bg-slate-800 transition-all text-sm cursor-pointer"
           >
             <ArrowLeft size={16} />
             Dashboard
@@ -351,12 +312,11 @@ export default function AdminPoints() {
                 Selected Member
               </p>
 
-              {/* DELETE BUTTON (SUPER ADMIN ONLY) */}
               {isSuperAdmin && (
                 <button
                   type="button"
                   onClick={() => setUserToDelete(selectedMember)}
-                  className="flex items-center gap-1.5 px-3 py-1 rounded-lg bg-red-500/10 text-red-400 border border-red-500/20 hover:bg-red-500/20 transition text-xs font-bold"
+                  className="flex items-center gap-1.5 px-3 py-1 rounded-lg bg-red-500/10 text-red-400 border border-red-500/20 hover:bg-red-500/20 transition text-xs font-bold cursor-pointer"
                   title="Permanently remove member"
                 >
                   <Trash2 size={13} />
@@ -400,7 +360,7 @@ export default function AdminPoints() {
               <button
                 type="button"
                 onClick={() => setActionType("award")}
-                className={`py-3 rounded-xl font-semibold text-sm flex items-center justify-center gap-2 border transition-all ${
+                className={`py-3 rounded-xl font-semibold text-sm flex items-center justify-center gap-2 border transition-all cursor-pointer ${
                   actionType === "award"
                     ? "bg-emerald-600 border-emerald-500 text-white shadow-lg shadow-emerald-600/20"
                     : "bg-slate-950 border-slate-800 text-slate-400 hover:bg-slate-800"
@@ -413,7 +373,7 @@ export default function AdminPoints() {
               <button
                 type="button"
                 onClick={() => setActionType("deduct")}
-                className={`py-3 rounded-xl font-semibold text-sm flex items-center justify-center gap-2 border transition-all ${
+                className={`py-3 rounded-xl font-semibold text-sm flex items-center justify-center gap-2 border transition-all cursor-pointer ${
                   actionType === "deduct"
                     ? "bg-rose-600 border-rose-500 text-white shadow-lg shadow-rose-600/20"
                     : "bg-slate-950 border-slate-800 text-slate-400 hover:bg-slate-800"
@@ -434,7 +394,7 @@ export default function AdminPoints() {
             <select
               value={selectedMemberId}
               onChange={(event) => setSelectedMemberId(event.target.value)}
-              className="w-full px-4 py-3 rounded-xl bg-slate-950 border border-slate-800 text-white focus:outline-none focus:border-rose-500 text-sm"
+              className="w-full px-4 py-3 rounded-xl bg-slate-950 border border-slate-800 text-white focus:outline-none focus:border-rose-500 text-sm cursor-pointer"
             >
               {members.length === 0 && (
                 <option value="">Loading members...</option>
@@ -458,7 +418,7 @@ export default function AdminPoints() {
               <select
                 value={category}
                 onChange={(event) => handleCategoryChange(event.target.value)}
-                className="w-full px-4 py-3 rounded-xl bg-slate-950 border border-slate-800 text-white focus:outline-none focus:border-rose-500 text-sm"
+                className="w-full px-4 py-3 rounded-xl bg-slate-950 border border-slate-800 text-white focus:outline-none focus:border-rose-500 text-sm cursor-pointer"
               >
                 {defaultCategories.map((item) => (
                   <option key={item.name} value={item.name}>
@@ -500,33 +460,11 @@ export default function AdminPoints() {
             />
           </div>
 
-          {/* PREVIEW */}
-          <div className="bg-slate-950 border border-slate-800 rounded-xl p-4">
-            <p className="text-xs text-slate-500 uppercase tracking-wider mb-2">
-              Transaction Preview
-            </p>
-
-            <div className="flex items-center justify-between">
-              <span className="text-sm text-slate-300">
-                {selectedMember?.name || "Member"}
-              </span>
-
-              <span
-                className={`font-bold ${
-                  actionType === "award" ? "text-emerald-400" : "text-rose-400"
-                }`}
-              >
-                {actionType === "award" ? "+" : "-"}
-                {Math.abs(Number(pointsAmount) || 0)} points
-              </span>
-            </div>
-          </div>
-
           {/* SUBMIT BUTTON */}
           <button
             type="submit"
             disabled={loading || members.length === 0}
-            className={`w-full py-3.5 rounded-xl font-bold text-sm shadow-lg transition-all flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed ${
+            className={`w-full py-3.5 rounded-xl font-bold text-sm shadow-lg transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed ${
               actionType === "award"
                 ? "bg-emerald-600 hover:bg-emerald-500 shadow-emerald-600/20 text-white"
                 : "bg-rose-600 hover:bg-rose-500 shadow-rose-600/20 text-white"
@@ -561,14 +499,14 @@ export default function AdminPoints() {
               <button
                 onClick={() => setUserToDelete(null)}
                 disabled={deleteLoading}
-                className="px-4 py-2.5 rounded-xl text-slate-400 hover:text-white transition text-sm"
+                className="px-4 py-2.5 rounded-xl text-slate-400 hover:text-white transition text-sm cursor-pointer"
               >
                 Cancel
               </button>
               <button
                 onClick={handleDeleteMember}
                 disabled={deleteLoading}
-                className="px-5 py-2.5 rounded-xl bg-red-600 hover:bg-red-500 text-white font-bold transition flex items-center gap-2 text-sm"
+                className="px-5 py-2.5 rounded-xl bg-red-600 hover:bg-red-500 text-white font-bold transition flex items-center gap-2 text-sm cursor-pointer"
               >
                 {deleteLoading ? (
                   <>
