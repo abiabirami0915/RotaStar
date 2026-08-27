@@ -22,6 +22,8 @@ import { AuthProvider, useAuth } from "./AuthContext";
 import Login from "./pages/Login";
 import Dashboard from "./pages/Dashboard";
 import Profile from "./pages/Profile";
+import AdminPoints from "./pages/AdminPoints";
+import AdminPointRequests from "./pages/AdminPointRequests";
 
 import {
   User,
@@ -59,7 +61,7 @@ import {
   Trash2,
 } from "lucide-react";
 
-// RAC PSVPEC ROLES LIST (With Green Rotaractor Added)
+// RAC PSVPEC ROLES LIST
 const CLUB_ROLES = [
   "General Member",
   "Green Rotaractor",
@@ -597,7 +599,7 @@ function EventIdeasPage() {
 
       <main className="max-w-5xl mx-auto px-6 py-8">
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          {/* STREAMLINED PROPOSAL FORM */}
+          {/* PROPOSAL FORM */}
           <div className="bg-slate-900/90 border border-amber-500/30 rounded-3xl p-6 sm:p-7 shadow-2xl h-fit">
             <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-500/10 border border-amber-500/30 text-amber-400 text-xs font-bold uppercase tracking-wider mb-2">
               <Sparkles size={12} />
@@ -1007,7 +1009,7 @@ function EventIdeasPage() {
 }
 
 // ==========================================
-// 3. CALENDAR & EVENTS (WITH READ MORE & MODAL)
+// 3. CALENDAR & EVENTS
 // ==========================================
 function EventsPage() {
   const navigate = useNavigate();
@@ -1344,14 +1346,18 @@ function RequestPointsPage() {
       await addDoc(collection(db, "pointRequests"), {
         userId: currentUser?.uid,
         userName: userData?.name || currentUser?.displayName || "Member",
+        memberName: userData?.name || currentUser?.displayName || "Member",
         userRole: userData?.role || "General Member",
         activityName: activityName.trim(),
         category,
+        points: Number(pointsRequested),
         pointsRequested: Number(pointsRequested),
         proofUrl: proofUrl.trim(),
+        reason: description.trim(),
         description: description.trim(),
         status: "pending",
         createdAt: serverTimestamp(),
+        requestedAt: serverTimestamp(),
       });
 
       setSubmitted(true);
@@ -1645,7 +1651,7 @@ export default function App() {
           }
         />
 
-        {/* Live Functional Feature Hubs */}
+        {/* Functional Feature Hubs */}
         <Route
           path="/event-ideas"
           element={
@@ -1687,12 +1693,12 @@ export default function App() {
           }
         />
 
-        {/* Executive Backing Area */}
+        {/* 🛠️ FIXED: ADMIN ROUTES DIRECT TO PROPER COMPONENTS */}
         <Route
           path="/admin"
           element={
             <AdminRoute>
-              <LeaderboardPage />
+              <AdminPoints />
             </AdminRoute>
           }
         />
@@ -1700,7 +1706,7 @@ export default function App() {
           path="/admin/requests"
           element={
             <AdminRoute>
-              <RequestPointsPage />
+              <AdminPointRequests />
             </AdminRoute>
           }
         />

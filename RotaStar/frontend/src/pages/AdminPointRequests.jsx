@@ -5,6 +5,7 @@ import {
   query,
   doc,
   runTransaction,
+  deleteDoc,
   serverTimestamp,
 } from "firebase/firestore";
 import { db } from "../firebase/firebase";
@@ -15,7 +16,9 @@ import {
   Clock,
   ArrowLeft,
   ExternalLink,
+  Trash2,
   Loader2,
+  FileCheck2,
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
@@ -26,6 +29,7 @@ export default function AdminPointRequests() {
   const [requests, setRequests] = useState([]);
   const [loading, setLoading] = useState(true);
   const [processingId, setProcessingId] = useState(null);
+  const [filter, setFilter] = useState("pending");
   const [points, setPoints] = useState({});
 
   useEffect(() => {
@@ -34,13 +38,12 @@ export default function AdminPointRequests() {
     const unsubscribe = onSnapshot(
       requestsQuery,
       (snapshot) => {
-        const requestsList = snapshot.docs
-          .map((requestDoc) => ({
-            id: requestDoc.id,
-            ...requestDoc.data(),
-          }))
-          .filter((req) => (req.status || "pending") === "pending");
+        const requestsList = snapshot.docs.map((requestDoc) => ({
+          id: requestDoc.id,
+          ...requestDoc.data(),
+        }));
 
+        // Sort by submission date (newest first)
         requestsList.sort((a, b) => {
           const timeA =
             a.createdAt?.toMillis?.() ||
@@ -53,7 +56,7 @@ export default function AdminPointRequests() {
           return timeB - timeA;
         });
 
-        // Auto-populate points state with the member's requested points
+        // Pre-fill points input with member's requested amount
         const initialPoints = {};
         requestsList.forEach((req) => {
           initialPoints[req.id] = req.pointsRequested || req.points || 25;
@@ -77,12 +80,12 @@ export default function AdminPointRequests() {
     const enteredPoints = Number(rawValue);
 
     if (!enteredPoints || enteredPoints <= 0) {
-      alert("Please enter a valid number of points.");
+      alert("Please enter a valid positive number of points.");
       return;
     }
 
     if (!currentUser) {
-      alert("You are not logged in.");
+      alert("You must be logged in as an Admin to approve.");
       return;
     }
 
@@ -102,24 +105,24 @@ export default function AdminPointRequests() {
         }
 
         if (!userSnapshot.exists()) {
-          throw new Error("The member account could not be found.");
+          throw new Error("Target member profile was not found.");
         }
 
         const requestData = requestSnapshot.data();
         if (requestData.status === "approved") {
-          throw new Error("This request has already been processed.");
+          throw new Error("This request has already been approved.");
         }
 
         const currentPoints = Number(userSnapshot.data().totalPoints) || 0;
         const newTotalPoints = currentPoints + enteredPoints;
 
-        // 1. Update member points balance
+        // 1. Credit member totalPoints
         transaction.update(userRef, {
           totalPoints: newTotalPoints,
           lastPointUpdateAt: serverTimestamp(),
         });
 
-        // 2. Mark request approved
+        // 2. Mark request as approved
         transaction.update(requestRef, {
           status: "approved",
           pointsAwarded: enteredPoints,
@@ -127,7 +130,7 @@ export default function AdminPointRequests() {
           reviewedAt: serverTimestamp(),
         });
 
-        // 3. Log activity entry for Member Dashboard Recent Activity
+        // 3. Write into activities collection for real-time member dashboard sync
         transaction.set(activityRef, {
           userId: request.userId,
           userName: request.userName || request.memberName || "Member",
@@ -141,7 +144,7 @@ export default function AdminPointRequests() {
         });
       });
 
-      alert(`${enteredPoints} points successfully awarded to ${request.userName || request.memberName || "Member"}.`);
+      alert(`✅ ${enteredPoints} points successfully awarded to ${request.userName || request.memberName || "Member"}!`);
 
       setPoints((prev) => {
         const updated = { ...prev };
@@ -150,15 +153,15 @@ export default function AdminPointRequests() {
       });
     } catch (error) {
       console.error("Error approving request:", error);
-      alert(error.message || "Unable to approve this request.");
+      alert(error.message || "Failed to approve request.");
     } finally {
       setProcessingId(null);
     }
   };
 
   const rejectRequest = async (request) => {
-    const memberDisplayName = request.userName || request.memberName || "this member";
-    if (!window.confirm(`Are you sure you want to reject the request from ${memberDisplayName}?`)) {
+    const memberName = request.userName || request.memberName || "this member";
+    if (!window.confirm(`Reject point claim from ${memberName}?`)) {
       return;
     }
 
@@ -186,12 +189,21 @@ export default function AdminPointRequests() {
         });
       });
 
-      alert("Point request rejected.");
+      alert("Point request marked as rejected.");
     } catch (error) {
       console.error("Error rejecting request:", error);
-      alert(error.message || "Unable to reject this request.");
+      alert(error.message || "Failed to reject request.");
     } finally {
       setProcessingId(null);
+    }
+  };
+
+  const deleteRequestRecord = async (requestId) => {
+    if (!window.confirm("Permanently delete this claim record?")) return;
+    try {
+      await deleteDoc(doc(db, "pointRequests", requestId));
+    } catch (err) {
+      console.error("Delete error:", err);
     }
   };
 
@@ -206,64 +218,85 @@ export default function AdminPointRequests() {
     return new Date(timestamp).toLocaleDateString();
   };
 
+  const filteredRequests = requests.filter((r) => {
+    if (filter === "all") return true;
+    return (r.status || "pending") === filter;
+  });
+
   return (
-    <div className="min-h-screen bg-slate-950 text-white">
+    <div className="min-h-screen bg-[#030014] text-white">
       {/* NAVBAR */}
-      <nav className="border-b border-slate-800 bg-slate-900/80 backdrop-blur-md sticky top-0 z-50">
-        <div className="max-w-6xl mx-auto px-6 h-16 flex items-center justify-between">
+      <nav className="border-b border-violet-900/40 bg-slate-950/80 backdrop-blur-md sticky top-0 z-50">
+        <div className="max-w-6xl mx-auto px-6 h-20 flex items-center justify-between">
           <button
             onClick={() => navigate("/dashboard")}
-            className="flex items-center gap-2 text-slate-400 hover:text-white transition-colors cursor-pointer"
+            className="flex items-center gap-2 text-xs font-bold text-slate-400 hover:text-amber-400 transition cursor-pointer"
           >
-            <ArrowLeft size={18} />
+            <ArrowLeft size={16} />
             <span>Back to Dashboard</span>
           </button>
-
-          <div className="text-xl font-black tracking-tight">
-            <span className="text-rose-500">Rota</span>
-            <span className="text-white">Star</span>
+          <div className="flex items-center gap-1.5 font-black text-lg">
+            <FileCheck2 size={18} className="text-amber-400" />
+            <span className="text-white">Point Claim</span>
+            <span className="text-amber-400">Verification Desk</span>
           </div>
         </div>
       </nav>
 
-      {/* MAIN */}
-      <main className="max-w-6xl mx-auto px-6 py-10">
-        <div className="mb-8">
-          <div className="flex items-center gap-3 mb-2">
-            <div className="w-10 h-10 rounded-xl bg-rose-500/10 border border-rose-500/20 flex items-center justify-center">
-              <Clock size={20} className="text-rose-400" />
+      <main className="max-w-6xl mx-auto px-6 py-8">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">
+          <div>
+            <div className="flex items-center gap-2 mb-1">
+              <span className="text-xs font-extrabold uppercase tracking-widest text-amber-400 bg-amber-500/10 px-2.5 py-0.5 rounded-full border border-amber-500/20">
+                Admin Control
+              </span>
             </div>
-            <span className="text-xs font-bold uppercase tracking-widest text-rose-400">
-              Admin Control
-            </span>
+            <h1 className="text-2xl sm:text-3xl font-black text-white">Review Member Claims</h1>
+            <p className="text-xs text-slate-400 mt-1">Verify submitted attendance proof and credit merit points</p>
           </div>
 
-          <h1 className="text-3xl sm:text-4xl font-extrabold">Point Requests</h1>
-          <p className="text-slate-400 mt-2">Review member activities and award points.</p>
+          {/* FILTER TABS */}
+          <div className="flex items-center gap-1 bg-slate-900 p-1 rounded-2xl border border-violet-900/40">
+            {["pending", "approved", "rejected", "all"].map((f) => (
+              <button
+                key={f}
+                onClick={() => setFilter(f)}
+                className={`px-3.5 py-1.5 rounded-xl text-xs font-bold capitalize transition cursor-pointer ${
+                  filter === f
+                    ? "bg-amber-500 text-slate-950 font-black shadow-md"
+                    : "text-slate-400 hover:text-white"
+                }`}
+              >
+                {f}
+              </button>
+            ))}
+          </div>
         </div>
 
         {/* LOADING */}
         {loading && (
-          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-12 text-center flex items-center justify-center gap-2">
-            <Loader2 size={20} className="animate-spin text-rose-500" />
-            <div className="text-slate-400">Loading point requests...</div>
+          <div className="bg-slate-900/60 border border-violet-900/40 rounded-3xl p-12 text-center text-slate-400 flex items-center justify-center gap-2">
+            <Loader2 size={20} className="animate-spin text-amber-400" />
+            <span>Loading point requests...</span>
           </div>
         )}
 
         {/* EMPTY */}
-        {!loading && requests.length === 0 && (
-          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-12 text-center">
-            <CheckCircle size={48} className="mx-auto mb-4 text-emerald-500" />
-            <h2 className="text-xl font-bold text-white">No Pending Requests</h2>
-            <p className="text-slate-500 mt-2">All point requests have been processed.</p>
+        {!loading && filteredRequests.length === 0 && (
+          <div className="bg-slate-900/60 border border-violet-900/40 rounded-3xl p-12 text-center">
+            <CheckCircle size={40} className="mx-auto mb-3 text-emerald-400" />
+            <h2 className="text-lg font-bold text-white">No {filter !== "all" ? filter : ""} requests found</h2>
+            <p className="text-xs text-slate-500 mt-1">All member claims are up to date.</p>
           </div>
         )}
 
-        {/* REQUEST LIST */}
-        {!loading && requests.length > 0 && (
-          <div className="space-y-5">
-            {requests.map((request) => {
+        {/* REQUESTS LIST */}
+        {!loading && filteredRequests.length > 0 && (
+          <div className="space-y-4">
+            {filteredRequests.map((request) => {
               const isProcessing = processingId === request.id;
+              const isPending = (request.status || "pending") === "pending";
+              const isApproved = request.status === "approved";
               const displayName = request.userName || request.memberName || "Member";
               const displayEmail = request.userEmail || request.memberEmail || "";
               const displayDate = request.createdAt || request.requestedAt;
@@ -271,103 +304,118 @@ export default function AdminPointRequests() {
               return (
                 <div
                   key={request.id}
-                  className="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-xl"
+                  className="bg-slate-900/90 border border-violet-900/40 rounded-3xl p-6 shadow-xl flex flex-col lg:flex-row lg:items-start lg:justify-between gap-6"
                 >
-                  <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-8">
-                    <div className="flex-1">
-                      <div className="mb-4 flex items-center gap-2">
-                        <span className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-amber-500/10 border border-amber-500/20 text-amber-400 text-xs font-bold">
-                          <Clock size={14} />
-                          PENDING
+                  <div className="flex-1">
+                    <div className="flex items-center gap-2 mb-2">
+                      <span
+                        className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider border ${
+                          isApproved
+                            ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-300"
+                            : request.status === "rejected"
+                            ? "bg-rose-500/10 border-rose-500/30 text-rose-300"
+                            : "bg-amber-500/10 border-amber-500/30 text-amber-400"
+                        }`}
+                      >
+                        <Clock size={11} />
+                        {request.status || "pending"}
+                      </span>
+
+                      {request.category && (
+                        <span className="text-[10px] font-bold text-violet-300 bg-violet-500/10 border border-violet-500/20 px-2 py-0.5 rounded-full">
+                          {request.category}
                         </span>
-
-                        {request.category && (
-                          <span className="px-3 py-1 rounded-full bg-violet-500/10 border border-violet-500/20 text-violet-300 text-xs font-bold">
-                            {request.category}
-                          </span>
-                        )}
-                      </div>
-
-                      <h2 className="text-2xl font-bold text-white">{request.activityName}</h2>
-
-                      <div className="mt-4">
-                        <p className="text-sm text-slate-400">Requested by</p>
-                        <p className="text-lg font-semibold text-white">{displayName}</p>
-                        {displayEmail && (
-                          <p className="text-sm text-slate-500">{displayEmail}</p>
-                        )}
-                      </div>
-
-                      {(request.reason || request.description) && (
-                        <div className="mt-5 p-4 rounded-xl bg-slate-950 border border-slate-800">
-                          <p className="text-xs font-bold uppercase tracking-wider text-slate-500 mb-2">
-                            Member's Description / Reason
-                          </p>
-                          <p className="text-slate-300 leading-relaxed text-sm">
-                            {request.reason || request.description}
-                          </p>
-                        </div>
                       )}
-
-                      {request.proofUrl && (
-                        <a
-                          href={request.proofUrl}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="inline-flex items-center gap-1.5 text-xs text-amber-400 hover:underline mt-4 font-bold"
-                        >
-                          <span>View Proof / Evidence Link</span>
-                          <ExternalLink size={13} />
-                        </a>
-                      )}
-
-                      <p className="text-xs text-slate-600 mt-4">
-                        Submitted: {formatDate(displayDate)}
-                      </p>
                     </div>
 
-                    <div className="w-full lg:w-80 shrink-0">
-                      <div className="p-5 rounded-2xl bg-slate-950 border border-slate-800">
-                        <p className="text-sm font-bold text-white mb-4">Award Points</p>
+                    <h2 className="text-xl font-extrabold text-white">{request.activityName}</h2>
 
-                        <label className="block text-xs font-semibold text-slate-400 mb-2">
-                          Points to award
-                        </label>
+                    <div className="mt-2 text-xs text-slate-300">
+                      <span>Submitted by: </span>
+                      <strong className="text-white">{displayName}</strong>
+                      {displayEmail && <span className="text-slate-500"> ({displayEmail})</span>}
+                    </div>
 
-                        <input
-                          type="number"
-                          min="1"
-                          step="1"
-                          placeholder="Example: 50"
-                          value={points[request.id] ?? ""}
-                          onChange={(e) =>
-                            setPoints({
-                              ...points,
-                              [request.id]: e.target.value,
-                            })
-                          }
-                          disabled={isProcessing}
-                          className="w-full px-4 py-3 bg-slate-900 border border-slate-700 rounded-xl text-white placeholder-slate-600 outline-none focus:border-rose-500 disabled:opacity-50 font-bold"
-                        />
-
-                        <button
-                          onClick={() => approveRequest(request)}
-                          disabled={isProcessing}
-                          className="w-full mt-4 py-3 rounded-xl bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 disabled:cursor-not-allowed font-bold flex items-center justify-center gap-2 transition-colors cursor-pointer"
-                        >
-                          <CheckCircle size={18} />
-                          {isProcessing ? "Processing..." : "Approve & Award Points"}
-                        </button>
-
-                        <button
-                          onClick={() => rejectRequest(request)}
-                          disabled={isProcessing}
-                          className="w-full mt-3 py-3 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 hover:bg-red-500/20 disabled:opacity-50 disabled:cursor-not-allowed font-bold flex items-center justify-center gap-2 transition-colors cursor-pointer"
-                        >
-                          <XCircle size={18} />
-                          Reject Request
-                        </button>
+                    {(request.reason || request.description) && (
+                      <div className="mt-3 p-3 rounded-2xl bg-slate-950/80 border border-violet-950 text-xs text-slate-300 leading-relaxed">
+                        {request.reason || request.description}
                       </div>
+                    )}
+
+                    {request.proofUrl && (
+                      <a
+                        href={request.proofUrl}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="inline-flex items-center gap-1 text-xs text-amber-400 hover:text-amber-300 font-bold mt-3"
+                      >
+                        <span>View Evidence / Proof Link</span>
+                        <ExternalLink size={12} />
+                      </a>
+                    )}
+
+                    <p className="text-[11px] text-slate-500 mt-3">
+                      Submitted: {formatDate(displayDate)}
+                    </p>
+                  </div>
+
+                  {/* ACTION CONTROLS */}
+                  <div className="w-full lg:w-72 bg-slate-950/80 p-4 rounded-2xl border border-violet-900/40 flex flex-col justify-between shrink-0">
+                    <div>
+                      <label className="block text-xs font-bold text-violet-300 uppercase tracking-wider mb-1">
+                        Points to Award
+                      </label>
+                      <input
+                        type="number"
+                        min="1"
+                        step="1"
+                        disabled={!isPending || isProcessing}
+                        value={points[request.id] ?? ""}
+                        onChange={(e) =>
+                          setPoints({
+                            ...points,
+                            [request.id]: e.target.value,
+                          })
+                        }
+                        className="w-full px-3.5 py-2 bg-slate-900 border border-violet-900/50 rounded-xl text-white font-bold text-sm outline-none focus:border-amber-400 disabled:opacity-50"
+                      />
+                    </div>
+
+                    <div className="mt-4 space-y-2">
+                      {isPending ? (
+                        <>
+                          <button
+                            onClick={() => approveRequest(request)}
+                            disabled={isProcessing}
+                            className="w-full py-2.5 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-400 hover:opacity-90 text-slate-950 font-black text-xs flex items-center justify-center gap-1.5 transition cursor-pointer disabled:opacity-50"
+                          >
+                            <CheckCircle size={15} />
+                            <span>{isProcessing ? "Processing..." : "Approve & Credit Points"}</span>
+                          </button>
+
+                          <button
+                            onClick={() => rejectRequest(request)}
+                            disabled={isProcessing}
+                            className="w-full py-2.5 rounded-xl bg-rose-500/15 hover:bg-rose-500/25 border border-rose-500/30 text-rose-300 font-bold text-xs flex items-center justify-center gap-1.5 transition cursor-pointer disabled:opacity-50"
+                          >
+                            <XCircle size={15} />
+                            <span>Reject Request</span>
+                          </button>
+                        </>
+                      ) : (
+                        <div className="flex items-center justify-between pt-1">
+                          <span className="text-xs text-slate-400 font-medium">
+                            Awarded: <strong className="text-amber-400 font-bold">{request.pointsAwarded || 0} pts</strong>
+                          </span>
+                          <button
+                            onClick={() => deleteRequestRecord(request.id)}
+                            className="p-1.5 rounded-lg text-slate-500 hover:text-rose-400 transition cursor-pointer"
+                            title="Delete log"
+                          >
+                            <Trash2 size={14} />
+                          </button>
+                        </div>
+                      )}
                     </div>
                   </div>
                 </div>
