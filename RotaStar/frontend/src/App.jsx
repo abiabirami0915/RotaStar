@@ -1245,7 +1245,7 @@ function EventsPage() {
 }
 
 // ==========================================
-// 4. LEADERBOARD COMPONENT
+// 4. 🌟 LEADERBOARD COMPONENT (WITH PROFILE AVATARS)
 // ==========================================
 function LeaderboardPage() {
   const navigate = useNavigate();
@@ -1285,40 +1285,63 @@ function LeaderboardPage() {
           <h2 className="text-xl font-black text-white mb-1">Rotaract Star Leaderboard</h2>
           <p className="text-xs text-slate-400 mb-6">Top performing champions across all avenues of service</p>
 
-          <div className="divide-y divide-violet-950">
+          <div className="divide-y divide-violet-950/80">
             {users.map((u, index) => {
               const isMe = u.id === currentUser?.uid;
               return (
                 <div
                   key={u.id}
                   className={`py-3.5 px-4 rounded-2xl flex items-center justify-between transition ${
-                    isMe ? "bg-amber-500/10 border border-amber-500/30" : "hover:bg-slate-950/60"
+                    isMe
+                      ? "bg-amber-500/10 border border-amber-500/30 shadow-lg shadow-amber-500/5"
+                      : "hover:bg-slate-950/60"
                   }`}
                 >
-                  <div className="flex items-center gap-3.5">
+                  <div className="flex items-center gap-3.5 sm:gap-4">
+                    {/* RANK POSITION */}
                     <span
-                      className={`w-7 text-center font-black text-sm ${
+                      className={`w-7 text-center font-black text-sm shrink-0 ${
                         index === 0
-                          ? "text-amber-400"
+                          ? "text-amber-400 text-base drop-shadow-[0_0_8px_rgba(251,191,36,0.6)]"
                           : index === 1
-                          ? "text-slate-300"
+                          ? "text-slate-300 text-base"
                           : index === 2
-                          ? "text-amber-600"
+                          ? "text-amber-600 text-base"
                           : "text-slate-500"
                       }`}
                     >
                       #{index + 1}
                     </span>
+
+                    {/* 👤 MEMBER PROFILE AVATAR */}
+                    <div className="w-11 h-11 rounded-2xl overflow-hidden border border-amber-500/30 bg-slate-950 flex items-center justify-center shrink-0 shadow-md">
+                      {u.photoURL ? (
+                        <img src={u.photoURL} alt={u.name} className="w-full h-full object-cover" />
+                      ) : (
+                        <User size={20} className="text-amber-400" />
+                      )}
+                    </div>
+
+                    {/* MEMBER DETAILS */}
                     <div>
                       <p className="font-extrabold text-sm text-white flex items-center gap-2">
                         <span>{u.name || "Member"}</span>
-                        {isMe && <span className="text-[10px] bg-amber-400 text-slate-950 font-bold px-1.5 py-0.2 rounded">YOU</span>}
+                        {isMe && (
+                          <span className="text-[10px] bg-amber-400 text-slate-950 font-black px-1.5 py-0.2 rounded uppercase tracking-wider">
+                            YOU
+                          </span>
+                        )}
                       </p>
-                      <p className="text-[11px] text-slate-400">{u.role || "General Member"}</p>
+                      <p className="text-[11px] text-slate-400">
+                        {u.role || "General Member"} {u.department ? `• ${u.department}` : ""}
+                      </p>
                     </div>
                   </div>
 
-                  <span className="font-black text-base text-amber-400">{u.totalPoints || 0} pts</span>
+                  {/* POINTS BADGE */}
+                  <span className="font-black text-base text-amber-400 shrink-0 ml-3">
+                    {u.totalPoints || 0} pts
+                  </span>
                 </div>
               );
             })}
