@@ -835,7 +835,7 @@ export default function Dashboard() {
 
               <div className="flex flex-col items-center sm:items-end gap-2 shrink-0">
                 <div className="px-5 py-3 rounded-2xl bg-slate-950/80 border border-amber-500/30 text-center">
-                  <span className="text-[10px] uppercase font-bold text-slate-400">Monthly Contribution</span>
+                  <span className="text-[10px] uppercase font-bold text-slate-400 block">Monthly Contribution</span>
                   <p className="text-2xl font-black text-amber-400">{starRotaractor.points || starRotaractor.totalPoints || 0} pts</p>
                 </div>
                 <span className="text-[10px] text-amber-400/80 font-semibold">#1 Ranked Champion</span>
@@ -927,7 +927,7 @@ export default function Dashboard() {
           </button>
         </div>
 
-        {/* 🌟 INSTITUTIONAL SHOWCASE (FULL CONTENT RESTORED) */}
+        {/* 🌟 INSTITUTIONAL SHOWCASE */}
         <section className="mb-8">
           <div className="flex items-center justify-between mb-4">
             <div>
@@ -1241,7 +1241,7 @@ export default function Dashboard() {
           </section>
         )}
 
-        {/* RECENT POINT ACTIVITY */}
+        {/* 🌟 3. RECENT POINT ACTIVITY (WITH REASONS & CATEGORIES) */}
         <section className="bg-slate-900/90 border border-violet-900/40 rounded-3xl p-6 shadow-xl mb-8">
           <h2 className="font-extrabold text-base mb-4 text-white flex items-center gap-2">
             <Sparkles size={16} className="text-amber-400" />
@@ -1253,14 +1253,41 @@ export default function Dashboard() {
           ) : (
             <div className="divide-y divide-violet-950/80">
               {recentActivities.map((act) => (
-                <div key={act.id} className="py-3 flex items-center justify-between text-sm">
-                  <div>
-                    <p className="font-semibold text-white">{act.activityName || "Activity"}</p>
-                    <p className="text-xs text-slate-500">
-                      {act.createdAt?.toDate ? act.createdAt.toDate().toLocaleDateString() : "Recent"}
+                <div key={act.id} className="py-3.5 flex items-start justify-between text-sm gap-4">
+                  <div className="space-y-1">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <p className="font-extrabold text-white text-sm">{act.activityName || "Activity"}</p>
+                      {act.category && (
+                        <span className="text-[10px] font-bold text-violet-300 bg-violet-500/15 border border-violet-500/30 px-2 py-0.5 rounded-md">
+                          {act.category}
+                        </span>
+                      )}
+                    </div>
+
+                    {/* REASON / REMARKS DISPLAY */}
+                    {act.reason && (
+                      <p className="text-xs text-amber-300/90 leading-relaxed font-medium bg-slate-950/60 p-2 rounded-xl border border-violet-950">
+                        <strong className="text-slate-400">Reason:</strong> {act.reason}
+                      </p>
+                    )}
+
+                    <p className="text-[11px] text-slate-500">
+                      {act.createdAt?.toDate ? act.createdAt.toDate().toLocaleDateString(undefined, {
+                        month: "short",
+                        day: "numeric",
+                        year: "numeric"
+                      }) : "Recent"}
+                      {act.adminName && ` • Verified by ${act.adminName}`}
                     </p>
                   </div>
-                  <span className={`font-bold ${(act.points || 0) >= 0 ? "text-amber-400" : "text-rose-400"}`}>
+
+                  <span
+                    className={`font-black text-sm px-3 py-1 rounded-xl shrink-0 ${
+                      (act.points || 0) >= 0
+                        ? "bg-emerald-500/15 border border-emerald-500/30 text-emerald-400"
+                        : "bg-rose-500/15 border border-rose-500/30 text-rose-400"
+                    }`}
+                  >
                     {(act.points || 0) >= 0 ? `+${act.points}` : act.points} pts
                   </span>
                 </div>
