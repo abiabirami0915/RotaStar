@@ -1,147 +1,139 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { doc, updateDoc, onSnapshot } from "firebase/firestore";
 import { updateProfile } from "firebase/auth";
 import { db, auth } from "../firebase/firebase";
 import { useAuth } from "../AuthContext";
 import {
-  User,
-  Phone,
-  GraduationCap,
-  Sparkles,
   ArrowLeft,
+  User,
+  Mail,
+  Briefcase,
+  GraduationCap,
+  Phone,
   CheckCircle2,
   AlertCircle,
   Loader2,
+  Save,
+  Trophy,
+  Calendar,
+  Sparkles,
   Camera,
-  Upload,
 } from "lucide-react";
+
+// Official RAC PSVPEC Roles (Including Green Rotaractor)
+const CLUB_ROLES = [
+  "General Member",
+  "Green Rotaractor",
+  "President",
+  "Secretary",
+  "Vice President",
+  "Joint Secretary",
+  "Sergeant-at-Arms",
+  "Treasurer",
+  "Associate Secretary",
+  "Associate Sergeant-at-Arms",
+  "Club Service Director",
+  "Community Service Director",
+  "Professional Service Director",
+  "International Service Director",
+  "Associate Club Service Director",
+  "Associate Community Service Director",
+  "Associate Professional Service Director",
+  "Associate International Service Director",
+  "Creative Head",
+  "Creative Team Member",
+  "Editorial Board Head",
+  "Membership Chairman",
+  "Foundation Chairman",
+  "Employment Cell",
+  "Blood Donation Head",
+  "PRO Head",
+];
 
 export default function Profile() {
   const navigate = useNavigate();
   const { currentUser } = useAuth();
-  const fileInputRef = useRef(null);
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [successMsg, setSuccessMsg] = useState(false);
-  const [errorMsg, setErrorMsg] = useState("");
+  const [statusMessage, setStatusMessage] = useState({ type: "", text: "" });
 
+  // Profile Form States
   const [name, setName] = useState("");
   const [username, setUsername] = useState("");
+  const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
   const [department, setDepartment] = useState("");
   const [yearOfStudy, setYearOfStudy] = useState("1st Year");
-  const [currentRole, setCurrentRole] = useState("General Member");
+  const [role, setRole] = useState("General Member");
   const [photoURL, setPhotoURL] = useState("");
+  const [totalPoints, setTotalPoints] = useState(0);
 
+  // Sync profile data directly from Firestore
   useEffect(() => {
-    if (!currentUser) return;
-    const unsub = onSnapshot(doc(db, "users", currentUser.uid), (docSnap) => {
-      if (docSnap.exists()) {
-        const data = docSnap.data();
+    if (!currentUser?.uid) return;
+
+    const userDocRef = doc(db, "users", currentUser.uid);
+    const unsubscribe = onSnapshot(userDocRef, (snapshot) => {
+      if (snapshot.exists()) {
+        const data = snapshot.data();
         setName(data.name || currentUser.displayName || "");
         setUsername(data.username || "");
+        setEmail(data.email || currentUser.email || "");
         setPhone(data.phone || "");
         setDepartment(data.department || "");
         setYearOfStudy(data.yearOfStudy || "1st Year");
-        setCurrentRole(data.role || "General Member");
+        setRole(data.role || "General Member");
         setPhotoURL(data.photoURL || currentUser.photoURL || "");
+        setTotalPoints(data.totalPoints || 0);
       }
       setLoading(false);
     });
 
-    return () => unsub();
+    return () => unsubscribe();
   }, [currentUser]);
-
-  // Client-side image compression using HTML5 Canvas (<60KB for Firestore)
-  const compressImage = (file) => {
-    return new Promise((resolve) => {
-      const reader = new FileReader();
-      reader.readAsDataURL(file);
-      reader.onload = (event) => {
-        const img = new Image();
-        img.src = event.target.result;
-        img.onload = () => {
-          const canvas = document.createElement("canvas");
-          const MAX_WIDTH = 250;
-          const MAX_HEIGHT = 250;
-          let width = img.width;
-          let height = img.height;
-
-          if (width > height) {
-            if (width > MAX_WIDTH) {
-              height *= MAX_WIDTH / width;
-              width = MAX_WIDTH;
-            }
-          } else {
-            if (height > MAX_HEIGHT) {
-              width *= MAX_HEIGHT / height;
-              height = MAX_HEIGHT;
-            }
-          }
-
-          canvas.width = width;
-          canvas.height = height;
-          const ctx = canvas.getContext("2d");
-          ctx.drawImage(img, 0, 0, width, height);
-
-          // Compress as JPEG at 70% quality
-          const dataUrl = canvas.toDataURL("image/jpeg", 0.7);
-          resolve(dataUrl);
-        };
-      };
-    });
-  };
-
-  const handleImageFileChange = async (e) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    try {
-      const compressedDataUrl = await compressImage(file);
-      setPhotoURL(compressedDataUrl);
-      setErrorMsg("");
-    } catch (err) {
-      console.error("Compression error:", err);
-      setErrorMsg("Could not process image file. Please try a different photo.");
-    }
-  };
 
   const handleUpdateProfile = async (e) => {
     e.preventDefault();
-    if (!currentUser) return;
+    if (!currentUser?.uid) return;
 
     setSaving(true);
-    setErrorMsg("");
-    setSuccessMsg(false);
+    setStatusMessage({ type: "", text: "" });
 
     try {
-      const cleanUsername = username
-        ? username.trim().toLowerCase().replace(/[^a-z0-9_]/g, "")
-        : "";
+      // 1. Update Auth display name & photo if changed
+      await updateProfile(auth.currentUser, {
+        displayName: name.trim(),
+        photoURL: photoURL.trim(),
+      });
 
-      const userRef = doc(db, "users", currentUser.uid);
-      await updateDoc(userRef, {
+      // 2. Update Firestore User Document
+      const userDocRef = doc(db, "users", currentUser.uid);
+      await updateDoc(userDocRef, {
         name: name.trim(),
-        username: cleanUsername,
+        username: username.trim().toLowerCase().replace(/[^a-z0-9_]/g, ""),
         phone: phone.trim(),
         department: department.trim(),
         yearOfStudy: yearOfStudy,
-        photoURL: photoURL || "",
+        role: role,
+        photoURL: photoURL.trim(),
       });
 
-      if (auth.currentUser) {
-        await updateProfile(auth.currentUser, {
-          displayName: name.trim(),
-        });
-      }
+      setStatusMessage({
+        type: "success",
+        text: "Your profile and club role have been updated successfully!",
+      });
 
-      setSuccessMsg(true);
-      setTimeout(() => setSuccessMsg(false), 3000);
+      setTimeout(() => {
+        setStatusMessage({ type: "", text: "" });
+      }, 4000);
     } catch (err) {
       console.error("Profile update error:", err);
-      setErrorMsg(err.message || "Failed to update profile. Please try again.");
+      setStatusMessage({
+        type: "error",
+        text: err.message || "Failed to update profile.",
+      });
     } finally {
       setSaving(false);
     }
@@ -151,15 +143,16 @@ export default function Profile() {
     return (
       <div className="min-h-screen bg-[#030014] flex items-center justify-center text-amber-400 font-bold text-sm">
         <Loader2 size={24} className="animate-spin mr-2" />
-        Loading profile...
+        Loading Profile...
       </div>
     );
   }
 
   return (
     <div className="min-h-screen bg-[#030014] text-white">
+      {/* NAVBAR */}
       <nav className="border-b border-violet-900/40 bg-slate-950/80 backdrop-blur-md sticky top-0 z-50">
-        <div className="max-w-3xl mx-auto px-6 h-20 flex items-center justify-between">
+        <div className="max-w-4xl mx-auto px-6 h-20 flex items-center justify-between">
           <button
             onClick={() => navigate("/dashboard")}
             className="flex items-center gap-2 text-xs font-bold text-slate-400 hover:text-amber-400 transition cursor-pointer"
@@ -168,114 +161,142 @@ export default function Profile() {
             <span>Back to Dashboard</span>
           </button>
           <div className="flex items-center gap-1.5 font-black text-lg">
-            <User size={18} className="text-amber-400" />
-            <span className="text-white">My</span>
+            <span className="text-violet-400">My</span>
             <span className="text-amber-400">Profile</span>
           </div>
         </div>
       </nav>
 
-      <main className="max-w-3xl mx-auto px-6 py-8">
-        <div className="bg-slate-900/90 border border-violet-900/40 rounded-3xl p-6 sm:p-8 shadow-2xl">
-          {/* AVATAR + UPLOAD HEADER */}
-          <div className="flex flex-col sm:flex-row items-center gap-5 pb-6 border-b border-violet-950/80 mb-6">
-            <div className="relative group">
-              <div className="w-24 h-24 rounded-3xl overflow-hidden border-2 border-amber-500/50 bg-slate-950 flex items-center justify-center shadow-lg shadow-amber-500/10 shrink-0">
-                {photoURL ? (
-                  <img src={photoURL} alt="Profile" className="w-full h-full object-cover" />
-                ) : (
-                  <User size={40} className="text-violet-400" />
-                )}
-              </div>
+      <main className="max-w-4xl mx-auto px-6 py-8">
+        {/* STATUS BANNER */}
+        {statusMessage.text && (
+          <div
+            className={`mb-6 p-4 rounded-2xl border flex items-center gap-3 text-xs font-bold animate-in fade-in ${
+              statusMessage.type === "success"
+                ? "bg-emerald-950/80 border-emerald-500 text-emerald-200"
+                : "bg-rose-950/80 border-rose-500 text-rose-200"
+            }`}
+          >
+            {statusMessage.type === "success" ? <CheckCircle2 size={18} /> : <AlertCircle size={18} />}
+            <span>{statusMessage.text}</span>
+          </div>
+        )}
 
-              <button
-                type="button"
-                onClick={() => fileInputRef.current?.click()}
-                className="absolute inset-0 bg-black/60 rounded-3xl opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center text-amber-300 text-[10px] font-bold gap-1 cursor-pointer"
-              >
-                <Camera size={20} />
-                <span>Change</span>
-              </button>
-
-              <input
-                type="file"
-                ref={fileInputRef}
-                onChange={handleImageFileChange}
-                accept="image/*"
-                className="hidden"
-              />
+        {/* HERO MEMBER SUMMARY CARD */}
+        <div className="bg-gradient-to-r from-violet-950/70 via-slate-900/90 to-amber-950/40 border border-violet-500/30 rounded-3xl p-6 sm:p-8 mb-6 shadow-2xl flex flex-col sm:flex-row items-center justify-between gap-6">
+          <div className="flex flex-col sm:flex-row items-center gap-5 text-center sm:text-left">
+            <div className="w-20 h-20 rounded-3xl overflow-hidden border-2 border-amber-500/50 bg-slate-950 flex items-center justify-center shrink-0 shadow-lg shadow-amber-500/20">
+              {photoURL ? (
+                <img src={photoURL} alt={name} className="w-full h-full object-cover" />
+              ) : (
+                <User size={36} className="text-amber-400" />
+              )}
             </div>
 
-            <div className="text-center sm:text-left flex-1">
-              <div className="flex flex-wrap items-center justify-center sm:justify-start gap-2 mb-1">
-                <h2 className="text-xl font-black text-white">{name || "Member"}</h2>
-                <span className="px-2.5 py-0.5 rounded-full bg-amber-500/10 border border-amber-500/30 text-amber-300 text-[11px] font-bold">
-                  {currentRole}
-                </span>
+            <div>
+              <div className="inline-flex items-center gap-1.5 px-3 py-0.5 rounded-full bg-amber-500/15 border border-amber-500/30 text-amber-300 text-[10px] font-black uppercase tracking-wider mb-1.5">
+                <Sparkles size={11} />
+                <span>{role}</span>
               </div>
-              <p className="text-xs text-slate-400">{currentUser?.email}</p>
-
-              <div className="mt-3">
-                <button
-                  type="button"
-                  onClick={() => fileInputRef.current?.click()}
-                  className="px-3.5 py-1.5 rounded-xl bg-violet-600/20 hover:bg-violet-600/30 border border-violet-500/40 text-violet-200 text-xs font-bold transition inline-flex items-center gap-1.5 cursor-pointer"
-                >
-                  <Upload size={13} className="text-amber-400" />
-                  <span>Choose Photo from Device</span>
-                </button>
-              </div>
+              <h1 className="text-2xl sm:text-3xl font-black text-white">{name || "Member Name"}</h1>
+              <p className="text-xs text-slate-400 mt-0.5">
+                {department ? `${department} • ` : ""}{yearOfStudy} • {email}
+              </p>
             </div>
           </div>
 
-          {successMsg && (
-            <div className="mb-5 p-3.5 rounded-2xl bg-emerald-950/80 border border-emerald-500/50 text-emerald-200 text-xs flex items-center gap-2 animate-in fade-in">
-              <CheckCircle2 size={16} className="text-emerald-400 shrink-0" />
-              <span>Profile updated successfully!</span>
-            </div>
-          )}
+          <div className="px-6 py-3 rounded-2xl bg-slate-950/80 border border-amber-500/30 text-center shrink-0">
+            <span className="text-[10px] uppercase font-bold text-slate-400 block">Total Points</span>
+            <span className="text-2xl font-black text-amber-400">{totalPoints} pts</span>
+          </div>
+        </div>
 
-          {errorMsg && (
-            <div className="mb-5 p-3.5 rounded-2xl bg-rose-950/80 border border-rose-500/50 text-rose-200 text-xs flex items-center gap-2 animate-in fade-in">
-              <AlertCircle size={16} className="text-rose-400 shrink-0" />
-              <span>{errorMsg}</span>
+        {/* EDIT PROFILE & ROLE FORM */}
+        <div className="bg-slate-900/90 border border-violet-900/40 rounded-3xl p-6 sm:p-8 shadow-2xl">
+          <div className="flex items-center justify-between mb-6 pb-3 border-b border-violet-950">
+            <div>
+              <h2 className="text-lg font-black text-white">Edit Profile Details</h2>
+              <p className="text-xs text-slate-400">Update your name, club role, photo, and study details</p>
             </div>
-          )}
+          </div>
 
           <form onSubmit={handleUpdateProfile} className="space-y-4">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              {/* FULL NAME */}
               <div>
                 <label className="block text-xs font-bold text-violet-300 uppercase tracking-wider mb-1.5">
-                  Full Name
+                  Full Name *
                 </label>
                 <div className="relative">
                   <User size={16} className="absolute left-3.5 top-3.5 text-slate-500" />
                   <input
                     type="text"
                     required
+                    placeholder="Rtr. Your Name"
                     value={name}
                     onChange={(e) => setName(e.target.value)}
-                    className="w-full pl-10 pr-4 py-2.5 bg-slate-950 border border-violet-900/50 rounded-xl text-white text-sm outline-none focus:border-amber-400"
+                    className="w-full pl-10 pr-4 py-2.5 bg-slate-950 border border-violet-900/50 rounded-xl text-white text-sm outline-none focus:border-amber-400 transition"
                   />
                 </div>
               </div>
 
+              {/* USERNAME */}
               <div>
                 <label className="block text-xs font-bold text-violet-300 uppercase tracking-wider mb-1.5">
-                  Username
+                  Username *
                 </label>
                 <div className="relative">
                   <span className="absolute left-3.5 top-2.5 text-slate-500 text-sm font-bold">@</span>
                   <input
                     type="text"
                     required
+                    placeholder="username"
                     value={username}
                     onChange={(e) => setUsername(e.target.value)}
-                    className="w-full pl-8 pr-4 py-2.5 bg-slate-950 border border-violet-900/50 rounded-xl text-white text-sm outline-none focus:border-amber-400"
+                    className="w-full pl-8 pr-4 py-2.5 bg-slate-950 border border-violet-900/50 rounded-xl text-white text-sm outline-none focus:border-amber-400 transition"
                   />
                 </div>
               </div>
 
+              {/* 🌟 CLUB ROLE UPDATER (INCLUDES GREEN ROTARACTOR) */}
+              <div className="sm:col-span-2">
+                <label className="block text-xs font-bold text-amber-300 uppercase tracking-wider mb-1.5 flex items-center gap-1.5">
+                  <Briefcase size={14} />
+                  <span>Update Club Role *</span>
+                </label>
+                <select
+                  value={role}
+                  onChange={(e) => setRole(e.target.value)}
+                  className="w-full px-4 py-3 bg-slate-950 border-2 border-amber-500/50 hover:border-amber-400 rounded-xl text-amber-200 text-sm font-bold outline-none focus:border-amber-400 transition cursor-pointer"
+                >
+                  {CLUB_ROLES.map((r) => (
+                    <option key={r} value={r} className="bg-slate-950 text-white py-1">
+                      {r}
+                    </option>
+                  ))}
+                </select>
+                <p className="text-[11px] text-slate-400 mt-1">
+                  Change your position if you recently became a Green Rotaractor, Board Director, or General Member.
+                </p>
+              </div>
+
+              {/* EMAIL (READ ONLY) */}
+              <div>
+                <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">
+                  Email Address (Linked to Account)
+                </label>
+                <div className="relative">
+                  <Mail size={16} className="absolute left-3.5 top-3.5 text-slate-600" />
+                  <input
+                    type="email"
+                    disabled
+                    value={email}
+                    className="w-full pl-10 pr-4 py-2.5 bg-slate-950/50 border border-slate-800 rounded-xl text-slate-500 text-sm outline-none cursor-not-allowed"
+                  />
+                </div>
+              </div>
+
+              {/* PHONE NUMBER */}
               <div>
                 <label className="block text-xs font-bold text-violet-300 uppercase tracking-wider mb-1.5">
                   Phone Number
@@ -287,11 +308,12 @@ export default function Profile() {
                     placeholder="+91 9876543210"
                     value={phone}
                     onChange={(e) => setPhone(e.target.value)}
-                    className="w-full pl-10 pr-4 py-2.5 bg-slate-950 border border-violet-900/50 rounded-xl text-white text-sm outline-none focus:border-amber-400"
+                    className="w-full pl-10 pr-4 py-2.5 bg-slate-950 border border-violet-900/50 rounded-xl text-white text-sm outline-none focus:border-amber-400 transition"
                   />
                 </div>
               </div>
 
+              {/* DEPARTMENT */}
               <div>
                 <label className="block text-xs font-bold text-violet-300 uppercase tracking-wider mb-1.5">
                   Department
@@ -300,14 +322,15 @@ export default function Profile() {
                   <GraduationCap size={16} className="absolute left-3.5 top-3.5 text-slate-500" />
                   <input
                     type="text"
-                    placeholder="e.g. IT / CSE / ECE"
+                    placeholder="e.g. Information Technology / CSE"
                     value={department}
                     onChange={(e) => setDepartment(e.target.value)}
-                    className="w-full pl-10 pr-4 py-2.5 bg-slate-950 border border-violet-900/50 rounded-xl text-white text-sm outline-none focus:border-amber-400"
+                    className="w-full pl-10 pr-4 py-2.5 bg-slate-950 border border-violet-900/50 rounded-xl text-white text-sm outline-none focus:border-amber-400 transition"
                   />
                 </div>
               </div>
 
+              {/* YEAR OF STUDY */}
               <div>
                 <label className="block text-xs font-bold text-violet-300 uppercase tracking-wider mb-1.5">
                   Year of Study
@@ -315,7 +338,7 @@ export default function Profile() {
                 <select
                   value={yearOfStudy}
                   onChange={(e) => setYearOfStudy(e.target.value)}
-                  className="w-full px-4 py-2.5 bg-slate-950 border border-violet-900/50 rounded-xl text-white text-sm outline-none focus:border-amber-400"
+                  className="w-full px-4 py-2.5 bg-slate-950 border border-violet-900/50 rounded-xl text-white text-sm outline-none focus:border-amber-400 transition cursor-pointer"
                 >
                   <option value="1st Year">1st Year</option>
                   <option value="2nd Year">2nd Year</option>
@@ -325,20 +348,25 @@ export default function Profile() {
                 </select>
               </div>
 
-              <div>
+              {/* PROFILE PHOTO URL */}
+              <div className="sm:col-span-2">
                 <label className="block text-xs font-bold text-violet-300 uppercase tracking-wider mb-1.5">
-                  Image Web URL (Optional)
+                  Profile Photo URL (Imgur / Drive / Web link)
                 </label>
-                <input
-                  type="url"
-                  placeholder="https://images.unsplash.com/..."
-                  value={photoURL.startsWith("data:") ? "" : photoURL}
-                  onChange={(e) => setPhotoURL(e.target.value)}
-                  className="w-full px-4 py-2.5 bg-slate-950 border border-violet-900/50 rounded-xl text-white text-sm outline-none focus:border-amber-400"
-                />
+                <div className="relative">
+                  <Camera size={16} className="absolute left-3.5 top-3.5 text-slate-500" />
+                  <input
+                    type="url"
+                    placeholder="https://..."
+                    value={photoURL}
+                    onChange={(e) => setPhotoURL(e.target.value)}
+                    className="w-full pl-10 pr-4 py-2.5 bg-slate-950 border border-violet-900/50 rounded-xl text-white text-sm outline-none focus:border-amber-400 transition"
+                  />
+                </div>
               </div>
             </div>
 
+            {/* SAVE BUTTON */}
             <div className="pt-4">
               <button
                 type="submit"
@@ -348,10 +376,13 @@ export default function Profile() {
                 {saving ? (
                   <>
                     <Loader2 size={18} className="animate-spin text-slate-950" />
-                    <span>Saving Profile...</span>
+                    <span>Saving Changes...</span>
                   </>
                 ) : (
-                  <span>Save Profile Updates</span>
+                  <>
+                    <Save size={16} />
+                    <span>Save Profile & Role Changes</span>
+                  </>
                 )}
               </button>
             </div>
