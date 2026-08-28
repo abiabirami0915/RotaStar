@@ -65,7 +65,6 @@ import {
   Filter,
   Users,
   Eye,
-  Shield,
 } from "lucide-react";
 
 // RAC PSVPEC ROLES LIST
@@ -1331,22 +1330,22 @@ function LeaderboardPage() {
 }
 
 // ==========================================
-// 5. CLAIM POINTS COMPONENT
+// 5. CLAIM POINTS COMPONENT (SIMPLIFIED)
 // ==========================================
 function RequestPointsPage() {
   const navigate = useNavigate();
   const { currentUser, userData } = useAuth();
 
   const [activityName, setActivityName] = useState("");
-  const [category, setCategory] = useState("Community Service");
   const [pointsRequested, setPointsRequested] = useState("10");
-  const [proofUrl, setProofUrl] = useState("");
-  const [description, setDescription] = useState("");
+  const [whatDidYouGain, setWhatDidYouGain] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (!activityName.trim() || !pointsRequested || !currentUser) return;
+
     setSubmitting(true);
 
     try {
@@ -1355,13 +1354,15 @@ function RequestPointsPage() {
         userName: userData?.name || currentUser?.displayName || "Member",
         memberName: userData?.name || currentUser?.displayName || "Member",
         userRole: userData?.role || "General Member",
+        userEmail: currentUser?.email || "",
+        memberEmail: currentUser?.email || "",
         activityName: activityName.trim(),
-        category,
         points: Number(pointsRequested),
         pointsRequested: Number(pointsRequested),
-        proofUrl: proofUrl.trim(),
-        reason: description.trim(),
-        description: description.trim(),
+        whatDidYouGain: whatDidYouGain.trim(),
+        reason: whatDidYouGain.trim() || "Event participation and service",
+        description: whatDidYouGain.trim() || "Event participation and service",
+        category: "General Activity",
         status: "pending",
         createdAt: serverTimestamp(),
         requestedAt: serverTimestamp(),
@@ -1371,6 +1372,7 @@ function RequestPointsPage() {
       setTimeout(() => navigate("/dashboard"), 2000);
     } catch (err) {
       console.error("Point request error:", err);
+      alert("Failed to submit request: " + err.message);
     } finally {
       setSubmitting(false);
     }
@@ -1395,21 +1397,22 @@ function RequestPointsPage() {
         </div>
       </nav>
 
-      <main className="max-w-3xl mx-auto px-6 py-8">
+      <main className="max-w-2xl mx-auto px-6 py-8">
         <div className="bg-slate-900/90 border border-violet-900/40 rounded-3xl p-6 sm:p-8 shadow-2xl">
           <h2 className="text-xl font-black text-white mb-1">Submit Point Claim</h2>
           <p className="text-xs text-slate-400 mb-6">
-            Log your attendance, event participation, and service hours for Board verification
+            Log your attendance and service hours for Board verification
           </p>
 
           {submitted ? (
-            <div className="p-8 bg-emerald-500/10 border border-emerald-500/30 rounded-2xl text-center text-emerald-400 text-sm font-bold">
+            <div className="p-8 bg-emerald-500/10 border border-emerald-500/30 rounded-2xl text-center text-emerald-400 text-sm font-bold animate-in fade-in">
               🎉 Point claim submitted successfully! Redirecting to Dashboard...
             </div>
           ) : (
-            <form onSubmit={handleSubmit} className="space-y-4">
+            <form onSubmit={handleSubmit} className="space-y-5">
+              {/* 1. ACTIVITY NAME */}
               <div>
-                <label className="block text-xs font-bold text-violet-300 uppercase tracking-wider mb-1">
+                <label className="block text-xs font-bold text-violet-300 uppercase tracking-wider mb-1.5">
                   Activity Name *
                 </label>
                 <input
@@ -1418,76 +1421,55 @@ function RequestPointsPage() {
                   placeholder="e.g. Attended GBM #4 / Beach Cleanup Drive"
                   value={activityName}
                   onChange={(e) => setActivityName(e.target.value)}
-                  className="w-full px-4 py-3 bg-slate-950 border border-violet-900/50 rounded-xl text-white text-sm outline-none focus:border-amber-400"
+                  className="w-full px-4 py-3 bg-slate-950 border border-violet-900/50 rounded-xl text-white text-sm outline-none focus:border-amber-400 transition"
                 />
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-xs font-bold text-violet-300 uppercase tracking-wider mb-1">
-                    Avenue / Category
-                  </label>
-                  <select
-                    value={category}
-                    onChange={(e) => setCategory(e.target.value)}
-                    className="w-full px-4 py-3 bg-slate-950 border border-violet-900/50 rounded-xl text-white text-sm outline-none focus:border-amber-400"
-                  >
-                    <option value="Club Service">Club Service</option>
-                    <option value="Community Service">Community Service</option>
-                    <option value="Professional Development">Professional Development</option>
-                    <option value="International Service">International Service</option>
-                    <option value="Youth Service">Youth Service</option>
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block text-xs font-bold text-violet-300 uppercase tracking-wider mb-1">
-                    Points Claimed (pts)
-                  </label>
-                  <input
-                    type="number"
-                    required
-                    min="1"
-                    max="100"
-                    value={pointsRequested}
-                    onChange={(e) => setPointsRequested(e.target.value)}
-                    className="w-full px-4 py-3 bg-slate-950 border border-violet-900/50 rounded-xl text-white text-sm outline-none focus:border-amber-400"
-                  />
-                </div>
-              </div>
-
+              {/* 2. POINTS TO CLAIM */}
               <div>
-                <label className="block text-xs font-bold text-violet-300 uppercase tracking-wider mb-1">
-                  Evidence / Photo URL (Google Drive / Imgur Link)
+                <label className="block text-xs font-bold text-violet-300 uppercase tracking-wider mb-1.5">
+                  Points to Claim *
                 </label>
                 <input
-                  type="url"
-                  placeholder="https://drive.google.com/..."
-                  value={proofUrl}
-                  onChange={(e) => setProofUrl(e.target.value)}
-                  className="w-full px-4 py-3 bg-slate-950 border border-violet-900/50 rounded-xl text-white text-sm outline-none focus:border-amber-400"
+                  type="number"
+                  required
+                  min="1"
+                  max="500"
+                  placeholder="e.g. 10"
+                  value={pointsRequested}
+                  onChange={(e) => setPointsRequested(e.target.value)}
+                  className="w-full px-4 py-3 bg-slate-950 border border-violet-900/50 rounded-xl text-white font-bold text-sm outline-none focus:border-amber-400 transition"
                 />
               </div>
 
+              {/* 3. WHAT DID YOU GAIN (OPTIONAL) */}
               <div>
-                <label className="block text-xs font-bold text-violet-300 uppercase tracking-wider mb-1">
-                  Role / Description of Work
+                <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-1.5">
+                  What did you gain? (Optional)
                 </label>
                 <textarea
                   rows={3}
-                  placeholder="Briefly describe your tasks or contributions..."
-                  value={description}
-                  onChange={(e) => setDescription(e.target.value)}
-                  className="w-full px-4 py-3 bg-slate-950 border border-violet-900/50 rounded-xl text-white text-sm outline-none focus:border-amber-400 resize-none"
+                  placeholder="Briefly share your experience, learning, or key takeaway..."
+                  value={whatDidYouGain}
+                  onChange={(e) => setWhatDidYouGain(e.target.value)}
+                  className="w-full px-4 py-3 bg-slate-950 border border-violet-900/50 rounded-xl text-white text-sm outline-none focus:border-amber-400 resize-none transition"
                 />
               </div>
 
+              {/* 4. SUBMIT BUTTON */}
               <button
                 type="submit"
                 disabled={submitting}
-                className="w-full py-3.5 rounded-xl bg-gradient-to-r from-amber-500 to-amber-400 hover:from-amber-400 hover:to-amber-300 text-slate-950 font-black text-sm flex items-center justify-center gap-2 shadow-xl transition disabled:opacity-50 cursor-pointer"
+                className="w-full py-3.5 rounded-xl bg-gradient-to-r from-amber-500 to-amber-400 hover:from-amber-400 hover:to-amber-300 text-slate-950 font-black text-sm flex items-center justify-center gap-2 shadow-xl shadow-amber-500/10 transition disabled:opacity-50 cursor-pointer"
               >
-                {submitting ? <Loader2 size={16} className="animate-spin" /> : <span>Submit for Board Verification</span>}
+                {submitting ? (
+                  <>
+                    <Loader2 size={16} className="animate-spin text-slate-950" />
+                    <span>Submitting...</span>
+                  </>
+                ) : (
+                  <span>Submit Points Claim</span>
+                )}
               </button>
             </form>
           )}
