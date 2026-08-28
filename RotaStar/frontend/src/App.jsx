@@ -65,6 +65,7 @@ import {
   Filter,
   Users,
   Eye,
+  Inbox,
 } from "lucide-react";
 
 // RAC PSVPEC ROLES LIST
@@ -1245,7 +1246,7 @@ function EventsPage() {
 }
 
 // ==========================================
-// 4. 🌟 LEADERBOARD COMPONENT (WITH PROFILE AVATARS)
+// 4. LEADERBOARD COMPONENT (WITH AVATARS)
 // ==========================================
 function LeaderboardPage() {
   const navigate = useNavigate();
@@ -1298,7 +1299,6 @@ function LeaderboardPage() {
                   }`}
                 >
                   <div className="flex items-center gap-3.5 sm:gap-4">
-                    {/* RANK POSITION */}
                     <span
                       className={`w-7 text-center font-black text-sm shrink-0 ${
                         index === 0
@@ -1313,7 +1313,6 @@ function LeaderboardPage() {
                       #{index + 1}
                     </span>
 
-                    {/* 👤 MEMBER PROFILE AVATAR */}
                     <div className="w-11 h-11 rounded-2xl overflow-hidden border border-amber-500/30 bg-slate-950 flex items-center justify-center shrink-0 shadow-md">
                       {u.photoURL ? (
                         <img src={u.photoURL} alt={u.name} className="w-full h-full object-cover" />
@@ -1322,7 +1321,6 @@ function LeaderboardPage() {
                       )}
                     </div>
 
-                    {/* MEMBER DETAILS */}
                     <div>
                       <p className="font-extrabold text-sm text-white flex items-center gap-2">
                         <span>{u.name || "Member"}</span>
@@ -1338,7 +1336,6 @@ function LeaderboardPage() {
                     </div>
                   </div>
 
-                  {/* POINTS BADGE */}
                   <span className="font-black text-base text-amber-400 shrink-0 ml-3">
                     {u.totalPoints || 0} pts
                   </span>
@@ -1433,7 +1430,6 @@ function RequestPointsPage() {
             </div>
           ) : (
             <form onSubmit={handleSubmit} className="space-y-5">
-              {/* 1. ACTIVITY NAME */}
               <div>
                 <label className="block text-xs font-bold text-violet-300 uppercase tracking-wider mb-1.5">
                   Activity Name *
@@ -1448,7 +1444,6 @@ function RequestPointsPage() {
                 />
               </div>
 
-              {/* 2. POINTS TO CLAIM */}
               <div>
                 <label className="block text-xs font-bold text-violet-300 uppercase tracking-wider mb-1.5">
                   Points to Claim *
@@ -1465,7 +1460,6 @@ function RequestPointsPage() {
                 />
               </div>
 
-              {/* 3. WHAT DID YOU GAIN (OPTIONAL) */}
               <div>
                 <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-1.5">
                   What did you gain? (Optional)
@@ -1479,7 +1473,6 @@ function RequestPointsPage() {
                 />
               </div>
 
-              {/* 4. SUBMIT BUTTON */}
               <button
                 type="submit"
                 disabled={submitting}
@@ -1503,14 +1496,35 @@ function RequestPointsPage() {
 }
 
 // ==========================================
-// 6. FEEDBACK COMPONENT
+// 6. 🌟 FEEDBACK COMPONENT WITH ADMIN INBOX
 // ==========================================
 function FeedbackPage() {
   const navigate = useNavigate();
-  const { currentUser, userData } = useAuth();
+  const { currentUser, userData, isAdmin, isSuperAdmin } = useAuth();
+
   const [feedback, setFeedback] = useState("");
+  const [feedbackList, setFeedbackList] = useState([]);
   const [submitting, setSubmitting] = useState(false);
   const [done, setDone] = useState(false);
+
+  const rawRole = (userData?.role || "").toString().toLowerCase().trim();
+  const isBoardAdmin =
+    Boolean(isAdmin) ||
+    Boolean(isSuperAdmin) ||
+    rawRole.includes("admin") ||
+    rawRole.includes("president") ||
+    rawRole.includes("secretary") ||
+    rawRole.includes("board");
+
+  // Sync feedback collection for Admin Inbox
+  useEffect(() => {
+    if (!isBoardAdmin) return;
+    const q = query(collection(db, "feedback"), orderBy("createdAt", "desc"));
+    const unsub = onSnapshot(q, (snapshot) => {
+      setFeedbackList(snapshot.docs.map((d) => ({ id: d.id, ...d.data() })));
+    });
+    return () => unsub();
+  }, [isBoardAdmin]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -1521,6 +1535,8 @@ function FeedbackPage() {
       await addDoc(collection(db, "feedback"), {
         userId: currentUser?.uid,
         userName: userData?.name || currentUser?.displayName || "Member",
+        userRole: userData?.role || "General Member",
+        userEmail: currentUser?.email || "",
         message: feedback.trim(),
         createdAt: serverTimestamp(),
       });
@@ -1534,10 +1550,30 @@ function FeedbackPage() {
     }
   };
 
+  const handleDeleteFeedback = async (id) => {
+    if (!window.confirm("Delete this feedback entry?")) return;
+    try {
+      await deleteDoc(doc(db, "feedback", id));
+    } catch (err) {
+      console.error("Delete feedback error:", err);
+    }
+  };
+
+  const formatDate = (timestamp) => {
+    if (!timestamp) return "Recent";
+    if (timestamp.toDate) {
+      return timestamp.toDate().toLocaleString("en-IN", {
+        dateStyle: "medium",
+        timeStyle: "short",
+      });
+    }
+    return new Date(timestamp).toLocaleDateString();
+  };
+
   return (
     <div className="min-h-screen bg-[#030014] text-white">
       <nav className="border-b border-violet-900/40 bg-slate-950/80 backdrop-blur-md sticky top-0 z-50">
-        <div className="max-w-2xl mx-auto px-6 h-20 flex items-center justify-between">
+        <div className="max-w-4xl mx-auto px-6 h-20 flex items-center justify-between">
           <button
             onClick={() => navigate("/dashboard")}
             className="flex items-center gap-2 text-xs font-bold text-slate-400 hover:text-amber-400 transition cursor-pointer"
@@ -1553,7 +1589,8 @@ function FeedbackPage() {
         </div>
       </nav>
 
-      <main className="max-w-2xl mx-auto px-6 py-8">
+      <main className="max-w-4xl mx-auto px-6 py-8 space-y-8">
+        {/* SUBMISSION FORM (ALL MEMBERS) */}
         <div className="bg-slate-900/90 border border-violet-900/40 rounded-3xl p-6 sm:p-8 shadow-2xl">
           <h2 className="text-xl font-black text-white mb-1">Your Voice Matters</h2>
           <p className="text-xs text-slate-400 mb-6">
@@ -1561,29 +1598,87 @@ function FeedbackPage() {
           </p>
 
           {done && (
-            <div className="mb-4 p-3.5 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-xs font-bold">
+            <div className="mb-4 p-3.5 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-xs font-bold animate-in fade-in">
               Thank you! Your feedback has been forwarded to the Executive Board.
             </div>
           )}
 
           <form onSubmit={handleSubmit} className="space-y-4">
             <textarea
-              rows={5}
+              rows={4}
               required
-              placeholder="Type your message here..."
+              placeholder="Type your message, complaint, or idea here..."
               value={feedback}
               onChange={(e) => setFeedback(e.target.value)}
-              className="w-full px-4 py-3 bg-slate-950 border border-violet-900/50 rounded-xl text-white text-sm outline-none focus:border-amber-400 resize-none"
+              className="w-full px-4 py-3 bg-slate-950 border border-violet-900/50 rounded-xl text-white text-sm outline-none focus:border-amber-400 resize-none transition"
             />
             <button
               type="submit"
               disabled={submitting}
               className="w-full py-3.5 rounded-xl bg-gradient-to-r from-amber-500 to-amber-400 hover:from-amber-400 hover:to-amber-300 text-slate-950 font-black text-sm flex items-center justify-center gap-2 shadow-xl transition disabled:opacity-50 cursor-pointer"
             >
-              {submitting ? <Loader2 size={16} className="animate-spin" /> : <span>Send Message</span>}
+              {submitting ? <Loader2 size={16} className="animate-spin text-slate-950" /> : <span>Send Message to Board</span>}
             </button>
           </form>
         </div>
+
+        {/* 📬 ADMIN INBOX (VISIBLE TO BOARD LEADERS) */}
+        {isBoardAdmin && (
+          <div className="bg-slate-900/90 border border-amber-500/30 rounded-3xl p-6 sm:p-8 shadow-2xl space-y-5">
+            <div className="flex items-center justify-between pb-3 border-b border-violet-950">
+              <div className="flex items-center gap-2.5">
+                <div className="p-2 bg-amber-500/10 border border-amber-500/20 text-amber-400 rounded-xl">
+                  <Inbox size={18} />
+                </div>
+                <div>
+                  <h3 className="font-extrabold text-base text-white">Board Feedback Inbox</h3>
+                  <p className="text-xs text-slate-400">Review ideas and messages submitted by members</p>
+                </div>
+              </div>
+              <span className="px-3 py-1 bg-amber-500/10 border border-amber-500/30 rounded-full text-xs font-black text-amber-400">
+                {feedbackList.length} Messages
+              </span>
+            </div>
+
+            {feedbackList.length === 0 ? (
+              <div className="p-10 rounded-2xl bg-slate-950/60 border border-violet-950 text-center text-slate-500 text-sm">
+                No feedback submissions in the inbox yet.
+              </div>
+            ) : (
+              <div className="space-y-3.5">
+                {feedbackList.map((item) => (
+                  <div
+                    key={item.id}
+                    className="p-5 rounded-2xl bg-slate-950 border border-violet-900/50 flex flex-col sm:flex-row sm:items-start justify-between gap-4"
+                  >
+                    <div className="space-y-1.5 flex-1">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <strong className="text-white text-sm">{item.userName || "Anonymous Member"}</strong>
+                        {item.userRole && (
+                          <span className="text-[10px] font-bold text-violet-300 bg-violet-500/15 border border-violet-500/30 px-2 py-0.5 rounded-md">
+                            {item.userRole}
+                          </span>
+                        )}
+                        <span className="text-[10px] text-slate-500">• {formatDate(item.createdAt)}</span>
+                      </div>
+                      <p className="text-xs text-slate-300 leading-relaxed pt-1 bg-slate-900/60 p-3 rounded-xl border border-violet-950">
+                        {item.message}
+                      </p>
+                    </div>
+
+                    <button
+                      onClick={() => handleDeleteFeedback(item.id)}
+                      className="p-2 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/30 text-rose-400 transition self-end sm:self-start shrink-0 cursor-pointer"
+                      title="Delete feedback"
+                    >
+                      <Trash2 size={15} />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
       </main>
     </div>
   );
