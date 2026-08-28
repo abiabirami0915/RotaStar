@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { doc, updateDoc, onSnapshot } from "firebase/firestore";
 import { updateProfile } from "firebase/auth";
@@ -15,10 +15,10 @@ import {
   AlertCircle,
   Loader2,
   Save,
-  Trophy,
-  Calendar,
   Sparkles,
   Camera,
+  Upload,
+  Trash2,
 } from "lucide-react";
 
 // Official RAC PSVPEC Roles (Including Green Rotaractor)
@@ -54,9 +54,11 @@ const CLUB_ROLES = [
 export default function Profile() {
   const navigate = useNavigate();
   const { currentUser } = useAuth();
+  const fileInputRef = useRef(null);
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [imageUploading, setImageUploading] = useState(false);
   const [statusMessage, setStatusMessage] = useState({ type: "", text: "" });
 
   // Profile Form States
@@ -94,6 +96,68 @@ export default function Profile() {
     return () => unsubscribe();
   }, [currentUser]);
 
+  // Client-side image compression & conversion to Base64
+  const handleImageFileChange = (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!file.type.startsWith("image/")) {
+      setStatusMessage({ type: "error", text: "Please select an image file." });
+      return;
+    }
+
+    setImageUploading(true);
+    const reader = new FileReader();
+
+    reader.onload = (event) => {
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement("canvas");
+        const MAX_WIDTH = 400;
+        const MAX_HEIGHT = 400;
+        let width = img.width;
+        let height = img.height;
+
+        if (width > height) {
+          if (width > MAX_WIDTH) {
+            height *= MAX_WIDTH / width;
+            width = MAX_WIDTH;
+          }
+        } else {
+          if (height > MAX_HEIGHT) {
+            width *= MAX_HEIGHT / height;
+            height = MAX_HEIGHT;
+          }
+        }
+
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext("2d");
+        ctx.drawImage(img, 0, 0, width, height);
+
+        // Compress image to JPEG at 80% quality
+        const compressedBase64 = canvas.toDataURL("image/jpeg", 0.8);
+        setPhotoURL(compressedBase64);
+        setImageUploading(false);
+      };
+      img.src = event.target.result;
+    };
+
+    reader.onerror = () => {
+      setImageUploading(false);
+      setStatusMessage({ type: "error", text: "Failed to process selected image." });
+    };
+
+    reader.readAsDataURL(file);
+  };
+
+  const handleRemovePhoto = () => {
+    setPhotoURL("");
+    if (fileInputRef.current) {
+      fileInputRef.current.value = "";
+    }
+  };
+
   const handleUpdateProfile = async (e) => {
     e.preventDefault();
     if (!currentUser?.uid) return;
@@ -102,10 +166,9 @@ export default function Profile() {
     setStatusMessage({ type: "", text: "" });
 
     try {
-      // 1. Update Auth display name & photo if changed
+      // 1. Update Auth display name
       await updateProfile(auth.currentUser, {
         displayName: name.trim(),
-        photoURL: photoURL.trim(),
       });
 
       // 2. Update Firestore User Document
@@ -122,7 +185,7 @@ export default function Profile() {
 
       setStatusMessage({
         type: "success",
-        text: "Your profile and club role have been updated successfully!",
+        text: "Your profile and role have been saved successfully!",
       });
 
       setTimeout(() => {
@@ -185,12 +248,22 @@ export default function Profile() {
         {/* HERO MEMBER SUMMARY CARD */}
         <div className="bg-gradient-to-r from-violet-950/70 via-slate-900/90 to-amber-950/40 border border-violet-500/30 rounded-3xl p-6 sm:p-8 mb-6 shadow-2xl flex flex-col sm:flex-row items-center justify-between gap-6">
           <div className="flex flex-col sm:flex-row items-center gap-5 text-center sm:text-left">
-            <div className="w-20 h-20 rounded-3xl overflow-hidden border-2 border-amber-500/50 bg-slate-950 flex items-center justify-center shrink-0 shadow-lg shadow-amber-500/20">
-              {photoURL ? (
-                <img src={photoURL} alt={name} className="w-full h-full object-cover" />
-              ) : (
-                <User size={36} className="text-amber-400" />
-              )}
+            <div className="relative group">
+              <div className="w-24 h-24 rounded-3xl overflow-hidden border-2 border-amber-500/50 bg-slate-950 flex items-center justify-center shrink-0 shadow-lg shadow-amber-500/20">
+                {photoURL ? (
+                  <img src={photoURL} alt={name} className="w-full h-full object-cover" />
+                ) : (
+                  <User size={40} className="text-amber-400" />
+                )}
+              </div>
+              <button
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                className="absolute -bottom-2 -right-2 p-2 rounded-xl bg-amber-500 text-slate-950 shadow-lg hover:bg-amber-400 transition cursor-pointer"
+                title="Upload Photo"
+              >
+                <Camera size={14} />
+              </button>
             </div>
 
             <div>
@@ -220,7 +293,60 @@ export default function Profile() {
             </div>
           </div>
 
-          <form onSubmit={handleUpdateProfile} className="space-y-4">
+          <form onSubmit={handleUpdateProfile} className="space-y-5">
+            {/* 📷 PROFILE PHOTO UPLOADER SECTION */}
+            <div className="p-4 rounded-2xl bg-slate-950 border border-violet-900/50 flex flex-col sm:flex-row items-center justify-between gap-4">
+              <div className="flex items-center gap-4">
+                <div className="w-16 h-16 rounded-2xl overflow-hidden border border-amber-500/30 bg-slate-900 flex items-center justify-center shrink-0">
+                  {photoURL ? (
+                    <img src={photoURL} alt="Preview" className="w-full h-full object-cover" />
+                  ) : (
+                    <User size={28} className="text-slate-500" />
+                  )}
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-white mb-0.5">Profile Photo</label>
+                  <p className="text-[11px] text-slate-400">Upload a JPG, PNG or WEBP from your device</p>
+                </div>
+              </div>
+
+              {/* Hidden file input */}
+              <input
+                type="file"
+                ref={fileInputRef}
+                accept="image/*"
+                onChange={handleImageFileChange}
+                className="hidden"
+              />
+
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  disabled={imageUploading}
+                  onClick={() => fileInputRef.current?.click()}
+                  className="px-4 py-2 rounded-xl bg-violet-600/20 hover:bg-violet-600/30 border border-violet-500/40 text-violet-200 text-xs font-bold flex items-center gap-1.5 transition cursor-pointer disabled:opacity-50"
+                >
+                  {imageUploading ? (
+                    <Loader2 size={14} className="animate-spin" />
+                  ) : (
+                    <Upload size={14} className="text-amber-400" />
+                  )}
+                  <span>{imageUploading ? "Processing..." : "Upload Image"}</span>
+                </button>
+
+                {photoURL && (
+                  <button
+                    type="button"
+                    onClick={handleRemovePhoto}
+                    className="p-2 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/30 text-rose-400 transition cursor-pointer"
+                    title="Remove Photo"
+                  >
+                    <Trash2 size={14} />
+                  </button>
+                )}
+              </div>
+            </div>
+
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               {/* FULL NAME */}
               <div>
@@ -258,7 +384,7 @@ export default function Profile() {
                 </div>
               </div>
 
-              {/* 🌟 CLUB ROLE UPDATER (INCLUDES GREEN ROTARACTOR) */}
+              {/* CLUB ROLE */}
               <div className="sm:col-span-2">
                 <label className="block text-xs font-bold text-amber-300 uppercase tracking-wider mb-1.5 flex items-center gap-1.5">
                   <Briefcase size={14} />
@@ -280,7 +406,7 @@ export default function Profile() {
                 </p>
               </div>
 
-              {/* EMAIL (READ ONLY) */}
+              {/* EMAIL */}
               <div>
                 <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">
                   Email Address (Linked to Account)
@@ -347,27 +473,10 @@ export default function Profile() {
                   <option value="Alumni">Alumni</option>
                 </select>
               </div>
-
-              {/* PROFILE PHOTO URL */}
-              <div className="sm:col-span-2">
-                <label className="block text-xs font-bold text-violet-300 uppercase tracking-wider mb-1.5">
-                  Profile Photo URL (Imgur / Drive / Web link)
-                </label>
-                <div className="relative">
-                  <Camera size={16} className="absolute left-3.5 top-3.5 text-slate-500" />
-                  <input
-                    type="url"
-                    placeholder="https://..."
-                    value={photoURL}
-                    onChange={(e) => setPhotoURL(e.target.value)}
-                    className="w-full pl-10 pr-4 py-2.5 bg-slate-950 border border-violet-900/50 rounded-xl text-white text-sm outline-none focus:border-amber-400 transition"
-                  />
-                </div>
-              </div>
             </div>
 
             {/* SAVE BUTTON */}
-            <div className="pt-4">
+            <div className="pt-3">
               <button
                 type="submit"
                 disabled={saving}
