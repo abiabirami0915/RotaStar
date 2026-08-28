@@ -99,7 +99,7 @@ const CLUB_ROLES = [
 ];
 
 // ==========================================
-// 1. SIGNUP COMPONENT
+// 1. SIGNUP COMPONENT (0 Starting Points)
 // ==========================================
 function SignupComponent() {
   const navigate = useNavigate();
@@ -152,7 +152,7 @@ function SignupComponent() {
         department: department.trim(),
         yearOfStudy: yearOfStudy,
         role: role,
-        totalPoints: 10,
+        totalPoints: 0,
         activities: [],
         photoURL: "",
         createdAt: serverTimestamp(),
@@ -377,7 +377,7 @@ function SignupComponent() {
                 </>
               ) : (
                 <>
-                  <span>Register & Claim 10 Points</span>
+                  <span>Create Account</span>
                   <ArrowRight size={16} />
                 </>
               )}
@@ -1585,7 +1585,7 @@ function FeedbackPage() {
 }
 
 // ==========================================
-// 7. 🌟 DEDICATED ADMIN MEMBERS DIRECTORY COMPONENT
+// 7. DEDICATED ADMIN MEMBERS DIRECTORY COMPONENT
 // ==========================================
 function AdminMembersDirectory() {
   const navigate = useNavigate();
@@ -1997,7 +1997,7 @@ export default function App() {
           }
         />
 
-        {/* 🛠️ FIXED: ALL ADMIN ROUTES DIRECT TO PROPER MANAGEMENT COMPONENTS */}
+        {/* 🛠️ ADMIN ROUTES */}
         <Route
           path="/admin"
           element={
