@@ -14,6 +14,8 @@ import {
   updateDoc,
   increment,
   arrayUnion,
+  getDocs,
+  where,
 } from "firebase/firestore";
 import { auth, db } from "./firebase/firebase";
 import { AuthProvider, useAuth } from "./AuthContext";
@@ -59,6 +61,11 @@ import {
   Check,
   MessageCircle,
   Trash2,
+  Search,
+  Filter,
+  Users,
+  Eye,
+  Shield,
 } from "lucide-react";
 
 // RAC PSVPEC ROLES LIST
@@ -1578,6 +1585,303 @@ function FeedbackPage() {
 }
 
 // ==========================================
+// 7. 🌟 DEDICATED ADMIN MEMBERS DIRECTORY COMPONENT
+// ==========================================
+function AdminMembersDirectory() {
+  const navigate = useNavigate();
+  const { isSuperAdmin } = useAuth();
+
+  const [members, setMembers] = useState([]);
+  const [search, setSearch] = useState("");
+  const [roleFilter, setRoleFilter] = useState("All");
+  const [selectedMember, setSelectedMember] = useState(null);
+  const [userToDelete, setUserToDelete] = useState(null);
+  const [deleteLoading, setDeleteLoading] = useState(false);
+
+  useEffect(() => {
+    const unsub = onSnapshot(collection(db, "users"), (snapshot) => {
+      const list = snapshot.docs.map((docSnap) => ({
+        id: docSnap.id,
+        ...docSnap.data(),
+      }));
+      list.sort((a, b) => (a.name || "").localeCompare(b.name || ""));
+      setMembers(list);
+    });
+    return () => unsub();
+  }, []);
+
+  const handleDeleteMember = async () => {
+    if (!userToDelete || !isSuperAdmin) return;
+    setDeleteLoading(true);
+    try {
+      const memberId = userToDelete.id;
+      await deleteDoc(doc(db, "users", memberId));
+
+      // Cascade delete activities
+      const actQuery = query(collection(db, "activities"), where("userId", "==", memberId));
+      const actSnapshot = await getDocs(actQuery);
+      const actDeletes = actSnapshot.docs.map((d) => deleteDoc(doc(db, "activities", d.id)));
+
+      // Cascade delete point requests
+      const reqQuery = query(collection(db, "pointRequests"), where("userId", "==", memberId));
+      const reqSnapshot = await getDocs(reqQuery);
+      const reqDeletes = reqSnapshot.docs.map((d) => deleteDoc(doc(db, "pointRequests", d.id)));
+
+      await Promise.all([...actDeletes, ...reqDeletes]);
+
+      setUserToDelete(null);
+      if (selectedMember?.id === memberId) setSelectedMember(null);
+    } catch (err) {
+      console.error("Delete member error:", err);
+      alert("Failed to delete member: " + err.message);
+    } finally {
+      setDeleteLoading(false);
+    }
+  };
+
+  const filteredMembers = members.filter((m) => {
+    const queryStr = search.toLowerCase();
+    const matchesSearch =
+      (m.name || "").toLowerCase().includes(queryStr) ||
+      (m.email || "").toLowerCase().includes(queryStr) ||
+      (m.role || "").toLowerCase().includes(queryStr) ||
+      (m.department || "").toLowerCase().includes(queryStr);
+
+    const matchesRole = roleFilter === "All" || m.role === roleFilter;
+    return matchesSearch && matchesRole;
+  });
+
+  return (
+    <div className="min-h-screen bg-[#030014] text-white">
+      {/* NAVBAR */}
+      <nav className="border-b border-violet-900/40 bg-slate-950/80 backdrop-blur-md sticky top-0 z-50">
+        <div className="max-w-6xl mx-auto px-6 h-20 flex items-center justify-between">
+          <button
+            onClick={() => navigate("/dashboard")}
+            className="flex items-center gap-2 text-xs font-bold text-slate-400 hover:text-amber-400 transition cursor-pointer"
+          >
+            <ArrowLeft size={16} />
+            <span>Back to Dashboard</span>
+          </button>
+          <div className="flex items-center gap-1.5 font-black text-lg">
+            <Users size={18} className="text-amber-400" />
+            <span className="text-white">Member</span>
+            <span className="text-amber-400">Roster & Directory</span>
+          </div>
+        </div>
+      </nav>
+
+      <main className="max-w-6xl mx-auto px-6 py-8">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
+          <div>
+            <h1 className="text-2xl font-black text-white">RAC PSVPEC Member Directory</h1>
+            <p className="text-xs text-slate-400">Browse official profiles, leadership roles, and point records</p>
+          </div>
+          <span className="px-4 py-1.5 rounded-full bg-amber-500/10 border border-amber-500/30 text-amber-400 text-xs font-bold w-fit">
+            {members.length} Registered Members
+          </span>
+        </div>
+
+        {/* SEARCH & FILTERS */}
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-6">
+          <div className="sm:col-span-2 relative">
+            <Search size={16} className="absolute left-3.5 top-3 text-slate-500" />
+            <input
+              type="text"
+              placeholder="Search member by name, department, role, or email..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="w-full pl-10 pr-4 py-2.5 bg-slate-900 border border-violet-900/50 rounded-xl text-white text-xs outline-none focus:border-amber-400"
+            />
+          </div>
+
+          <div className="relative">
+            <Filter size={14} className="absolute left-3.5 top-3.5 text-slate-500" />
+            <select
+              value={roleFilter}
+              onChange={(e) => setRoleFilter(e.target.value)}
+              className="w-full pl-9 pr-4 py-2.5 bg-slate-900 border border-violet-900/50 rounded-xl text-white text-xs outline-none focus:border-amber-400 cursor-pointer"
+            >
+              <option value="All">All Roles ({members.length})</option>
+              {CLUB_ROLES.map((r) => (
+                <option key={r} value={r}>
+                  {r}
+                </option>
+              ))}
+            </select>
+          </div>
+        </div>
+
+        {/* MEMBERS GRID */}
+        {filteredMembers.length === 0 ? (
+          <div className="p-12 rounded-3xl bg-slate-900/60 border border-violet-900/40 text-center text-slate-500 text-sm">
+            No registered members match your search criteria.
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {filteredMembers.map((m) => (
+              <div
+                key={m.id}
+                className="p-5 rounded-3xl bg-slate-900/90 border border-violet-900/40 hover:border-amber-500/40 shadow-xl transition flex flex-col justify-between"
+              >
+                <div>
+                  <div className="flex items-start justify-between gap-3 mb-3">
+                    <div className="flex items-center gap-3">
+                      <div className="w-12 h-12 rounded-2xl overflow-hidden border border-amber-500/30 bg-slate-950 flex items-center justify-center shrink-0">
+                        {m.photoURL ? (
+                          <img src={m.photoURL} alt={m.name} className="w-full h-full object-cover" />
+                        ) : (
+                          <User size={22} className="text-amber-400" />
+                        )}
+                      </div>
+                      <div>
+                        <h3 className="font-extrabold text-sm text-white">{m.name || "Member"}</h3>
+                        <p className="text-[11px] text-amber-300 font-semibold">{m.role || "General Member"}</p>
+                      </div>
+                    </div>
+                    <span className="font-black text-xs text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded-lg border border-amber-500/20">
+                      {m.totalPoints || 0} pts
+                    </span>
+                  </div>
+
+                  <div className="space-y-1 text-xs text-slate-400 bg-slate-950/70 p-3 rounded-2xl border border-violet-950">
+                    <p className="truncate">
+                      <strong className="text-slate-300">Dept:</strong> {m.department || "-"} ({m.yearOfStudy || "1st Year"})
+                    </p>
+                    <p className="truncate">
+                      <strong className="text-slate-300">Email:</strong> {m.email}
+                    </p>
+                    {m.phone && (
+                      <p className="truncate">
+                        <strong className="text-slate-300">Phone:</strong> {m.phone}
+                      </p>
+                    )}
+                  </div>
+                </div>
+
+                <div className="pt-3 mt-3 border-t border-violet-950 flex items-center justify-between gap-2">
+                  <button
+                    onClick={() => setSelectedMember(m)}
+                    className="flex-1 py-2 rounded-xl bg-violet-600/15 border border-violet-500/30 hover:bg-violet-600/25 text-violet-200 text-xs font-bold transition flex items-center justify-center gap-1 cursor-pointer"
+                  >
+                    <Eye size={13} className="text-amber-400" />
+                    <span>View Profile</span>
+                  </button>
+
+                  {isSuperAdmin && (
+                    <button
+                      onClick={() => setUserToDelete(m)}
+                      className="p-2 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/30 text-rose-400 transition cursor-pointer"
+                      title="Permanently remove member"
+                    >
+                      <Trash2 size={14} />
+                    </button>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </main>
+
+      {/* FULL MEMBER PROFILE MODAL */}
+      {selectedMember && (
+        <div className="fixed inset-0 z-50 bg-black/85 backdrop-blur-md flex items-center justify-center p-4">
+          <div className="bg-slate-900 border-2 border-amber-500/40 rounded-3xl p-6 sm:p-8 max-w-md w-full shadow-2xl relative animate-in fade-in zoom-in duration-200">
+            <button
+              onClick={() => setSelectedMember(null)}
+              className="absolute top-4 right-4 p-2 rounded-full text-slate-400 hover:text-white hover:bg-slate-800 transition cursor-pointer"
+            >
+              <X size={20} />
+            </button>
+
+            <div className="flex flex-col items-center text-center mb-5">
+              <div className="w-20 h-20 rounded-3xl overflow-hidden border-2 border-amber-400 bg-slate-950 flex items-center justify-center mb-3 shadow-lg shadow-amber-500/20">
+                {selectedMember.photoURL ? (
+                  <img src={selectedMember.photoURL} alt={selectedMember.name} className="w-full h-full object-cover" />
+                ) : (
+                  <User size={36} className="text-violet-400" />
+                )}
+              </div>
+              <h2 className="text-xl font-black text-white">{selectedMember.name}</h2>
+              <p className="text-xs text-amber-300 font-bold">{selectedMember.role}</p>
+              {selectedMember.username && (
+                <p className="text-[11px] text-slate-400">@{selectedMember.username}</p>
+              )}
+            </div>
+
+            <div className="space-y-2.5 text-xs bg-slate-950 p-4 rounded-2xl border border-violet-900/40 mb-5">
+              <div className="flex items-center justify-between py-1 border-b border-violet-950">
+                <span className="text-slate-400 font-medium">Total Points Balance:</span>
+                <span className="font-black text-amber-400 text-sm">{selectedMember.totalPoints || 0} pts</span>
+              </div>
+              <div className="flex items-center justify-between py-1 border-b border-violet-950">
+                <span className="text-slate-400 font-medium">Department:</span>
+                <span className="font-bold text-white">{selectedMember.department || "Not Specified"}</span>
+              </div>
+              <div className="flex items-center justify-between py-1 border-b border-violet-950">
+                <span className="text-slate-400 font-medium">Year of Study:</span>
+                <span className="font-bold text-white">{selectedMember.yearOfStudy || "1st Year"}</span>
+              </div>
+              <div className="flex items-center justify-between py-1 border-b border-violet-950">
+                <span className="text-slate-400 font-medium">Email Address:</span>
+                <span className="font-bold text-violet-300">{selectedMember.email}</span>
+              </div>
+              {selectedMember.phone && (
+                <div className="flex items-center justify-between py-1">
+                  <span className="text-slate-400 font-medium">Contact Phone:</span>
+                  <span className="font-bold text-white">{selectedMember.phone}</span>
+                </div>
+              )}
+            </div>
+
+            <div className="flex gap-2">
+              <button
+                onClick={() => {
+                  setSelectedMember(null);
+                  navigate("/admin");
+                }}
+                className="flex-1 py-3 rounded-xl bg-gradient-to-r from-amber-500 to-amber-400 text-slate-950 font-black text-xs transition cursor-pointer"
+              >
+                Award / Deduct Points
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* SUPER ADMIN DELETE CONFIRMATION MODAL */}
+      {userToDelete && (
+        <div className="fixed inset-0 z-50 bg-black/85 backdrop-blur-md flex items-center justify-center p-4">
+          <div className="bg-slate-900 border border-rose-500/30 rounded-3xl p-6 sm:p-8 max-w-md w-full shadow-2xl">
+            <h2 className="text-xl font-bold text-white mb-2">Delete Member Record?</h2>
+            <p className="text-xs text-slate-400 mb-6 leading-relaxed">
+              Are you sure you want to delete <strong className="text-white">{userToDelete.name}</strong>? All their profile data, point ledgers, and submissions will be permanently wiped.
+            </p>
+            <div className="flex items-center justify-end gap-3">
+              <button
+                onClick={() => setUserToDelete(null)}
+                disabled={deleteLoading}
+                className="px-4 py-2 rounded-xl text-slate-400 hover:text-white text-xs font-bold cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleDeleteMember}
+                disabled={deleteLoading}
+                className="px-5 py-2 rounded-xl bg-rose-600 hover:bg-rose-500 text-white font-bold text-xs flex items-center gap-1.5 cursor-pointer"
+              >
+                {deleteLoading ? <Loader2 size={14} className="animate-spin" /> : <span>Yes, Delete</span>}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ==========================================
 // ROUTE GUARDS
 // ==========================================
 function ProtectedRoute({ children }) {
@@ -1597,7 +1901,7 @@ function AdminRoute({ children }) {
   if (loading) {
     return (
       <div className="min-h-screen bg-[#030014] flex items-center justify-center text-amber-400 font-bold text-sm">
-        Verifying...
+        Verifying permissions...
       </div>
     );
   }
@@ -1693,7 +1997,7 @@ export default function App() {
           }
         />
 
-        {/* 🛠️ FIXED: ADMIN ROUTES DIRECT TO PROPER COMPONENTS */}
+        {/* 🛠️ FIXED: ALL ADMIN ROUTES DIRECT TO PROPER MANAGEMENT COMPONENTS */}
         <Route
           path="/admin"
           element={
@@ -1714,7 +2018,7 @@ export default function App() {
           path="/admin/members"
           element={
             <AdminRoute>
-              <LeaderboardPage />
+              <AdminMembersDirectory />
             </AdminRoute>
           }
         />
