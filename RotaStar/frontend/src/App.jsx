@@ -12,7 +12,6 @@ import {
   serverTimestamp,
   updateDoc,
   increment,
-  arrayUnion,
   getDocs,
   where,
 } from "firebase/firestore";
@@ -48,37 +47,30 @@ import {
   Clock,
   Send,
   CheckCircle2,
-  ChevronDown,
-  ChevronUp,
   X,
-  ExternalLink,
-  Info,
-  Crown,
-  UserCheck,
-  Check,
-  MessageCircle,
   Trash2,
   Search,
   Filter,
   Users,
   Eye,
   Inbox,
+  ShieldAlert,
 } from "lucide-react";
 
 // ==========================================
 // CENTRAL DATE & AVATAR FORMATTERS
 // ==========================================
 export const formatDisplayDate = (val) => {
-  if (!val) return "Date TBA";
+  if (!val) return "Recent";
   let dateObj = null;
   if (val?.toDate) {
     dateObj = val.toDate();
-  } else if (typeof val === "string") {
+  } else if (typeof val === "string" || typeof val === "number") {
     dateObj = new Date(val);
   }
-  if (!dateObj || isNaN(dateObj.getTime())) return val.toString();
+  if (!dateObj || isNaN(dateObj.getTime())) return "Recent";
   return dateObj.toLocaleDateString("en-US", {
-    month: "long",
+    month: "short",
     day: "numeric",
     year: "numeric",
   });
@@ -116,7 +108,7 @@ export function MemberAvatar({ photoURL, name, size = "md" }) {
       ? "w-16 h-16 text-lg"
       : "w-11 h-11 text-xs";
 
-  if (photoURL && (photoURL.startsWith("data:image") || photoURL.startsWith("https://lh3.googleusercontent.com"))) {
+  if (photoURL && (photoURL.startsWith("data:image") || photoURL.startsWith("https://lh3.googleusercontent.com") || photoURL.startsWith("http"))) {
     return (
       <div className={`${dimensions} rounded-2xl overflow-hidden border border-amber-500/30 bg-slate-950 shrink-0`}>
         <img src={photoURL} alt={name || "Member"} className="w-full h-full object-cover" />
@@ -216,7 +208,7 @@ function SignupComponent() {
     }
 
     if (password.length < 8) {
-      setErrorMessage("Password must be at least 8 characters.");
+      setErrorMessage("Password must be at least 8 characters long.");
       return;
     }
 
@@ -475,16 +467,7 @@ function EventIdeasPage() {
   const [eventDescription, setEventDescription] = useState("");
   const [needSuggestions, setNeedSuggestions] = useState(false);
   const [suggestionNotes, setSuggestionNotes] = useState("");
-  const [commentInputs, setCommentInputs] = useState({});
   const [submitting, setSubmitting] = useState(false);
-
-  const rawRole = (userData?.role || "").toString().toLowerCase().trim();
-  const isBoardAdmin =
-    Boolean(isAdmin) ||
-    Boolean(isSuperAdmin) ||
-    rawRole.includes("admin") ||
-    rawRole.includes("president") ||
-    rawRole.includes("secretary");
 
   useEffect(() => {
     const q = query(collection(db, "eventIdeas"));
@@ -886,7 +869,7 @@ function RequestPointsPage() {
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-slate-300 uppercase tracking-wider mb-1.5">What Did You Gain? (Optional)</label>
+                <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-1.5">What Did You Gain? (Optional)</label>
                 <textarea
                   rows={3}
                   placeholder="Brief summary of tasks handled or skills developed..."
@@ -912,14 +895,22 @@ function RequestPointsPage() {
 }
 
 // ==========================================
-// 6. FEEDBACK PAGE
+// 6. MEMBER FEEDBACK SUBMISSION COMPONENT
 // ==========================================
 function FeedbackPage() {
   const navigate = useNavigate();
-  const { currentUser, userData } = useAuth();
+  const { currentUser, userData, isAdmin, isSuperAdmin } = useAuth();
   const [feedback, setFeedback] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [done, setDone] = useState(false);
+
+  const rawRole = (userData?.role || "").toString().toLowerCase().trim();
+  const isBoardAdmin =
+    Boolean(isAdmin) ||
+    Boolean(isSuperAdmin) ||
+    rawRole.includes("admin") ||
+    rawRole.includes("president") ||
+    rawRole.includes("secretary");
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -961,6 +952,21 @@ function FeedbackPage() {
       </nav>
 
       <main className="max-w-2xl mx-auto px-6 py-8">
+        {isBoardAdmin && (
+          <div className="mb-6 p-4 rounded-2xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-between gap-4">
+            <div className="flex items-center gap-2.5">
+              <Inbox size={18} className="text-amber-400" />
+              <span className="text-xs font-bold text-amber-300">Logged in as Executive Board / Admin</span>
+            </div>
+            <button
+              onClick={() => navigate("/admin/feedback")}
+              className="px-3.5 py-1.5 bg-amber-500 hover:bg-amber-400 text-slate-950 text-xs font-black rounded-xl transition cursor-pointer"
+            >
+              Open Feedback Inbox →
+            </button>
+          </div>
+        )}
+
         <div className="bg-slate-900/90 border border-violet-900/40 rounded-3xl p-6 sm:p-8 shadow-2xl">
           <h2 className="text-xl font-black text-white mb-1">Feedback to Executive Board</h2>
           <p className="text-xs text-slate-400 mb-6">Send suggestions or constructive questions straight to club leadership.</p>
@@ -995,7 +1001,140 @@ function FeedbackPage() {
 }
 
 // ==========================================
-// 7. DIRECTORY WITH DELETE CAPABILITY
+// 7. 📬 DEDICATED ADMIN FEEDBACK INBOX COMPONENT
+// ==========================================
+function AdminFeedbackPage() {
+  const navigate = useNavigate();
+  const [feedbackList, setFeedbackList] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const q = query(collection(db, "feedback"));
+    const unsub = onSnapshot(
+      q,
+      (snapshot) => {
+        const list = snapshot.docs.map((d) => ({
+          id: d.id,
+          ...d.data(),
+        }));
+
+        // Client-side date sorting with null-safe handling
+        list.sort((a, b) => {
+          const timeA = a.createdAt?.toDate ? a.createdAt.toDate().getTime() : 0;
+          const timeB = b.createdAt?.toDate ? b.createdAt.toDate().getTime() : 0;
+          return timeB - timeA;
+        });
+
+        setFeedbackList(list);
+        setLoading(false);
+      },
+      (err) => {
+        console.error("Firestore feedback sync error:", err);
+        setLoading(false);
+      }
+    );
+
+    return () => unsub();
+  }, []);
+
+  const handleDeleteFeedback = async (id) => {
+    if (!window.confirm("Are you sure you want to remove this feedback record?")) return;
+    try {
+      await deleteDoc(doc(db, "feedback", id));
+    } catch (err) {
+      alert("Error deleting feedback: " + err.message);
+    }
+  };
+
+  return (
+    <div className="min-h-screen bg-[#030014] text-white">
+      <nav className="border-b border-violet-900/40 bg-slate-950/80 backdrop-blur-md sticky top-0 z-50">
+        <div className="max-w-5xl mx-auto px-6 h-20 flex items-center justify-between">
+          <button
+            onClick={() => navigate("/dashboard")}
+            className="flex items-center gap-2 text-xs font-bold text-slate-400 hover:text-amber-400 transition cursor-pointer"
+          >
+            <ArrowLeft size={16} />
+            <span>Back to Dashboard</span>
+          </button>
+          <div className="font-black text-lg">
+            <span>Executive </span>
+            <span className="text-amber-400">Feedback Inbox</span>
+          </div>
+        </div>
+      </nav>
+
+      <main className="max-w-5xl mx-auto px-6 py-8">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
+          <div>
+            <h1 className="text-2xl font-black text-white">Member Feedback Ledger</h1>
+            <p className="text-xs text-slate-400">Review recommendations, grievances, and inquiries from club members</p>
+          </div>
+          <span className="px-3.5 py-1 rounded-full bg-amber-500/10 border border-amber-500/30 text-amber-400 text-xs font-bold w-fit">
+            {feedbackList.length} Total Messages
+          </span>
+        </div>
+
+        {loading ? (
+          <div className="p-16 flex items-center justify-center text-amber-400 gap-2">
+            <Loader2 size={20} className="animate-spin" />
+            <span className="text-xs font-bold">Retrieving feedback ledger...</span>
+          </div>
+        ) : feedbackList.length === 0 ? (
+          <div className="p-12 text-center text-slate-500 bg-slate-900/40 border border-violet-900/30 rounded-3xl">
+            <Inbox size={32} className="mx-auto text-slate-600 mb-2" />
+            <p className="text-sm font-semibold text-slate-400">Inbox is empty</p>
+            <p className="text-xs text-slate-600 mt-0.5">No member submissions recorded yet.</p>
+          </div>
+        ) : (
+          <div className="space-y-4">
+            {feedbackList.map((item) => (
+              <div
+                key={item.id}
+                className="p-5 rounded-2xl bg-slate-900/90 border border-violet-900/40 flex flex-col sm:flex-row sm:items-start justify-between gap-4 shadow-xl"
+              >
+                <div className="flex items-start gap-3.5 flex-1">
+                  <MemberAvatar photoURL={item.photoURL} name={item.userName} size="md" />
+                  <div className="space-y-1 flex-1">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <h3 className="font-extrabold text-sm text-white">{item.userName || "Member"}</h3>
+                      <span className="text-[10px] font-bold text-violet-300 bg-violet-500/15 border border-violet-500/30 px-2 py-0.5 rounded-md">
+                        {item.userRole || "General Member"}
+                      </span>
+                      <span className="text-[11px] text-slate-500">• {formatDisplayDate(item.createdAt)}</span>
+                    </div>
+
+                    {item.userEmail && (
+                      <p className="text-[11px] text-slate-400 flex items-center gap-1.5">
+                        <Mail size={12} className="text-slate-500" />
+                        <span>{item.userEmail}</span>
+                      </p>
+                    )}
+
+                    <div className="mt-2.5 p-3.5 bg-slate-950 rounded-xl border border-violet-950 text-xs text-slate-200 leading-relaxed">
+                      {item.message}
+                    </div>
+                  </div>
+                </div>
+
+                <button
+                  onClick={() => handleDeleteFeedback(item.id)}
+                  className="p-2.5 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border border-rose-500/30 self-end sm:self-start transition cursor-pointer"
+                  title="Delete message"
+                >
+                  <Trash2 size={15} />
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+      </main>
+    </div>
+  );
+}
+
+// ==========================================
+// 8. DIRECTORY WITH DELETE CAPABILITY
 // ==========================================
 function AdminMembersDirectory() {
   const navigate = useNavigate();
@@ -1090,7 +1229,7 @@ function AdminMembersDirectory() {
           <select
             value={roleFilter}
             onChange={(e) => setRoleFilter(e.target.value)}
-            className="px-4 py-2.5 bg-slate-900 border border-violet-900/50 rounded-xl text-white text-xs outline-none focus:border-amber-400"
+            className="px-4 py-2.5 bg-slate-900 border border-violet-900/50 rounded-xl text-white text-xs outline-none focus:border-amber-400 cursor-pointer"
           >
             <option value="All">All Roles</option>
             {CLUB_ROLES.map((r) => (
@@ -1222,13 +1361,7 @@ function AdminMembersDirectory() {
 // ==========================================
 function ProtectedRoute({ children }) {
   const { currentUser, loading } = useAuth();
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-[#030014] flex items-center justify-center text-amber-400 text-xs font-bold">
-        Verifying Session...
-      </div>
-    );
-  }
+  if (loading) return <div className="min-h-screen bg-[#030014] flex items-center justify-center text-amber-400 text-xs font-bold">Verifying Session...</div>;
   return currentUser ? children : <Navigate to="/login" replace />;
 }
 
@@ -1262,10 +1395,11 @@ export default function App() {
         <Route path="/request-points" element={<ProtectedRoute><RequestPointsPage /></ProtectedRoute>} />
         <Route path="/feedback" element={<ProtectedRoute><FeedbackPage /></ProtectedRoute>} />
 
+        {/* 🛠️ ADMIN ROUTES */}
         <Route path="/admin" element={<AdminRoute><AdminPoints /></AdminRoute>} />
         <Route path="/admin/requests" element={<AdminRoute><AdminPointRequests /></AdminRoute>} />
         <Route path="/admin/members" element={<AdminRoute><AdminMembersDirectory /></AdminRoute>} />
-        <Route path="/admin/feedback" element={<AdminRoute><FeedbackPage /></AdminRoute>} />
+        <Route path="/admin/feedback" element={<AdminRoute><AdminFeedbackPage /></AdminRoute>} />
 
         <Route path="*" element={<Navigate to="/login" replace />} />
       </Routes>
