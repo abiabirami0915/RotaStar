@@ -4,6 +4,7 @@ import {
   signInWithEmailAndPassword,
   signInWithPopup,
   GoogleAuthProvider,
+  sendPasswordResetEmail,
 } from "firebase/auth";
 import { doc, getDoc, setDoc, serverTimestamp } from "firebase/firestore";
 import { auth, db } from "../firebase/firebase";
@@ -11,11 +12,12 @@ import {
   Mail,
   Lock,
   ArrowRight,
-  Sparkles,
   AlertCircle,
   Loader2,
   Star,
   UserPlus,
+  CheckCircle2,
+  X,
 } from "lucide-react";
 
 export default function Login() {
@@ -27,6 +29,13 @@ export default function Login() {
   const [googleLoading, setGoogleLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
 
+  // Forgot Password modal state
+  const [showForgotModal, setShowForgotModal] = useState(false);
+  const [resetEmail, setResetEmail] = useState("");
+  const [resetLoading, setResetLoading] = useState(false);
+  const [resetSuccess, setResetSuccess] = useState(false);
+  const [resetError, setResetError] = useState("");
+
   const handleEmailLogin = async (e) => {
     e.preventDefault();
     setErrorMessage("");
@@ -36,13 +45,12 @@ export default function Login() {
       await signInWithEmailAndPassword(auth, email.trim(), password);
       navigate("/dashboard");
     } catch (err) {
-      console.error("Login error:", err);
       if (
         err.code === "auth/user-not-found" ||
         err.code === "auth/wrong-password" ||
         err.code === "auth/invalid-credential"
       ) {
-        setErrorMessage("Invalid email or password. Don't have an account? Sign up below.");
+        setErrorMessage("Invalid email or password. Please verify your credentials or reset your password.");
       } else {
         setErrorMessage(err.message || "Failed to log in. Please try again.");
       }
@@ -60,7 +68,6 @@ export default function Login() {
       const result = await signInWithPopup(auth, provider);
       const user = result.user;
 
-      // Check if user doc exists, if not create one
       const userDocRef = doc(db, "users", user.uid);
       const userSnap = await getDoc(userDocRef);
 
@@ -78,7 +85,7 @@ export default function Login() {
           department: "",
           yearOfStudy: "1st Year",
           role: "General Member",
-          totalPoints: 10,
+          totalPoints: 0,
           activities: [],
           photoURL: user.photoURL || "",
           createdAt: serverTimestamp(),
@@ -87,10 +94,29 @@ export default function Login() {
 
       navigate("/dashboard");
     } catch (err) {
-      console.error("Google sign in error:", err);
       setErrorMessage(err.message || "Failed to sign in with Google.");
     } finally {
       setGoogleLoading(false);
+    }
+  };
+
+  const handlePasswordReset = async (e) => {
+    e.preventDefault();
+    setResetError("");
+    setResetLoading(true);
+
+    try {
+      await sendPasswordResetEmail(auth, resetEmail.trim());
+      setResetSuccess(true);
+      setTimeout(() => {
+        setShowForgotModal(false);
+        setResetSuccess(false);
+        setResetEmail("");
+      }, 3500);
+    } catch (err) {
+      setResetError(err.message || "Failed to send reset email. Verify the address.");
+    } finally {
+      setResetLoading(false);
     }
   };
 
@@ -108,26 +134,23 @@ export default function Login() {
           </div>
         </div>
         <div>
-          <div className="flex items-center gap-1">
-            <span className="font-black text-2xl text-violet-400">Rota</span>
-            <span className="font-black text-2xl text-amber-400">Star</span>
+          <div className="flex items-center gap-1 font-black text-2xl">
+            <span className="text-violet-400">Rota</span>
+            <span className="text-amber-400">Star</span>
           </div>
-          <p className="text-[10px] text-amber-300/80 tracking-tight font-semibold uppercase">
+          <p className="text-[10px] text-slate-400 tracking-wider font-semibold uppercase">
             RAC PSVPEC • A.U.R.A • RID 3233
           </p>
         </div>
       </div>
 
       {/* LOGIN CARD */}
-      <div className="w-full max-w-md bg-slate-900/90 border border-violet-900/50 backdrop-blur-xl rounded-3xl p-6 sm:p-8 shadow-2xl relative z-10">
-        <div className="text-center mb-6">
-          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-500/10 border border-amber-500/30 text-amber-400 text-xs font-bold uppercase tracking-wider mb-2">
-            <Sparkles size={13} />
-            <span>Member Access</span>
-          </div>
-          <h2 className="text-2xl font-black text-white">Welcome Back</h2>
+      <div className="w-full max-w-md bg-slate-900/90 border border-violet-900/50 backdrop-blur-xl rounded-3xl p-7 sm:p-8 shadow-2xl relative z-10">
+        <div className="mb-6">
+          <p className="text-[11px] font-bold tracking-widest uppercase text-amber-400">Member Access</p>
+          <h2 className="text-2xl font-black text-white mt-0.5">Welcome Back</h2>
           <p className="text-xs text-slate-400 mt-1">
-            Sign in to track points, check calendar, and view leaderboard
+            Sign in to track points, view calendar schedules, and check rankings.
           </p>
         </div>
 
@@ -140,7 +163,7 @@ export default function Login() {
 
         <form onSubmit={handleEmailLogin} className="space-y-4">
           <div>
-            <label className="block text-xs font-bold text-violet-300 uppercase tracking-wider mb-1.5">
+            <label className="block text-xs font-bold text-slate-300 uppercase tracking-wider mb-1.5">
               Email Address
             </label>
             <div className="relative">
@@ -157,9 +180,18 @@ export default function Login() {
           </div>
 
           <div>
-            <label className="block text-xs font-bold text-violet-300 uppercase tracking-wider mb-1.5">
-              Password
-            </label>
+            <div className="flex items-center justify-between mb-1.5">
+              <label className="block text-xs font-bold text-slate-300 uppercase tracking-wider">
+                Password
+              </label>
+              <button
+                type="button"
+                onClick={() => setShowForgotModal(true)}
+                className="text-[11px] font-bold text-amber-400 hover:text-amber-300 transition cursor-pointer"
+              >
+                Forgot Password?
+              </button>
+            </div>
             <div className="relative">
               <Lock size={16} className="absolute left-3.5 top-3.5 text-slate-500" />
               <input
@@ -203,7 +235,7 @@ export default function Login() {
           type="button"
           onClick={handleGoogleSignIn}
           disabled={googleLoading}
-          className="w-full py-3 rounded-xl bg-slate-950 border border-violet-900/60 hover:border-amber-500/40 text-white font-bold text-xs flex items-center justify-center gap-2.5 transition"
+          className="w-full py-3 rounded-xl bg-slate-950 border border-violet-900/60 hover:border-amber-500/40 text-white font-bold text-xs flex items-center justify-center gap-2.5 transition cursor-pointer"
         >
           {googleLoading ? (
             <Loader2 size={16} className="animate-spin" />
@@ -232,7 +264,7 @@ export default function Login() {
           )}
         </button>
 
-        {/* 🌟 PROMINENT CREATE ACCOUNT BUTTON SECTION */}
+        {/* CREATE ACCOUNT LINK */}
         <div className="mt-6 pt-5 border-t border-violet-900/50 text-center">
           <p className="text-xs text-slate-400 mb-3">
             New to Rotaract Club of PSVPEC?
@@ -246,6 +278,57 @@ export default function Login() {
           </Link>
         </div>
       </div>
+
+      {/* FORGOT PASSWORD MODAL */}
+      {showForgotModal && (
+        <div className="fixed inset-0 z-50 bg-black/85 backdrop-blur-md flex items-center justify-center p-4">
+          <div className="bg-slate-900 border border-amber-500/40 rounded-3xl p-6 sm:p-7 max-w-sm w-full shadow-2xl relative">
+            <button
+              onClick={() => setShowForgotModal(false)}
+              className="absolute top-4 right-4 p-1.5 rounded-full text-slate-400 hover:text-white"
+            >
+              <X size={18} />
+            </button>
+
+            <h3 className="text-lg font-black text-white mb-1">Reset Password</h3>
+            <p className="text-xs text-slate-400 mb-4">
+              Enter your registered email address to receive password recovery instructions.
+            </p>
+
+            {resetSuccess && (
+              <div className="mb-4 p-3 bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-xs rounded-xl flex items-center gap-2">
+                <CheckCircle2 size={15} />
+                <span>Reset link dispatched. Please check your inbox.</span>
+              </div>
+            )}
+
+            {resetError && (
+              <div className="mb-4 p-3 bg-rose-500/10 border border-rose-500/30 text-rose-400 text-xs rounded-xl flex items-center gap-2">
+                <AlertCircle size={15} />
+                <span>{resetError}</span>
+              </div>
+            )}
+
+            <form onSubmit={handlePasswordReset} className="space-y-4">
+              <input
+                type="email"
+                required
+                placeholder="name@example.com"
+                value={resetEmail}
+                onChange={(e) => setResetEmail(e.target.value)}
+                className="w-full px-3.5 py-2.5 bg-slate-950 border border-violet-900/50 rounded-xl text-white text-xs outline-none focus:border-amber-400"
+              />
+              <button
+                type="submit"
+                disabled={resetLoading || resetSuccess}
+                className="w-full py-2.5 bg-amber-500 hover:bg-amber-400 text-slate-950 font-black text-xs rounded-xl transition flex items-center justify-center gap-2 disabled:opacity-50 cursor-pointer"
+              >
+                {resetLoading ? <Loader2 size={15} className="animate-spin" /> : "Send Recovery Link"}
+              </button>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
