@@ -55,6 +55,7 @@ import {
   Eye,
   Inbox,
   Check,
+  Edit3,
 } from "lucide-react";
 
 // ==========================================
@@ -136,6 +137,9 @@ export const CLUB_ROLES = [
   "Treasurer",
   "Associate Secretary",
   "Associate Sergeant-at-Arms",
+  "Immediate Past President (IPP)",
+  "Past President",
+  "Past Secretary",
   "Club Service Director",
   "Community Service Director",
   "Professional Service Director",
@@ -152,10 +156,11 @@ export const CLUB_ROLES = [
   "Employment Cell",
   "Blood Donation Head",
   "PRO Head",
+  "Other",
 ];
 
 // ==========================================
-// 1. SIGNUP COMPONENT (NO CLUB POSITION FIELD)
+// 1. SIGNUP COMPONENT (NO ROLE DROPDOWN)
 // ==========================================
 function SignupComponent() {
   const navigate = useNavigate();
@@ -231,7 +236,7 @@ function SignupComponent() {
         phone: phone.trim(),
         department: department.trim(),
         yearOfStudy,
-        role: "General Member", // Hardcoded default role
+        role: "General Member", // Automatically forced for all new signups
         totalPoints: 0,
         activities: [],
         photoURL: "",
@@ -441,7 +446,7 @@ function SignupComponent() {
 // ==========================================
 function EventIdeasPage() {
   const navigate = useNavigate();
-  const { currentUser, userData, isAdmin, isSuperAdmin } = useAuth();
+  const { currentUser, userData } = useAuth();
 
   const [ideas, setIdeas] = useState([]);
   const [eventName, setEventName] = useState("");
@@ -1117,7 +1122,7 @@ function AdminFeedbackPage() {
 }
 
 // ==========================================
-// 8. DIRECTORY WITH ADMIN ROLE UPDATING & DELETION
+// 8. DIRECTORY WITH ADMIN ROLE UPDATING & "OTHER" INPUT
 // ==========================================
 function AdminMembersDirectory() {
   const navigate = useNavigate();
@@ -1131,7 +1136,8 @@ function AdminMembersDirectory() {
   const [deleteLoading, setDeleteLoading] = useState(false);
 
   // Role update state inside the modal
-  const [newRole, setNewRole] = useState("");
+  const [selectedRoleOption, setSelectedRoleOption] = useState("General Member");
+  const [customRoleText, setCustomRoleText] = useState("");
   const [roleUpdating, setRoleUpdating] = useState(false);
 
   const rawRole = (userData?.role || "").toString().toLowerCase().trim();
@@ -1146,22 +1152,39 @@ function AdminMembersDirectory() {
     return () => unsub();
   }, []);
 
-  // When member selected, set default role in select dropdown
+  // When member selected, detect if role is in standard CLUB_ROLES list or if it's "Other"
   useEffect(() => {
     if (selectedMember) {
-      setNewRole(selectedMember.role || "General Member");
+      const current = selectedMember.role || "General Member";
+      const isInList = CLUB_ROLES.filter((r) => r !== "Other").includes(current);
+
+      if (isInList) {
+        setSelectedRoleOption(current);
+        setCustomRoleText("");
+      } else {
+        setSelectedRoleOption("Other");
+        setCustomRoleText(current);
+      }
     }
   }, [selectedMember]);
 
   const handleUpdateMemberRole = async () => {
-    if (!selectedMember || !newRole || !canModify) return;
+    if (!selectedMember || !canModify) return;
+
+    const roleToSave = selectedRoleOption === "Other" ? customRoleText.trim() : selectedRoleOption;
+
+    if (!roleToSave) {
+      alert("Please enter or select a valid role.");
+      return;
+    }
+
     setRoleUpdating(true);
     try {
       await updateDoc(doc(db, "users", selectedMember.id), {
-        role: newRole,
+        role: roleToSave,
       });
-      setSelectedMember((prev) => ({ ...prev, role: newRole }));
-      alert(`Role for ${selectedMember.name} updated to ${newRole}`);
+      setSelectedMember((prev) => ({ ...prev, role: roleToSave }));
+      alert(`Role for ${selectedMember.name} updated to "${roleToSave}"`);
     } catch (err) {
       alert("Failed to update role: " + err.message);
     } finally {
@@ -1242,7 +1265,7 @@ function AdminMembersDirectory() {
             className="px-4 py-2.5 bg-slate-900 border border-violet-900/50 rounded-xl text-white text-xs outline-none focus:border-amber-400 cursor-pointer"
           >
             <option value="All">All Roles</option>
-            {CLUB_ROLES.map((r) => (
+            {CLUB_ROLES.filter((r) => r !== "Other").map((r) => (
               <option key={r} value={r}>
                 {r}
               </option>
@@ -1287,7 +1310,7 @@ function AdminMembersDirectory() {
         </div>
       </main>
 
-      {/* MEMBER MODAL (ROLE MODIFICATION ONLY FOR ADMINS) */}
+      {/* MEMBER MODAL (ROLE MODIFICATION WITH "OTHER" OPTION) */}
       {selectedMember && (
         <div className="fixed inset-0 z-50 bg-black/85 backdrop-blur-md flex items-center justify-center p-4">
           <div className="bg-slate-900 border border-amber-500/40 rounded-3xl p-6 sm:p-8 max-w-sm w-full relative">
@@ -1303,15 +1326,15 @@ function AdminMembersDirectory() {
 
             {/* ROLE ASSIGNMENT FIELD (ADMIN ONLY) */}
             {canModify && (
-              <div className="p-3.5 bg-slate-950 rounded-2xl border border-amber-500/30 mb-4 space-y-2">
+              <div className="p-3.5 bg-slate-950 rounded-2xl border border-amber-500/30 mb-4 space-y-2.5">
                 <label className="block text-[11px] font-bold text-amber-300 uppercase tracking-wider flex items-center gap-1.5">
                   <Briefcase size={13} />
                   <span>Assign Club Role</span>
                 </label>
                 <div className="flex gap-2">
                   <select
-                    value={newRole}
-                    onChange={(e) => setNewRole(e.target.value)}
+                    value={selectedRoleOption}
+                    onChange={(e) => setSelectedRoleOption(e.target.value)}
                     className="flex-1 px-2.5 py-2 bg-slate-900 border border-violet-900/50 rounded-xl text-white text-xs outline-none focus:border-amber-400"
                   >
                     {CLUB_ROLES.map((r) => (
@@ -1322,12 +1345,34 @@ function AdminMembersDirectory() {
                   </select>
                   <button
                     onClick={handleUpdateMemberRole}
-                    disabled={roleUpdating || newRole === selectedMember.role}
+                    disabled={
+                      roleUpdating ||
+                      (selectedRoleOption !== "Other" && selectedRoleOption === selectedMember.role) ||
+                      (selectedRoleOption === "Other" && !customRoleText.trim())
+                    }
                     className="px-3 py-2 bg-amber-500 hover:bg-amber-400 text-slate-950 font-black text-xs rounded-xl transition disabled:opacity-40 cursor-pointer"
                   >
                     {roleUpdating ? <Loader2 size={14} className="animate-spin" /> : "Save"}
                   </button>
                 </div>
+
+                {/* DYNAMIC TEXT INPUT WHEN "OTHER" IS SELECTED */}
+                {selectedRoleOption === "Other" && (
+                  <div className="animate-in fade-in space-y-1 pt-1">
+                    <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1">
+                      <Edit3 size={11} className="text-amber-400" />
+                      <span>Custom Position Title</span>
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      placeholder="e.g. Webmaster / Special Invitee / District Lead"
+                      value={customRoleText}
+                      onChange={(e) => setCustomRoleText(e.target.value)}
+                      className="w-full px-3 py-2 bg-slate-900 border border-amber-500/40 rounded-xl text-white text-xs outline-none focus:border-amber-300"
+                    />
+                  </div>
+                )}
               </div>
             )}
 
