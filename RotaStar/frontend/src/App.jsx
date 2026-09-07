@@ -616,13 +616,34 @@ function EventIdeasPage() {
     </div>
   );
 }
-
 // ==========================================
-// 3. EVENTS CALENDAR (WITH ONGOING & UPCOMING SECTIONS)
+// 3. EVENTS CALENDAR (WITH ONGOING CONTROLS & ADD EVENT MODAL)
 // ==========================================
 function EventsPage() {
   const navigate = useNavigate();
+  const { currentUser, userData, isAdmin, isSuperAdmin } = useAuth();
+
   const [events, setEvents] = useState([]);
+  const [showAddModal, setShowAddModal] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+
+  // New Event Form State
+  const [title, setTitle] = useState("");
+  const [avenue, setAvenue] = useState("Community Service");
+  const [date, setDate] = useState("");
+  const [time, setTime] = useState("");
+  const [venue, setVenue] = useState("");
+  const [points, setPoints] = useState("10");
+  const [description, setDescription] = useState("");
+  const [isLiveOngoing, setIsLiveOngoing] = useState(false);
+
+  const rawRole = (userData?.role || "").toString().toLowerCase().trim();
+  const isBoardAdmin =
+    Boolean(isAdmin) ||
+    Boolean(isSuperAdmin) ||
+    rawRole.includes("admin") ||
+    rawRole.includes("president") ||
+    rawRole.includes("secretary");
 
   useEffect(() => {
     const unsub = onSnapshot(collection(db, "events"), (snapshot) => {
@@ -635,7 +656,7 @@ function EventsPage() {
         const eventDayStart = dObj ? new Date(dObj.getFullYear(), dObj.getMonth(), dObj.getDate()).getTime() : 0;
         const diffDays = dObj ? Math.round((eventDayStart - todayStart) / (1000 * 60 * 60 * 24)) : null;
 
-        // Ongoing check: happens today (diffDays === 0) or manually marked ongoing
+        // Ongoing if status === "ongoing" OR scheduled for today (diffDays === 0)
         const isOngoing = data.status === "ongoing" || diffDays === 0;
 
         return {
@@ -653,18 +674,78 @@ function EventsPage() {
     return () => unsub();
   }, []);
 
+  const handleCreateEvent = async (e) => {
+    e.preventDefault();
+    if (!title.trim() || !date) return;
+
+    setSubmitting(true);
+    try {
+      await addDoc(collection(db, "events"), {
+        title: title.trim(),
+        name: title.trim(),
+        avenue,
+        date,
+        time: time.trim() || "Time TBA",
+        venue: venue.trim() || "Venue TBA",
+        points: Number(points) || 10,
+        description: description.trim(),
+        status: isLiveOngoing ? "ongoing" : "upcoming",
+        createdAt: serverTimestamp(),
+      });
+
+      setShowAddModal(false);
+      setTitle("");
+      setDate("");
+      setTime("");
+      setVenue("");
+      setPoints("10");
+      setDescription("");
+      setIsLiveOngoing(false);
+    } catch (err) {
+      alert("Failed to add event: " + err.message);
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleToggleOngoing = async (ev) => {
+    if (!isBoardAdmin) return;
+    const newStatus = ev.status === "ongoing" ? "upcoming" : "ongoing";
+    try {
+      await updateDoc(doc(db, "events", ev.id), {
+        status: newStatus,
+      });
+    } catch (err) {
+      alert("Failed to update status: " + err.message);
+    }
+  };
+
+  const handleDeleteEvent = async (id) => {
+    if (!isBoardAdmin) return;
+    if (!window.confirm("Are you sure you want to delete this event?")) return;
+    try {
+      await deleteDoc(doc(db, "events", id));
+    } catch (err) {
+      alert("Error deleting event: " + err.message);
+    }
+  };
+
   const ongoingEvents = events.filter((ev) => ev.isOngoing);
   const upcomingEvents = events.filter((ev) => !ev.isOngoing && (ev.diffDays === null || ev.diffDays > 0));
 
   return (
     <div className="min-h-screen bg-[#030014] text-white">
+      {/* NAVBAR */}
       <nav className="border-b border-violet-900/40 bg-slate-950/80 backdrop-blur-md sticky top-0 z-50">
         <div className="max-w-5xl mx-auto px-6 h-20 flex items-center justify-between">
-          <button onClick={() => navigate("/dashboard")} className="flex items-center gap-2 text-xs font-bold text-slate-400 hover:text-amber-400 cursor-pointer">
+          <button
+            onClick={() => navigate("/dashboard")}
+            className="flex items-center gap-2 text-xs font-bold text-slate-400 hover:text-amber-400 transition cursor-pointer"
+          >
             <ArrowLeft size={16} />
             <span>Back to Dashboard</span>
           </button>
-          <div className="font-black text-lg">
+          <div className="flex items-center gap-2 font-black text-lg">
             <span>Official </span>
             <span className="text-amber-400">Calendar</span>
           </div>
@@ -672,9 +753,22 @@ function EventsPage() {
       </nav>
 
       <main className="max-w-5xl mx-auto px-6 py-8 space-y-10">
-        <div>
-          <h1 className="text-2xl font-black text-white">Club Initiatives & Calendar</h1>
-          <p className="text-xs text-slate-400">Live tracker for ongoing operations, meetings, and scheduled service assemblies</p>
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div>
+            <h1 className="text-2xl font-black text-white">Club Initiatives & Calendar</h1>
+            <p className="text-xs text-slate-400 mt-0.5">
+              Live tracker for ongoing operations, meetings, and scheduled service assemblies
+            </p>
+          </div>
+
+          {isBoardAdmin && (
+            <button
+              onClick={() => setShowAddModal(true)}
+              className="px-4 py-2.5 rounded-xl bg-gradient-to-r from-amber-500 to-amber-400 hover:from-amber-400 hover:to-amber-300 text-slate-950 font-black text-xs flex items-center gap-1.5 shadow-lg cursor-pointer shrink-0"
+            >
+              <span>+ Add Club Event</span>
+            </button>
+          )}
         </div>
 
         {/* 🔴 ONGOING EVENTS SECTION */}
@@ -694,7 +788,7 @@ function EventsPage() {
 
           {ongoingEvents.length === 0 ? (
             <div className="p-8 rounded-3xl bg-slate-900/40 border border-violet-900/30 text-center text-slate-500 text-xs">
-              No initiatives actively running today. Check the upcoming calendar below.
+              No initiatives actively running today. Check the scheduled calendar below.
             </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -714,15 +808,35 @@ function EventsPage() {
                     <p className="text-xs text-slate-300 leading-relaxed mb-4">{ev.description}</p>
                   </div>
 
-                  <div className="space-y-1.5 text-xs text-slate-300 pt-3 border-t border-rose-900/30">
-                    <div className="flex items-center gap-2 text-rose-300 font-semibold">
-                      <Clock size={13} />
-                      <span>{formatDisplayTime(ev.time)}</span>
+                  <div className="space-y-3 pt-3 border-t border-rose-900/30">
+                    <div className="space-y-1 text-xs text-slate-300">
+                      <div className="flex items-center gap-2 text-rose-300 font-semibold">
+                        <Clock size={13} />
+                        <span>{formatDisplayTime(ev.time)}</span>
+                      </div>
+                      {ev.venue && (
+                        <div className="flex items-center gap-2 text-slate-300">
+                          <MapPin size={13} className="text-rose-400" />
+                          <span>{ev.venue}</span>
+                        </div>
+                      )}
                     </div>
-                    {ev.venue && (
-                      <div className="flex items-center gap-2 text-slate-300">
-                        <MapPin size={13} className="text-rose-400" />
-                        <span>{ev.venue}</span>
+
+                    {isBoardAdmin && (
+                      <div className="flex items-center justify-between pt-2 border-t border-slate-800">
+                        <button
+                          onClick={() => handleToggleOngoing(ev)}
+                          className="text-[11px] font-bold text-amber-400 hover:underline cursor-pointer"
+                        >
+                          Switch to Scheduled
+                        </button>
+                        <button
+                          onClick={() => handleDeleteEvent(ev.id)}
+                          className="p-1.5 text-rose-400 hover:text-rose-300 cursor-pointer"
+                          title="Delete Event"
+                        >
+                          <Trash2 size={14} />
+                        </button>
                       </div>
                     )}
                   </div>
@@ -732,7 +846,7 @@ function EventsPage() {
           )}
         </section>
 
-        {/* 📅 UPCOMING EVENTS SECTION */}
+        {/* 📅 SCHEDULED UPCOMING EVENTS SECTION */}
         <section className="space-y-4">
           <div className="flex items-center justify-between pb-2 border-b border-violet-900/40">
             <h2 className="text-base font-black text-white uppercase tracking-wider">Scheduled Upcoming Events</h2>
@@ -746,26 +860,54 @@ function EventsPage() {
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {upcomingEvents.map((ev) => (
-                <div key={ev.id} className="p-6 rounded-3xl bg-slate-900/90 border border-violet-900/40 flex flex-col justify-between">
+                <div
+                  key={ev.id}
+                  className="p-6 rounded-3xl bg-slate-900/90 border border-violet-900/40 flex flex-col justify-between hover:border-amber-500/40 transition"
+                >
                   <div>
-                    <p className="text-[11px] font-bold text-amber-400 uppercase tracking-wider mb-1">{ev.avenue || "General Event"}</p>
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="text-[11px] font-bold text-amber-400 uppercase tracking-wider">
+                        {ev.avenue || "General Event"}
+                      </span>
+                      {ev.points && <span className="text-xs font-bold text-amber-400">+{ev.points} pts</span>}
+                    </div>
                     <h3 className="text-lg font-black text-white mb-2">{ev.title || ev.name}</h3>
                     <p className="text-xs text-slate-300 leading-relaxed mb-4">{ev.description}</p>
                   </div>
 
-                  <div className="space-y-1.5 text-xs text-slate-300 pt-3 border-t border-violet-950">
-                    <div className="flex items-center gap-2">
-                      <Calendar size={13} className="text-amber-400" />
-                      <span className="font-semibold">{formatDisplayDate(ev.dObj || ev.date)}</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <Clock size={13} className="text-violet-400" />
-                      <span>{formatDisplayTime(ev.time)}</span>
-                    </div>
-                    {ev.venue && (
+                  <div className="space-y-3 pt-3 border-t border-violet-950">
+                    <div className="space-y-1 text-xs text-slate-300">
                       <div className="flex items-center gap-2">
-                        <MapPin size={13} className="text-rose-400" />
-                        <span>{ev.venue}</span>
+                        <Calendar size={13} className="text-amber-400" />
+                        <span className="font-semibold">{formatDisplayDate(ev.dObj || ev.date)}</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Clock size={13} className="text-violet-400" />
+                        <span>{formatDisplayTime(ev.time)}</span>
+                      </div>
+                      {ev.venue && (
+                        <div className="flex items-center gap-2 text-slate-400">
+                          <MapPin size={13} className="text-rose-400" />
+                          <span>{ev.venue}</span>
+                        </div>
+                      )}
+                    </div>
+
+                    {isBoardAdmin && (
+                      <div className="flex items-center justify-between pt-2 border-t border-slate-800">
+                        <button
+                          onClick={() => handleToggleOngoing(ev)}
+                          className="text-[11px] font-bold text-rose-400 hover:underline cursor-pointer"
+                        >
+                          Mark as Ongoing (Live Now)
+                        </button>
+                        <button
+                          onClick={() => handleDeleteEvent(ev.id)}
+                          className="p-1.5 text-slate-500 hover:text-rose-400 cursor-pointer"
+                          title="Delete Event"
+                        >
+                          <Trash2 size={14} />
+                        </button>
                       </div>
                     )}
                   </div>
@@ -775,6 +917,148 @@ function EventsPage() {
           )}
         </section>
       </main>
+
+      {/* 🛠️ ADMIN CREATE EVENT MODAL */}
+      {showAddModal && (
+        <div className="fixed inset-0 z-50 bg-black/85 backdrop-blur-md flex items-center justify-center p-4">
+          <div className="bg-slate-900 border border-amber-500/40 rounded-3xl p-6 sm:p-8 max-w-lg w-full relative">
+            <button
+              onClick={() => setShowAddModal(false)}
+              className="absolute top-4 right-4 text-slate-400 hover:text-white cursor-pointer"
+            >
+              <X size={20} />
+            </button>
+
+            <h3 className="text-lg font-black text-white mb-1">Create Calendar Event</h3>
+            <p className="text-xs text-slate-400 mb-5">Publish a club meeting, project, or fellowship</p>
+
+            <form onSubmit={handleCreateEvent} className="space-y-3.5">
+              <div>
+                <label className="block text-xs font-bold text-slate-300 uppercase tracking-wider mb-1">
+                  Event Title *
+                </label>
+                <input
+                  type="text"
+                  required
+                  placeholder="e.g. Mega Blood Donation Camp"
+                  value={title}
+                  onChange={(e) => setTitle(e.target.value)}
+                  className="w-full px-3.5 py-2.5 bg-slate-950 border border-violet-900/50 rounded-xl text-white text-xs outline-none focus:border-amber-400"
+                />
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-bold text-slate-300 uppercase tracking-wider mb-1">
+                    Avenue *
+                  </label>
+                  <select
+                    value={avenue}
+                    onChange={(e) => setAvenue(e.target.value)}
+                    className="w-full px-3.5 py-2.5 bg-slate-950 border border-violet-900/50 rounded-xl text-white text-xs outline-none focus:border-amber-400"
+                  >
+                    <option value="Community Service">Community Service</option>
+                    <option value="Club Service">Club Service</option>
+                    <option value="Professional Development">Professional Development</option>
+                    <option value="International Service">International Service</option>
+                    <option value="General Event">General Event</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-slate-300 uppercase tracking-wider mb-1">
+                    Points Reward
+                  </label>
+                  <input
+                    type="number"
+                    min="0"
+                    placeholder="10"
+                    value={points}
+                    onChange={(e) => setPoints(e.target.value)}
+                    className="w-full px-3.5 py-2.5 bg-slate-950 border border-violet-900/50 rounded-xl text-white text-xs outline-none focus:border-amber-400"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-bold text-slate-300 uppercase tracking-wider mb-1">
+                    Date *
+                  </label>
+                  <input
+                    type="date"
+                    required
+                    value={date}
+                    onChange={(e) => setDate(e.target.value)}
+                    className="w-full px-3.5 py-2.5 bg-slate-950 border border-violet-900/50 rounded-xl text-white text-xs outline-none focus:border-amber-400"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-slate-300 uppercase tracking-wider mb-1">
+                    Time (e.g. 10:00 AM)
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="e.g. 10:00 AM"
+                    value={time}
+                    onChange={(e) => setTime(e.target.value)}
+                    className="w-full px-3.5 py-2.5 bg-slate-950 border border-violet-900/50 rounded-xl text-white text-xs outline-none focus:border-amber-400"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-300 uppercase tracking-wider mb-1">
+                  Venue / Location
+                </label>
+                <input
+                  type="text"
+                  placeholder="e.g. PSVPEC Auditorium / Google Meet"
+                  value={venue}
+                  onChange={(e) => setVenue(e.target.value)}
+                  className="w-full px-3.5 py-2.5 bg-slate-950 border border-violet-900/50 rounded-xl text-white text-xs outline-none focus:border-amber-400"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-300 uppercase tracking-wider mb-1">
+                  Short Description
+                </label>
+                <textarea
+                  rows={2}
+                  placeholder="Details, dress code, instructions..."
+                  value={description}
+                  onChange={(e) => setDescription(e.target.value)}
+                  className="w-full px-3.5 py-2 bg-slate-950 border border-violet-900/50 rounded-xl text-white text-xs outline-none focus:border-amber-400 resize-none"
+                />
+              </div>
+
+              {/* 🔴 LIVE ONGOING TOGGLE */}
+              <div className="p-3 bg-slate-950 rounded-xl border border-rose-500/30 flex items-center justify-between">
+                <div>
+                  <span className="text-xs font-bold text-rose-300 block">Set as Ongoing Event (Live Now)</span>
+                  <span className="text-[10px] text-slate-400">Pushes immediately into the top "Ongoing Events" section</span>
+                </div>
+                <input
+                  type="checkbox"
+                  checked={isLiveOngoing}
+                  onChange={(e) => setIsLiveOngoing(e.target.checked)}
+                  className="w-4 h-4 accent-rose-500 cursor-pointer"
+                />
+              </div>
+
+              <button
+                type="submit"
+                disabled={submitting}
+                className="w-full py-3 bg-gradient-to-r from-amber-500 to-amber-400 text-slate-950 font-black text-xs rounded-xl shadow-lg cursor-pointer disabled:opacity-50"
+              >
+                {submitting ? "Publishing..." : "Publish to Club Calendar"}
+              </button>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
