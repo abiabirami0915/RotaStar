@@ -618,7 +618,7 @@ function EventIdeasPage() {
 }
 
 // ==========================================
-// 3. EVENTS CALENDAR
+// 3. EVENTS CALENDAR (WITH ONGOING & UPCOMING SECTIONS)
 // ==========================================
 function EventsPage() {
   const navigate = useNavigate();
@@ -626,10 +626,35 @@ function EventsPage() {
 
   useEffect(() => {
     const unsub = onSnapshot(collection(db, "events"), (snapshot) => {
-      setEvents(snapshot.docs.map((d) => ({ id: d.id, ...d.data() })));
+      const now = new Date();
+      const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+
+      const list = snapshot.docs.map((d) => {
+        const data = d.data();
+        const dObj = data.date?.toDate ? data.date.toDate() : data.date ? new Date(data.date) : null;
+        const eventDayStart = dObj ? new Date(dObj.getFullYear(), dObj.getMonth(), dObj.getDate()).getTime() : 0;
+        const diffDays = dObj ? Math.round((eventDayStart - todayStart) / (1000 * 60 * 60 * 24)) : null;
+
+        // Ongoing check: happens today (diffDays === 0) or manually marked ongoing
+        const isOngoing = data.status === "ongoing" || diffDays === 0;
+
+        return {
+          id: d.id,
+          ...data,
+          dObj,
+          diffDays,
+          isOngoing,
+        };
+      });
+
+      list.sort((a, b) => (a.dObj?.getTime() || 0) - (b.dObj?.getTime() || 0));
+      setEvents(list);
     });
     return () => unsub();
   }, []);
+
+  const ongoingEvents = events.filter((ev) => ev.isOngoing);
+  const upcomingEvents = events.filter((ev) => !ev.isOngoing && (ev.diffDays === null || ev.diffDays > 0));
 
   return (
     <div className="min-h-screen bg-[#030014] text-white">
@@ -646,45 +671,113 @@ function EventsPage() {
         </div>
       </nav>
 
-      <main className="max-w-5xl mx-auto px-6 py-8">
-        <div className="mb-6">
-          <h1 className="text-2xl font-black text-white">Upcoming Club Events</h1>
-          <p className="text-xs text-slate-400">Meetings, training assemblies, and service initiatives</p>
+      <main className="max-w-5xl mx-auto px-6 py-8 space-y-10">
+        <div>
+          <h1 className="text-2xl font-black text-white">Club Initiatives & Calendar</h1>
+          <p className="text-xs text-slate-400">Live tracker for ongoing operations, meetings, and scheduled service assemblies</p>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {events.map((ev) => (
-            <div key={ev.id} className="p-6 rounded-3xl bg-slate-900/90 border border-violet-900/40 flex flex-col justify-between">
-              <div>
-                <p className="text-[11px] font-bold text-amber-400 uppercase tracking-wider mb-1">{ev.avenue || "General Event"}</p>
-                <h3 className="text-lg font-black text-white mb-2">{ev.title || ev.name}</h3>
-                <p className="text-xs text-slate-300 leading-relaxed mb-4">{ev.description}</p>
-              </div>
-
-              <div className="space-y-1.5 text-xs text-slate-300 pt-3 border-t border-violet-950">
-                <div className="flex items-center gap-2">
-                  <Calendar size={13} className="text-amber-400" />
-                  <span className="font-semibold">{formatDisplayDate(ev.date)}</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <Clock size={13} className="text-violet-400" />
-                  <span>{formatDisplayTime(ev.time)}</span>
-                </div>
-                {ev.venue && (
-                  <div className="flex items-center gap-2">
-                    <MapPin size={13} className="text-rose-400" />
-                    <span>{ev.venue}</span>
-                  </div>
-                )}
-              </div>
+        {/* 🔴 ONGOING EVENTS SECTION */}
+        <section className="space-y-4">
+          <div className="flex items-center justify-between pb-2 border-b border-rose-950/60">
+            <div className="flex items-center gap-2.5">
+              <span className="relative flex h-3 w-3">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-rose-400 opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-3 w-3 bg-rose-500"></span>
+              </span>
+              <h2 className="text-base font-black text-white uppercase tracking-wider">Ongoing Events Today</h2>
             </div>
-          ))}
-        </div>
+            <span className="px-3 py-0.5 rounded-full bg-rose-500/10 border border-rose-500/30 text-rose-300 text-xs font-bold">
+              {ongoingEvents.length} Active Now
+            </span>
+          </div>
+
+          {ongoingEvents.length === 0 ? (
+            <div className="p-8 rounded-3xl bg-slate-900/40 border border-violet-900/30 text-center text-slate-500 text-xs">
+              No initiatives actively running today. Check the upcoming calendar below.
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {ongoingEvents.map((ev) => (
+                <div
+                  key={ev.id}
+                  className="p-6 rounded-3xl bg-gradient-to-br from-rose-950/40 via-slate-900/90 to-slate-950 border border-rose-500/40 shadow-xl shadow-rose-950/30 flex flex-col justify-between relative overflow-hidden"
+                >
+                  <div className="absolute top-0 right-0 px-4 py-1 bg-rose-500 text-slate-950 text-[10px] font-black uppercase tracking-widest rounded-bl-2xl">
+                    Live Now
+                  </div>
+                  <div>
+                    <span className="text-[11px] font-bold text-rose-300 uppercase tracking-wider block mb-1">
+                      {ev.avenue || "General Event"}
+                    </span>
+                    <h3 className="text-lg font-black text-white mb-2">{ev.title || ev.name}</h3>
+                    <p className="text-xs text-slate-300 leading-relaxed mb-4">{ev.description}</p>
+                  </div>
+
+                  <div className="space-y-1.5 text-xs text-slate-300 pt-3 border-t border-rose-900/30">
+                    <div className="flex items-center gap-2 text-rose-300 font-semibold">
+                      <Clock size={13} />
+                      <span>{formatDisplayTime(ev.time)}</span>
+                    </div>
+                    {ev.venue && (
+                      <div className="flex items-center gap-2 text-slate-300">
+                        <MapPin size={13} className="text-rose-400" />
+                        <span>{ev.venue}</span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </section>
+
+        {/* 📅 UPCOMING EVENTS SECTION */}
+        <section className="space-y-4">
+          <div className="flex items-center justify-between pb-2 border-b border-violet-900/40">
+            <h2 className="text-base font-black text-white uppercase tracking-wider">Scheduled Upcoming Events</h2>
+            <span className="text-xs font-bold text-slate-400">{upcomingEvents.length} Scheduled</span>
+          </div>
+
+          {upcomingEvents.length === 0 ? (
+            <div className="p-8 rounded-3xl bg-slate-900/40 border border-violet-900/30 text-center text-slate-500 text-xs">
+              No upcoming dates posted yet.
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {upcomingEvents.map((ev) => (
+                <div key={ev.id} className="p-6 rounded-3xl bg-slate-900/90 border border-violet-900/40 flex flex-col justify-between">
+                  <div>
+                    <p className="text-[11px] font-bold text-amber-400 uppercase tracking-wider mb-1">{ev.avenue || "General Event"}</p>
+                    <h3 className="text-lg font-black text-white mb-2">{ev.title || ev.name}</h3>
+                    <p className="text-xs text-slate-300 leading-relaxed mb-4">{ev.description}</p>
+                  </div>
+
+                  <div className="space-y-1.5 text-xs text-slate-300 pt-3 border-t border-violet-950">
+                    <div className="flex items-center gap-2">
+                      <Calendar size={13} className="text-amber-400" />
+                      <span className="font-semibold">{formatDisplayDate(ev.dObj || ev.date)}</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Clock size={13} className="text-violet-400" />
+                      <span>{formatDisplayTime(ev.time)}</span>
+                    </div>
+                    {ev.venue && (
+                      <div className="flex items-center gap-2">
+                        <MapPin size={13} className="text-rose-400" />
+                        <span>{ev.venue}</span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </section>
       </main>
     </div>
   );
 }
-
 // ==========================================
 // 4. LEADERBOARD
 // ==========================================
