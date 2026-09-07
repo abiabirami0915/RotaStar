@@ -236,7 +236,7 @@ function SignupComponent() {
         phone: phone.trim(),
         department: department.trim(),
         yearOfStudy,
-        role: "General Member", // Automatically forced for all new signups
+        role: "General Member",
         totalPoints: 0,
         activities: [],
         photoURL: "",
@@ -616,12 +616,13 @@ function EventIdeasPage() {
     </div>
   );
 }
+
 // ==========================================
-// 3. EVENTS CALENDAR (WITH ONGOING CONTROLS & ADD EVENT MODAL)
+// 3. EVENTS CALENDAR (WITH ONGOING & CREATE MODAL)
 // ==========================================
 function EventsPage() {
   const navigate = useNavigate();
-  const { currentUser, userData, isAdmin, isSuperAdmin } = useAuth();
+  const { userData, isAdmin, isSuperAdmin } = useAuth();
 
   const [events, setEvents] = useState([]);
   const [showAddModal, setShowAddModal] = useState(false);
@@ -656,7 +657,6 @@ function EventsPage() {
         const eventDayStart = dObj ? new Date(dObj.getFullYear(), dObj.getMonth(), dObj.getDate()).getTime() : 0;
         const diffDays = dObj ? Math.round((eventDayStart - todayStart) / (1000 * 60 * 60 * 24)) : null;
 
-        // Ongoing if status === "ongoing" OR scheduled for today (diffDays === 0)
         const isOngoing = data.status === "ongoing" || diffDays === 0;
 
         return {
@@ -735,7 +735,6 @@ function EventsPage() {
 
   return (
     <div className="min-h-screen bg-[#030014] text-white">
-      {/* NAVBAR */}
       <nav className="border-b border-violet-900/40 bg-slate-950/80 backdrop-blur-md sticky top-0 z-50">
         <div className="max-w-5xl mx-auto px-6 h-20 flex items-center justify-between">
           <button
@@ -1062,6 +1061,7 @@ function EventsPage() {
     </div>
   );
 }
+
 // ==========================================
 // 4. LEADERBOARD
 // ==========================================
@@ -1529,7 +1529,6 @@ function AdminMembersDirectory() {
     return () => unsub();
   }, []);
 
-  // When member selected, detect if role is in standard CLUB_ROLES list or if it's "Other"
   useEffect(() => {
     if (selectedMember) {
       const current = selectedMember.role || "General Member";
@@ -1687,7 +1686,7 @@ function AdminMembersDirectory() {
         </div>
       </main>
 
-      {/* MEMBER MODAL (ROLE MODIFICATION WITH "OTHER" OPTION) */}
+      {/* MEMBER MODAL */}
       {selectedMember && (
         <div className="fixed inset-0 z-50 bg-black/85 backdrop-blur-md flex items-center justify-center p-4">
           <div className="bg-slate-900 border border-amber-500/40 rounded-3xl p-6 sm:p-8 max-w-sm w-full relative">
@@ -1701,7 +1700,7 @@ function AdminMembersDirectory() {
               <p className="text-xs text-amber-400 font-semibold">{selectedMember.role}</p>
             </div>
 
-            {/* ROLE ASSIGNMENT FIELD (ADMIN ONLY) */}
+            {/* ROLE ASSIGNMENT (ADMIN ONLY) */}
             {canModify && (
               <div className="p-3.5 bg-slate-950 rounded-2xl border border-amber-500/30 mb-4 space-y-2.5">
                 <label className="block text-[11px] font-bold text-amber-300 uppercase tracking-wider flex items-center gap-1.5">
@@ -1733,7 +1732,6 @@ function AdminMembersDirectory() {
                   </button>
                 </div>
 
-                {/* DYNAMIC TEXT INPUT WHEN "OTHER" IS SELECTED */}
                 {selectedRoleOption === "Other" && (
                   <div className="animate-in fade-in space-y-1 pt-1">
                     <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1">
