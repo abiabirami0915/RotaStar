@@ -155,7 +155,7 @@ export const CLUB_ROLES = [
 ];
 
 // ==========================================
-// 1. SIGNUP COMPONENT (NO ROLE SELECTOR - DEFAULT GENERAL MEMBER)
+// 1. SIGNUP COMPONENT (NO CLUB POSITION FIELD)
 // ==========================================
 function SignupComponent() {
   const navigate = useNavigate();
@@ -231,7 +231,7 @@ function SignupComponent() {
         phone: phone.trim(),
         department: department.trim(),
         yearOfStudy,
-        role: "General Member", // Default assigned role
+        role: "General Member", // Hardcoded default role
         totalPoints: 0,
         activities: [],
         photoURL: "",
@@ -853,7 +853,7 @@ function RequestPointsPage() {
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-slate-300 uppercase tracking-wider mb-1.5">What Did You Gain? (Optional)</label>
+                <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-1.5">What Did You Gain? (Optional)</label>
                 <textarea
                   rows={3}
                   placeholder="Brief summary of tasks handled or skills developed..."
@@ -1287,7 +1287,7 @@ function AdminMembersDirectory() {
         </div>
       </main>
 
-      {/* MEMBER MODAL (INCLUDES ROLE MODIFICATION & DELETE) */}
+      {/* MEMBER MODAL (ROLE MODIFICATION ONLY FOR ADMINS) */}
       {selectedMember && (
         <div className="fixed inset-0 z-50 bg-black/85 backdrop-blur-md flex items-center justify-center p-4">
           <div className="bg-slate-900 border border-amber-500/40 rounded-3xl p-6 sm:p-8 max-w-sm w-full relative">

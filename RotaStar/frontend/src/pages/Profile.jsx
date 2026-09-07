@@ -17,7 +17,6 @@ import {
   Camera,
   Upload,
   Trash2,
-  ShieldCheck,
 } from "lucide-react";
 import { MemberAvatar } from "../App";
 
@@ -136,7 +135,7 @@ export default function Profile() {
         displayName: name.trim(),
       });
 
-      // Role is intentionally excluded from updates here; role can only be modified by admins
+      // Role is not updated by the user
       const userDocRef = doc(db, "users", currentUser.uid);
       await updateDoc(userDocRef, {
         name: name.trim(),
@@ -206,7 +205,7 @@ export default function Profile() {
           </div>
         )}
 
-        {/* HERO CARD */}
+        {/* HERO CARD - Displays current assigned role as a fixed badge */}
         <div className="bg-slate-900/90 border border-violet-900/40 rounded-3xl p-6 sm:p-8 mb-6 shadow-2xl flex flex-col sm:flex-row items-center justify-between gap-6">
           <div className="flex flex-col sm:flex-row items-center gap-5 text-center sm:text-left">
             <div className="relative group">
@@ -250,7 +249,7 @@ export default function Profile() {
                 <MemberAvatar photoURL={photoURL} name={name} size="md" />
                 <div>
                   <label className="block text-xs font-bold text-white">Profile Photo</label>
-                  <p className="text-[11px] text-slate-400">Select a JPG or PNG from your computer or phone</p>
+                  <p className="text-[11px] text-slate-400">Select a JPG or PNG from your device</p>
                 </div>
               </div>
 
@@ -312,21 +311,6 @@ export default function Profile() {
                     onChange={(e) => setUsername(e.target.value)}
                     className="w-full pl-8 pr-4 py-2.5 bg-slate-950 border border-violet-900/50 rounded-xl text-white text-sm outline-none focus:border-amber-400"
                   />
-                </div>
-              </div>
-
-              {/* READ-ONLY ROLE BADGE */}
-              <div className="sm:col-span-2">
-                <label className="block text-xs font-bold text-slate-300 uppercase tracking-wider mb-1.5 flex items-center justify-between">
-                  <span>Assigned Club Role</span>
-                  <span className="text-[11px] text-slate-500 font-normal flex items-center gap-1">
-                    <ShieldCheck size={13} className="text-amber-400" />
-                    Admin Managed
-                  </span>
-                </label>
-                <div className="w-full px-4 py-3 bg-slate-950/60 border border-violet-900/30 rounded-xl text-amber-300 text-xs font-bold flex items-center justify-between">
-                  <span>{role}</span>
-                  <span className="text-[11px] text-slate-500 font-normal">Contact Executive Board to modify role</span>
                 </div>
               </div>
 
