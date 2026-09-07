@@ -54,7 +54,7 @@ import {
   Users,
   Eye,
   Inbox,
-  ShieldAlert,
+  Check,
 } from "lucide-react";
 
 // ==========================================
@@ -108,7 +108,7 @@ export function MemberAvatar({ photoURL, name, size = "md" }) {
       ? "w-16 h-16 text-lg"
       : "w-11 h-11 text-xs";
 
-  if (photoURL && (photoURL.startsWith("data:image") || photoURL.startsWith("https://lh3.googleusercontent.com") || photoURL.startsWith("http"))) {
+  if (photoURL && (photoURL.startsWith("data:image") || photoURL.startsWith("https://") || photoURL.startsWith("http"))) {
     return (
       <div className={`${dimensions} rounded-2xl overflow-hidden border border-amber-500/30 bg-slate-950 shrink-0`}>
         <img src={photoURL} alt={name || "Member"} className="w-full h-full object-cover" />
@@ -125,7 +125,7 @@ export function MemberAvatar({ photoURL, name, size = "md" }) {
   );
 }
 
-const CLUB_ROLES = [
+export const CLUB_ROLES = [
   "General Member",
   "Green Rotaractor",
   "President",
@@ -155,7 +155,7 @@ const CLUB_ROLES = [
 ];
 
 // ==========================================
-// 1. SIGNUP COMPONENT WITH STRENGTH METER
+// 1. SIGNUP COMPONENT (NO ROLE SELECTOR - DEFAULT GENERAL MEMBER)
 // ==========================================
 function SignupComponent() {
   const navigate = useNavigate();
@@ -166,7 +166,6 @@ function SignupComponent() {
   const [phone, setPhone] = useState("");
   const [department, setDepartment] = useState("");
   const [yearOfStudy, setYearOfStudy] = useState("1st Year");
-  const [role, setRole] = useState("General Member");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
 
@@ -232,7 +231,7 @@ function SignupComponent() {
         phone: phone.trim(),
         department: department.trim(),
         yearOfStudy,
-        role,
+        role: "General Member", // Default assigned role
         totalPoints: 0,
         activities: [],
         photoURL: "",
@@ -355,7 +354,7 @@ function SignupComponent() {
               </div>
             </div>
 
-            <div>
+            <div className="sm:col-span-2">
               <label className="block text-xs font-bold text-slate-300 uppercase tracking-wider mb-1.5">Year of Study</label>
               <select
                 value={yearOfStudy}
@@ -367,21 +366,6 @@ function SignupComponent() {
                 <option value="3rd Year">3rd Year</option>
                 <option value="4th Year">4th Year</option>
                 <option value="Alumni">Alumni</option>
-              </select>
-            </div>
-
-            <div>
-              <label className="block text-xs font-bold text-amber-300 uppercase tracking-wider mb-1.5">Club Position</label>
-              <select
-                value={role}
-                onChange={(e) => setRole(e.target.value)}
-                className="w-full px-4 py-2.5 bg-slate-950 border border-amber-500/40 rounded-xl text-white text-sm outline-none focus:border-amber-400"
-              >
-                {CLUB_ROLES.map((r) => (
-                  <option key={r} value={r} className="bg-slate-950 text-white">
-                    {r}
-                  </option>
-                ))}
               </select>
             </div>
 
@@ -869,7 +853,7 @@ function RequestPointsPage() {
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-1.5">What Did You Gain? (Optional)</label>
+                <label className="block text-xs font-bold text-slate-300 uppercase tracking-wider mb-1.5">What Did You Gain? (Optional)</label>
                 <textarea
                   rows={3}
                   placeholder="Brief summary of tasks handled or skills developed..."
@@ -956,7 +940,7 @@ function FeedbackPage() {
           <div className="mb-6 p-4 rounded-2xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-between gap-4">
             <div className="flex items-center gap-2.5">
               <Inbox size={18} className="text-amber-400" />
-              <span className="text-xs font-bold text-amber-300">Logged in as Executive Board / Admin</span>
+              <span className="text-xs font-bold text-amber-300">Executive Board / Admin Access</span>
             </div>
             <button
               onClick={() => navigate("/admin/feedback")}
@@ -1018,7 +1002,6 @@ function AdminFeedbackPage() {
           ...d.data(),
         }));
 
-        // Client-side date sorting with null-safe handling
         list.sort((a, b) => {
           const timeA = a.createdAt?.toDate ? a.createdAt.toDate().getTime() : 0;
           const timeB = b.createdAt?.toDate ? b.createdAt.toDate().getTime() : 0;
@@ -1134,7 +1117,7 @@ function AdminFeedbackPage() {
 }
 
 // ==========================================
-// 8. DIRECTORY WITH DELETE CAPABILITY
+// 8. DIRECTORY WITH ADMIN ROLE UPDATING & DELETION
 // ==========================================
 function AdminMembersDirectory() {
   const navigate = useNavigate();
@@ -1147,8 +1130,12 @@ function AdminMembersDirectory() {
   const [userToDelete, setUserToDelete] = useState(null);
   const [deleteLoading, setDeleteLoading] = useState(false);
 
+  // Role update state inside the modal
+  const [newRole, setNewRole] = useState("");
+  const [roleUpdating, setRoleUpdating] = useState(false);
+
   const rawRole = (userData?.role || "").toString().toLowerCase().trim();
-  const canDelete = Boolean(isSuperAdmin) || Boolean(isAdmin) || rawRole.includes("president") || rawRole.includes("secretary");
+  const canModify = Boolean(isSuperAdmin) || Boolean(isAdmin) || rawRole.includes("president") || rawRole.includes("secretary");
 
   useEffect(() => {
     const unsub = onSnapshot(collection(db, "users"), (snapshot) => {
@@ -1158,6 +1145,29 @@ function AdminMembersDirectory() {
     });
     return () => unsub();
   }, []);
+
+  // When member selected, set default role in select dropdown
+  useEffect(() => {
+    if (selectedMember) {
+      setNewRole(selectedMember.role || "General Member");
+    }
+  }, [selectedMember]);
+
+  const handleUpdateMemberRole = async () => {
+    if (!selectedMember || !newRole || !canModify) return;
+    setRoleUpdating(true);
+    try {
+      await updateDoc(doc(db, "users", selectedMember.id), {
+        role: newRole,
+      });
+      setSelectedMember((prev) => ({ ...prev, role: newRole }));
+      alert(`Role for ${selectedMember.name} updated to ${newRole}`);
+    } catch (err) {
+      alert("Failed to update role: " + err.message);
+    } finally {
+      setRoleUpdating(false);
+    }
+  };
 
   const handleDeleteMember = async () => {
     if (!userToDelete) return;
@@ -1261,9 +1271,9 @@ function AdminMembersDirectory() {
                   onClick={() => setSelectedMember(m)}
                   className="flex-1 py-2 bg-slate-950 border border-violet-900/60 hover:border-amber-400 rounded-xl text-xs font-bold text-slate-200 cursor-pointer"
                 >
-                  View Details
+                  View / Edit Role
                 </button>
-                {canDelete && currentUser?.uid !== m.id && (
+                {canModify && currentUser?.uid !== m.id && (
                   <button
                     onClick={() => setUserToDelete(m)}
                     className="p-2 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border border-rose-500/30 cursor-pointer"
@@ -1277,7 +1287,7 @@ function AdminMembersDirectory() {
         </div>
       </main>
 
-      {/* MEMBER MODAL */}
+      {/* MEMBER MODAL (INCLUDES ROLE MODIFICATION & DELETE) */}
       {selectedMember && (
         <div className="fixed inset-0 z-50 bg-black/85 backdrop-blur-md flex items-center justify-center p-4">
           <div className="bg-slate-900 border border-amber-500/40 rounded-3xl p-6 sm:p-8 max-w-sm w-full relative">
@@ -1290,6 +1300,36 @@ function AdminMembersDirectory() {
               <h2 className="text-xl font-black text-white mt-3">{selectedMember.name}</h2>
               <p className="text-xs text-amber-400 font-semibold">{selectedMember.role}</p>
             </div>
+
+            {/* ROLE ASSIGNMENT FIELD (ADMIN ONLY) */}
+            {canModify && (
+              <div className="p-3.5 bg-slate-950 rounded-2xl border border-amber-500/30 mb-4 space-y-2">
+                <label className="block text-[11px] font-bold text-amber-300 uppercase tracking-wider flex items-center gap-1.5">
+                  <Briefcase size={13} />
+                  <span>Assign Club Role</span>
+                </label>
+                <div className="flex gap-2">
+                  <select
+                    value={newRole}
+                    onChange={(e) => setNewRole(e.target.value)}
+                    className="flex-1 px-2.5 py-2 bg-slate-900 border border-violet-900/50 rounded-xl text-white text-xs outline-none focus:border-amber-400"
+                  >
+                    {CLUB_ROLES.map((r) => (
+                      <option key={r} value={r}>
+                        {r}
+                      </option>
+                    ))}
+                  </select>
+                  <button
+                    onClick={handleUpdateMemberRole}
+                    disabled={roleUpdating || newRole === selectedMember.role}
+                    className="px-3 py-2 bg-amber-500 hover:bg-amber-400 text-slate-950 font-black text-xs rounded-xl transition disabled:opacity-40 cursor-pointer"
+                  >
+                    {roleUpdating ? <Loader2 size={14} className="animate-spin" /> : "Save"}
+                  </button>
+                </div>
+              </div>
+            )}
 
             <div className="space-y-2 text-xs bg-slate-950 p-4 rounded-2xl border border-violet-900/40 mb-5">
               <div className="flex justify-between py-1 border-b border-violet-950">
@@ -1316,7 +1356,7 @@ function AdminMembersDirectory() {
               >
                 Points Action
               </button>
-              {canDelete && currentUser?.uid !== selectedMember.id && (
+              {canModify && currentUser?.uid !== selectedMember.id && (
                 <button
                   onClick={() => setUserToDelete(selectedMember)}
                   className="px-4 py-3 bg-rose-600/20 hover:bg-rose-600/30 text-rose-300 font-bold text-xs rounded-xl border border-rose-500/40 cursor-pointer"
