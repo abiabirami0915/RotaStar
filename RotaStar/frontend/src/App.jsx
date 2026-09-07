@@ -618,7 +618,7 @@ function EventIdeasPage() {
 }
 
 // ==========================================
-// 3. EVENTS CALENDAR (WITH ONGOING & CREATE MODAL)
+// 3. EVENTS CALENDAR (WITH ONGOING, ADD & EDIT MODALS)
 // ==========================================
 function EventsPage() {
   const navigate = useNavigate();
@@ -628,7 +628,10 @@ function EventsPage() {
   const [showAddModal, setShowAddModal] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
-  // New Event Form State
+  // Edit Event State
+  const [editingEvent, setEditingEvent] = useState(null);
+
+  // Form State
   const [title, setTitle] = useState("");
   const [avenue, setAvenue] = useState("Community Service");
   const [date, setDate] = useState("");
@@ -674,35 +677,63 @@ function EventsPage() {
     return () => unsub();
   }, []);
 
-  const handleCreateEvent = async (e) => {
+  const openCreateModal = () => {
+    setEditingEvent(null);
+    setTitle("");
+    setAvenue("Community Service");
+    setDate("");
+    setTime("");
+    setVenue("");
+    setPoints("10");
+    setDescription("");
+    setIsLiveOngoing(false);
+    setShowAddModal(true);
+  };
+
+  const openEditModal = (ev) => {
+    setEditingEvent(ev);
+    setTitle(ev.title || ev.name || "");
+    setAvenue(ev.avenue || "Community Service");
+    setDate(ev.date?.toDate ? ev.date.toDate().toISOString().split("T")[0] : ev.date || "");
+    setTime(ev.time || "");
+    setVenue(ev.venue || "");
+    setPoints(ev.points?.toString() || "10");
+    setDescription(ev.description || "");
+    setIsLiveOngoing(ev.status === "ongoing" || ev.isOngoing);
+    setShowAddModal(true);
+  };
+
+  const handleSaveEvent = async (e) => {
     e.preventDefault();
     if (!title.trim() || !date) return;
 
     setSubmitting(true);
-    try {
-      await addDoc(collection(db, "events"), {
-        title: title.trim(),
-        name: title.trim(),
-        avenue,
-        date,
-        time: time.trim() || "Time TBA",
-        venue: venue.trim() || "Venue TBA",
-        points: Number(points) || 10,
-        description: description.trim(),
-        status: isLiveOngoing ? "ongoing" : "upcoming",
-        createdAt: serverTimestamp(),
-      });
+    const eventPayload = {
+      title: title.trim(),
+      name: title.trim(),
+      avenue,
+      date,
+      time: time.trim() || "Time TBA",
+      venue: venue.trim() || "Venue TBA",
+      points: Number(points) || 10,
+      description: description.trim(),
+      status: isLiveOngoing ? "ongoing" : "upcoming",
+      updatedAt: serverTimestamp(),
+    };
 
+    try {
+      if (editingEvent) {
+        await updateDoc(doc(db, "events", editingEvent.id), eventPayload);
+      } else {
+        await addDoc(collection(db, "events"), {
+          ...eventPayload,
+          createdAt: serverTimestamp(),
+        });
+      }
       setShowAddModal(false);
-      setTitle("");
-      setDate("");
-      setTime("");
-      setVenue("");
-      setPoints("10");
-      setDescription("");
-      setIsLiveOngoing(false);
+      setEditingEvent(null);
     } catch (err) {
-      alert("Failed to add event: " + err.message);
+      alert("Failed to save event: " + err.message);
     } finally {
       setSubmitting(false);
     }
@@ -762,7 +793,7 @@ function EventsPage() {
 
           {isBoardAdmin && (
             <button
-              onClick={() => setShowAddModal(true)}
+              onClick={openCreateModal}
               className="px-4 py-2.5 rounded-xl bg-gradient-to-r from-amber-500 to-amber-400 hover:from-amber-400 hover:to-amber-300 text-slate-950 font-black text-xs flex items-center gap-1.5 shadow-lg cursor-pointer shrink-0"
             >
               <span>+ Add Club Event</span>
@@ -829,13 +860,23 @@ function EventsPage() {
                         >
                           Switch to Scheduled
                         </button>
-                        <button
-                          onClick={() => handleDeleteEvent(ev.id)}
-                          className="p-1.5 text-rose-400 hover:text-rose-300 cursor-pointer"
-                          title="Delete Event"
-                        >
-                          <Trash2 size={14} />
-                        </button>
+                        <div className="flex items-center gap-2">
+                          <button
+                            onClick={() => openEditModal(ev)}
+                            className="px-2.5 py-1 rounded-lg bg-amber-500/15 hover:bg-amber-500/25 border border-amber-500/30 text-amber-300 text-xs font-bold flex items-center gap-1 cursor-pointer transition"
+                            title="Edit Event"
+                          >
+                            <Edit3 size={12} />
+                            <span>Edit</span>
+                          </button>
+                          <button
+                            onClick={() => handleDeleteEvent(ev.id)}
+                            className="p-1 text-rose-400 hover:text-rose-300 cursor-pointer"
+                            title="Delete Event"
+                          >
+                            <Trash2 size={14} />
+                          </button>
+                        </div>
                       </div>
                     )}
                   </div>
@@ -900,13 +941,23 @@ function EventsPage() {
                         >
                           Mark as Ongoing (Live Now)
                         </button>
-                        <button
-                          onClick={() => handleDeleteEvent(ev.id)}
-                          className="p-1.5 text-slate-500 hover:text-rose-400 cursor-pointer"
-                          title="Delete Event"
-                        >
-                          <Trash2 size={14} />
-                        </button>
+                        <div className="flex items-center gap-2">
+                          <button
+                            onClick={() => openEditModal(ev)}
+                            className="px-2.5 py-1 rounded-lg bg-amber-500/15 hover:bg-amber-500/25 border border-amber-500/30 text-amber-300 text-xs font-bold flex items-center gap-1 cursor-pointer transition"
+                            title="Edit Event"
+                          >
+                            <Edit3 size={12} />
+                            <span>Edit</span>
+                          </button>
+                          <button
+                            onClick={() => handleDeleteEvent(ev.id)}
+                            className="p-1 text-slate-500 hover:text-rose-400 cursor-pointer"
+                            title="Delete Event"
+                          >
+                            <Trash2 size={14} />
+                          </button>
+                        </div>
                       </div>
                     )}
                   </div>
@@ -917,21 +968,28 @@ function EventsPage() {
         </section>
       </main>
 
-      {/* 🛠️ ADMIN CREATE EVENT MODAL */}
+      {/* 🛠️ ADMIN CREATE / EDIT EVENT MODAL */}
       {showAddModal && (
         <div className="fixed inset-0 z-50 bg-black/85 backdrop-blur-md flex items-center justify-center p-4">
           <div className="bg-slate-900 border border-amber-500/40 rounded-3xl p-6 sm:p-8 max-w-lg w-full relative">
             <button
-              onClick={() => setShowAddModal(false)}
+              onClick={() => {
+                setShowAddModal(false);
+                setEditingEvent(null);
+              }}
               className="absolute top-4 right-4 text-slate-400 hover:text-white cursor-pointer"
             >
               <X size={20} />
             </button>
 
-            <h3 className="text-lg font-black text-white mb-1">Create Calendar Event</h3>
-            <p className="text-xs text-slate-400 mb-5">Publish a club meeting, project, or fellowship</p>
+            <h3 className="text-lg font-black text-white mb-1">
+              {editingEvent ? "Edit Calendar Event" : "Create Calendar Event"}
+            </h3>
+            <p className="text-xs text-slate-400 mb-5">
+              {editingEvent ? "Modify details or change live status" : "Publish a club meeting, project, or fellowship"}
+            </p>
 
-            <form onSubmit={handleCreateEvent} className="space-y-3.5">
+            <form onSubmit={handleSaveEvent} className="space-y-3.5">
               <div>
                 <label className="block text-xs font-bold text-slate-300 uppercase tracking-wider mb-1">
                   Event Title *
@@ -1026,7 +1084,7 @@ function EventsPage() {
                 </label>
                 <textarea
                   rows={2}
-                  placeholder="Details, dress code, instructions..."
+                  placeholder="Details, instructions, eligibility..."
                   value={description}
                   onChange={(e) => setDescription(e.target.value)}
                   className="w-full px-3.5 py-2 bg-slate-950 border border-violet-900/50 rounded-xl text-white text-xs outline-none focus:border-amber-400 resize-none"
@@ -1052,7 +1110,7 @@ function EventsPage() {
                 disabled={submitting}
                 className="w-full py-3 bg-gradient-to-r from-amber-500 to-amber-400 text-slate-950 font-black text-xs rounded-xl shadow-lg cursor-pointer disabled:opacity-50"
               >
-                {submitting ? "Publishing..." : "Publish to Club Calendar"}
+                {submitting ? "Saving..." : editingEvent ? "Save Changes" : "Publish to Club Calendar"}
               </button>
             </form>
           </div>
