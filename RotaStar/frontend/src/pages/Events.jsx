@@ -142,7 +142,7 @@ export default function Events() {
     setShowEditModal(true);
   };
 
-  // Add Event Handler
+  // Add Event Handler (Date optional)
   const handleAddEvent = async (e) => {
     e.preventDefault();
     if (!title.trim()) {
@@ -155,7 +155,7 @@ export default function Events() {
       await addDoc(collection(db, "events"), {
         title: title.trim(),
         avenue,
-        date: date.trim() || "",
+        date: date.trim() || "", // Optional date
         time: time.trim() || "TBA",
         venue: venue.trim() || "College Campus",
         chairperson: chairperson.trim() || "",
@@ -177,7 +177,7 @@ export default function Events() {
     }
   };
 
-  // Update Event Handler
+  // Update Event Handler (Date optional)
   const handleUpdateEvent = async (e) => {
     e.preventDefault();
     if (!editingEventId) return;
@@ -193,7 +193,7 @@ export default function Events() {
       await updateDoc(eventRef, {
         title: title.trim(),
         avenue,
-        date: date.trim() || "",
+        date: date.trim() || "", // Optional date
         time: time.trim() || "TBA",
         venue: venue.trim() || "College Campus",
         chairperson: chairperson.trim() || "",
@@ -251,7 +251,7 @@ export default function Events() {
         <div className="max-w-6xl mx-auto px-6 h-20 flex items-center justify-between">
           <button
             onClick={() => navigate("/dashboard")}
-            className="flex items-center gap-2 text-violet-300 hover:text-amber-300 transition text-sm font-semibold"
+            className="flex items-center gap-2 text-violet-300 hover:text-amber-300 transition text-sm font-semibold cursor-pointer"
           >
             <ArrowLeft size={18} />
             <span>Dashboard</span>
@@ -282,7 +282,7 @@ export default function Events() {
           {canManage && (
             <button
               onClick={handleOpenAddModal}
-              className="px-5 py-3 rounded-2xl bg-gradient-to-r from-violet-700 via-purple-600 to-amber-600 hover:from-violet-600 hover:to-amber-500 text-white font-bold text-sm flex items-center gap-2 shadow-xl shadow-violet-950 transition border border-amber-400/30 shrink-0"
+              className="px-5 py-3 rounded-2xl bg-gradient-to-r from-violet-700 via-purple-600 to-amber-600 hover:from-violet-600 hover:to-amber-500 text-white font-bold text-sm flex items-center gap-2 shadow-xl shadow-violet-950 transition border border-amber-400/30 shrink-0 cursor-pointer"
             >
               <Plus size={18} />
               <span>Add New Event</span>
@@ -328,7 +328,7 @@ export default function Events() {
             <select
               value={selectedAvenue}
               onChange={(e) => setSelectedAvenue(e.target.value)}
-              className="w-full px-4 py-3 bg-slate-900/90 border border-violet-900/40 rounded-xl text-white text-sm outline-none focus:border-amber-400 transition"
+              className="w-full px-4 py-3 bg-slate-900/90 border border-violet-900/40 rounded-xl text-white text-sm outline-none focus:border-amber-400 transition cursor-pointer"
             >
               <option value="all">All Avenues</option>
               {AVENUES.map((av) => (
@@ -366,7 +366,7 @@ export default function Events() {
                     <div className="flex items-center gap-1.5">
                       <button
                         onClick={() => setViewingEvent(ev)}
-                        className="p-1.5 rounded-xl bg-slate-800 text-slate-300 hover:text-white hover:bg-slate-700 transition"
+                        className="p-1.5 rounded-xl bg-slate-800 text-slate-300 hover:text-white hover:bg-slate-700 transition cursor-pointer"
                         title="View Full Details"
                       >
                         <Eye size={15} />
@@ -376,14 +376,14 @@ export default function Events() {
                         <>
                           <button
                             onClick={() => handleOpenEditModal(ev)}
-                            className="p-1.5 rounded-xl bg-violet-500/10 text-violet-300 hover:bg-violet-500/20 border border-violet-500/20 transition"
+                            className="p-1.5 rounded-xl bg-violet-500/10 text-violet-300 hover:bg-violet-500/20 border border-violet-500/20 transition cursor-pointer"
                             title="Edit Event"
                           >
                             <Edit size={15} />
                           </button>
                           <button
                             onClick={() => setEventToDelete(ev)}
-                            className="p-1.5 rounded-xl bg-red-500/10 text-red-400 hover:bg-red-500/20 border border-red-500/20 transition"
+                            className="p-1.5 rounded-xl bg-red-500/10 text-red-400 hover:bg-red-500/20 border border-red-500/20 transition cursor-pointer"
                             title="Delete Event"
                           >
                             <Trash2 size={15} />
@@ -410,7 +410,7 @@ export default function Events() {
                         <button
                           type="button"
                           onClick={() => setViewingEvent(ev)}
-                          className="text-[11px] font-bold text-amber-400 hover:underline mt-1 inline-flex items-center gap-1"
+                          className="text-[11px] font-bold text-amber-400 hover:underline mt-1 inline-flex items-center gap-1 cursor-pointer"
                         >
                           Read full details →
                         </button>
@@ -490,7 +490,7 @@ export default function Events() {
           <div className="bg-slate-900 border-2 border-violet-500/40 rounded-3xl p-6 sm:p-8 max-w-xl w-full shadow-2xl relative max-h-[90vh] flex flex-col">
             <button
               onClick={() => setViewingEvent(null)}
-              className="absolute top-4 right-4 p-2 rounded-full text-slate-400 hover:text-white hover:bg-slate-800 transition"
+              className="absolute top-4 right-4 p-2 rounded-full text-slate-400 hover:text-white hover:bg-slate-800 transition cursor-pointer"
             >
               <X size={20} />
             </button>
@@ -563,7 +563,7 @@ export default function Events() {
 
             <button
               onClick={() => setViewingEvent(null)}
-              className="w-full py-3 rounded-xl bg-violet-600/30 hover:bg-violet-600/50 border border-violet-500/40 text-violet-200 font-bold text-sm transition"
+              className="w-full py-3 rounded-xl bg-violet-600/30 hover:bg-violet-600/50 border border-violet-500/40 text-violet-200 font-bold text-sm transition cursor-pointer"
             >
               Close Event Details
             </button>
@@ -577,7 +577,7 @@ export default function Events() {
           <div className="bg-slate-900 border-2 border-violet-500/40 rounded-3xl p-6 sm:p-8 max-w-lg w-full shadow-2xl relative max-h-[90vh] overflow-y-auto">
             <button
               onClick={() => setShowAddModal(false)}
-              className="absolute top-4 right-4 p-2 rounded-full text-slate-400 hover:text-white hover:bg-slate-800 transition"
+              className="absolute top-4 right-4 p-2 rounded-full text-slate-400 hover:text-white hover:bg-slate-800 transition cursor-pointer"
             >
               <X size={20} />
             </button>
@@ -592,7 +592,7 @@ export default function Events() {
             <form onSubmit={handleAddEvent} className="space-y-4">
               <div>
                 <label className="block text-xs font-bold text-violet-300 uppercase tracking-wider mb-1">
-                  Event Title
+                  Event Title *
                 </label>
                 <input
                   type="text"
@@ -607,12 +607,12 @@ export default function Events() {
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="block text-xs font-bold text-violet-300 uppercase tracking-wider mb-1">
-                    Avenue
+                    Avenue *
                   </label>
                   <select
                     value={avenue}
                     onChange={(e) => setAvenue(e.target.value)}
-                    className="w-full px-3 py-2.5 bg-slate-950 border border-violet-900/40 rounded-xl text-white text-sm outline-none focus:border-amber-400"
+                    className="w-full px-3 py-2.5 bg-slate-950 border border-violet-900/40 rounded-xl text-white text-sm outline-none focus:border-amber-400 cursor-pointer"
                   >
                     {AVENUES.map((av) => (
                       <option key={av} value={av}>
@@ -647,7 +647,7 @@ export default function Events() {
                     type="date"
                     value={date}
                     onChange={(e) => setDate(e.target.value)}
-                    className="w-full px-3 py-2.5 bg-slate-950 border border-violet-900/40 rounded-xl text-white text-sm outline-none focus:border-amber-400"
+                    className="w-full px-3 py-2.5 bg-slate-950 border border-violet-900/40 rounded-xl text-white text-sm outline-none focus:border-amber-400 cursor-pointer"
                   />
                 </div>
 
@@ -725,7 +725,7 @@ export default function Events() {
               <button
                 type="submit"
                 disabled={submitting}
-                className="w-full py-3 rounded-xl bg-gradient-to-r from-violet-700 to-amber-600 hover:from-violet-600 hover:to-amber-500 text-white font-bold text-sm flex items-center justify-center gap-2 shadow-xl transition disabled:opacity-50"
+                className="w-full py-3 rounded-xl bg-gradient-to-r from-violet-700 to-amber-600 hover:from-violet-600 hover:to-amber-500 text-white font-bold text-sm flex items-center justify-center gap-2 shadow-xl transition disabled:opacity-50 cursor-pointer"
               >
                 {submitting ? (
                   <>
@@ -750,7 +750,7 @@ export default function Events() {
                 setShowEditModal(false);
                 resetForm();
               }}
-              className="absolute top-4 right-4 p-2 rounded-full text-slate-400 hover:text-white hover:bg-slate-800 transition"
+              className="absolute top-4 right-4 p-2 rounded-full text-slate-400 hover:text-white hover:bg-slate-800 transition cursor-pointer"
             >
               <X size={20} />
             </button>
@@ -765,7 +765,7 @@ export default function Events() {
             <form onSubmit={handleUpdateEvent} className="space-y-4">
               <div>
                 <label className="block text-xs font-bold text-violet-300 uppercase tracking-wider mb-1">
-                  Event Title
+                  Event Title *
                 </label>
                 <input
                   type="text"
@@ -779,12 +779,12 @@ export default function Events() {
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="block text-xs font-bold text-violet-300 uppercase tracking-wider mb-1">
-                    Avenue
+                    Avenue *
                   </label>
                   <select
                     value={avenue}
                     onChange={(e) => setAvenue(e.target.value)}
-                    className="w-full px-3 py-2.5 bg-slate-950 border border-violet-900/40 rounded-xl text-white text-sm outline-none focus:border-amber-400"
+                    className="w-full px-3 py-2.5 bg-slate-950 border border-violet-900/40 rounded-xl text-white text-sm outline-none focus:border-amber-400 cursor-pointer"
                   >
                     {AVENUES.map((av) => (
                       <option key={av} value={av}>
@@ -818,7 +818,7 @@ export default function Events() {
                     type="date"
                     value={date}
                     onChange={(e) => setDate(e.target.value)}
-                    className="w-full px-3 py-2.5 bg-slate-950 border border-violet-900/40 rounded-xl text-white text-sm outline-none focus:border-amber-400"
+                    className="w-full px-3 py-2.5 bg-slate-950 border border-violet-900/40 rounded-xl text-white text-sm outline-none focus:border-amber-400 cursor-pointer"
                   />
                 </div>
 
@@ -893,7 +893,7 @@ export default function Events() {
               <button
                 type="submit"
                 disabled={submitting}
-                className="w-full py-3 rounded-xl bg-gradient-to-r from-amber-600 via-amber-500 to-amber-400 hover:from-amber-500 hover:to-amber-300 text-slate-950 font-bold text-sm flex items-center justify-center gap-2 shadow-xl transition disabled:opacity-50"
+                className="w-full py-3 rounded-xl bg-gradient-to-r from-amber-600 via-amber-500 to-amber-400 hover:from-amber-500 hover:to-amber-300 text-slate-950 font-bold text-sm flex items-center justify-center gap-2 shadow-xl transition disabled:opacity-50 cursor-pointer"
               >
                 {submitting ? (
                   <>
@@ -920,14 +920,14 @@ export default function Events() {
             <div className="flex justify-end gap-3">
               <button
                 onClick={() => setEventToDelete(null)}
-                className="px-4 py-2 text-slate-400 text-xs"
+                className="px-4 py-2 text-slate-400 text-xs cursor-pointer"
               >
                 Cancel
               </button>
               <button
                 onClick={handleDeleteEvent}
                 disabled={deleteLoading}
-                className="px-4 py-2 bg-red-600 hover:bg-red-500 text-white rounded-xl text-xs font-bold"
+                className="px-4 py-2 bg-red-600 hover:bg-red-500 text-white rounded-xl text-xs font-bold cursor-pointer"
               >
                 {deleteLoading ? "Deleting..." : "Delete"}
               </button>
