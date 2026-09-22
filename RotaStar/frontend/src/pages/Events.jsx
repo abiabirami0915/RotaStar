@@ -643,6 +643,7 @@ export default function Events() {
                     <span>Date</span>
                     <span className="text-[10px] text-slate-500 lowercase font-normal">(optional)</span>
                   </label>
+                  {/* OPTIONAL DATE INPUT - NO REQUIRED ATTRIBUTE */}
                   <input
                     type="date"
                     value={date}
@@ -814,6 +815,7 @@ export default function Events() {
                     <span>Date</span>
                     <span className="text-[10px] text-slate-500 lowercase font-normal">(optional)</span>
                   </label>
+                  {/* OPTIONAL DATE INPUT - NO REQUIRED ATTRIBUTE */}
                   <input
                     type="date"
                     value={date}
