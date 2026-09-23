@@ -14,12 +14,10 @@ import {
   Loader2,
   Check,
   AlertTriangle,
-  Crown,
   Search,
   Eye,
   FileText,
   Layers,
-  UserCheck,
 } from "lucide-react";
 import {
   collection,
@@ -142,7 +140,6 @@ export default function Events() {
     setShowEditModal(true);
   };
 
-  // Add Event Handler (Date optional)
   const handleAddEvent = async (e) => {
     e.preventDefault();
     if (!title.trim()) {
@@ -155,7 +152,7 @@ export default function Events() {
       await addDoc(collection(db, "events"), {
         title: title.trim(),
         avenue,
-        date: date.trim() || "", // Optional date
+        date: date.trim() || "",
         time: time.trim() || "TBA",
         venue: venue.trim() || "College Campus",
         chairperson: chairperson.trim() || "",
@@ -177,7 +174,6 @@ export default function Events() {
     }
   };
 
-  // Update Event Handler (Date optional)
   const handleUpdateEvent = async (e) => {
     e.preventDefault();
     if (!editingEventId) return;
@@ -193,7 +189,7 @@ export default function Events() {
       await updateDoc(eventRef, {
         title: title.trim(),
         avenue,
-        date: date.trim() || "", // Optional date
+        date: date.trim() || "",
         time: time.trim() || "TBA",
         venue: venue.trim() || "College Campus",
         chairperson: chairperson.trim() || "",
@@ -214,7 +210,6 @@ export default function Events() {
     }
   };
 
-  // Delete Event Handler
   const handleDeleteEvent = async () => {
     if (!eventToDelete) return;
     setDeleteLoading(true);
@@ -246,7 +241,6 @@ export default function Events() {
 
   return (
     <div className="min-h-screen bg-[#030014] text-white">
-      {/* NAVBAR */}
       <nav className="border-b border-violet-900/40 bg-slate-950/80 backdrop-blur-md sticky top-0 z-50">
         <div className="max-w-6xl mx-auto px-6 h-20 flex items-center justify-between">
           <button
@@ -263,7 +257,6 @@ export default function Events() {
         </div>
       </nav>
 
-      {/* MAIN CONTENT */}
       <main className="max-w-6xl mx-auto px-6 py-8">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">
           <div>
@@ -290,7 +283,6 @@ export default function Events() {
           )}
         </div>
 
-        {/* TOAST ALERT */}
         {toast.text && (
           <div
             className={`p-4 rounded-2xl mb-6 flex items-center gap-3 text-sm border ${
@@ -308,7 +300,6 @@ export default function Events() {
           </div>
         )}
 
-        {/* SEARCH & FILTERS */}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-8">
           <div className="sm:col-span-2 relative">
             <input
@@ -340,7 +331,6 @@ export default function Events() {
           </div>
         </div>
 
-        {/* EVENTS LIST / GRID */}
         {loading ? (
           <div className="bg-slate-900/90 border border-violet-900/40 rounded-3xl p-12 text-center text-slate-500">
             Loading events schedule...
@@ -400,7 +390,6 @@ export default function Events() {
                     {ev.title}
                   </h3>
 
-                  {/* EVENT DESCRIPTION PREVIEW */}
                   {ev.description ? (
                     <div className="mb-4">
                       <p className="text-xs text-slate-300 leading-relaxed line-clamp-3">
@@ -422,7 +411,6 @@ export default function Events() {
                     </p>
                   )}
 
-                  {/* EVENT DETAILS PILLS */}
                   <div className="space-y-2 text-xs text-slate-400 bg-slate-950/70 p-4 rounded-2xl border border-violet-900/40 mb-4">
                     <div className="flex items-center gap-2">
                       <Calendar size={14} className="text-amber-400 shrink-0" />
@@ -484,7 +472,7 @@ export default function Events() {
         )}
       </main>
 
-      {/* 1. VIEW FULL EVENT DETAILS MODAL */}
+      {/* VIEW MODAL */}
       {viewingEvent && (
         <div className="fixed inset-0 z-50 bg-black/85 backdrop-blur-md flex items-center justify-center p-4">
           <div className="bg-slate-900 border-2 border-violet-500/40 rounded-3xl p-6 sm:p-8 max-w-xl w-full shadow-2xl relative max-h-[90vh] flex flex-col">
@@ -509,7 +497,6 @@ export default function Events() {
               </div>
             </div>
 
-            {/* EVENT METRICS */}
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 bg-slate-950 p-4 rounded-2xl border border-violet-900/40 mb-4 text-xs">
               <div className="flex items-center gap-2 text-slate-300">
                 <Calendar size={15} className="text-amber-400 shrink-0" />
@@ -529,7 +516,6 @@ export default function Events() {
               </div>
             </div>
 
-            {/* FULL SCROLLABLE DESCRIPTION */}
             <div className="flex-1 overflow-y-auto pr-2 space-y-3 mb-6 text-sm text-slate-300 leading-relaxed bg-slate-950/60 p-5 rounded-2xl border border-violet-900/30">
               <div>
                 <h4 className="text-xs font-bold uppercase tracking-wider text-amber-400 mb-1">
@@ -571,7 +557,7 @@ export default function Events() {
         </div>
       )}
 
-      {/* 2. CREATE EVENT MODAL */}
+      {/* CREATE EVENT MODAL */}
       {showAddModal && (
         <div className="fixed inset-0 z-50 bg-black/85 backdrop-blur-md flex items-center justify-center p-4">
           <div className="bg-slate-900 border-2 border-violet-500/40 rounded-3xl p-6 sm:p-8 max-w-lg w-full shadow-2xl relative max-h-[90vh] overflow-y-auto">
@@ -640,10 +626,8 @@ export default function Events() {
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="block text-xs font-bold text-violet-300 uppercase tracking-wider mb-1 flex items-center justify-between">
-                    <span>Date</span>
-                    <span className="text-[10px] text-slate-500 lowercase font-normal">(optional)</span>
+                    <span>Date (Optional)</span>
                   </label>
-                  {/* OPTIONAL DATE INPUT - NO REQUIRED ATTRIBUTE */}
                   <input
                     type="date"
                     value={date}
@@ -666,7 +650,6 @@ export default function Events() {
                 </div>
               </div>
 
-              {/* CHAIRPERSON & SECRETARY (OPTIONAL) */}
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="block text-xs font-bold text-violet-300 uppercase tracking-wider mb-1 flex items-center justify-between">
@@ -742,7 +725,7 @@ export default function Events() {
         </div>
       )}
 
-      {/* 3. EDIT EVENT MODAL */}
+      {/* EDIT EVENT MODAL */}
       {showEditModal && (
         <div className="fixed inset-0 z-50 bg-black/85 backdrop-blur-md flex items-center justify-center p-4">
           <div className="bg-slate-900 border-2 border-amber-500/40 rounded-3xl p-6 sm:p-8 max-w-lg w-full shadow-2xl relative max-h-[90vh] overflow-y-auto">
@@ -812,10 +795,8 @@ export default function Events() {
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="block text-xs font-bold text-violet-300 uppercase tracking-wider mb-1 flex items-center justify-between">
-                    <span>Date</span>
-                    <span className="text-[10px] text-slate-500 lowercase font-normal">(optional)</span>
+                    <span>Date (Optional)</span>
                   </label>
-                  {/* OPTIONAL DATE INPUT - NO REQUIRED ATTRIBUTE */}
                   <input
                     type="date"
                     value={date}
@@ -837,7 +818,6 @@ export default function Events() {
                 </div>
               </div>
 
-              {/* CHAIRPERSON & SECRETARY (OPTIONAL) */}
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="block text-xs font-bold text-violet-300 uppercase tracking-wider mb-1 flex items-center justify-between">
@@ -911,7 +891,7 @@ export default function Events() {
         </div>
       )}
 
-      {/* 4. DELETE CONFIRMATION MODAL */}
+      {/* DELETE MODAL */}
       {eventToDelete && (
         <div className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4">
           <div className="bg-slate-900 border border-red-500/30 rounded-3xl p-6 max-w-sm w-full text-center">
