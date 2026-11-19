@@ -1,6 +1,7 @@
+
 import { initializeApp } from "firebase/app";
 import { getFirestore } from "firebase/firestore";
-import { getAuth } from "firebase/auth";
+import { initializeAuth, browserLocalPersistence } from "firebase/auth";
 import { getStorage } from "firebase/storage";
 
 const firebaseConfig = {
@@ -16,7 +17,10 @@ const firebaseConfig = {
 // Initialize Firebase
 const app = initializeApp(firebaseConfig);
 
-// Export Firebase services for RotaStar
-export const auth = getAuth(app);
+// Explicitly persist authentication across browser restarts
+export const auth = initializeAuth(app, {
+  persistence: browserLocalPersistence,
+});
+
 export const db = getFirestore(app);
 export const storage = getStorage(app);

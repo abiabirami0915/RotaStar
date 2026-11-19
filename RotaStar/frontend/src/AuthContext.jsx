@@ -1,9 +1,6 @@
+
 import React, { createContext, useContext, useEffect, useState } from "react";
-import {
-  onAuthStateChanged,
-  signInWithEmailAndPassword,
-  signOut,
-} from "firebase/auth";
+import { onAuthStateChanged, signInWithEmailAndPassword, signOut } from "firebase/auth";
 import { doc, onSnapshot } from "firebase/firestore";
 import { auth, db } from "./firebase/firebase";
 
@@ -22,17 +19,20 @@ export function AuthProvider({ children }) {
     let unsubDoc = null;
 
     const unsubAuth = onAuthStateChanged(auth, (user) => {
+      if (unsubDoc) {
+        unsubDoc();
+        unsubDoc = null;
+      }
+
       setCurrentUser(user);
+      setUserData(null);
+      setLoading(true);
 
       if (user) {
         unsubDoc = onSnapshot(
           doc(db, "users", user.uid),
           (docSnap) => {
-            if (docSnap.exists()) {
-              setUserData(docSnap.data());
-            } else {
-              setUserData(null);
-            }
+            setUserData(docSnap.exists() ? docSnap.data() : null);
             setLoading(false);
           },
           (error) => {
@@ -41,7 +41,6 @@ export function AuthProvider({ children }) {
           }
         );
       } else {
-        if (unsubDoc) unsubDoc();
         setUserData(null);
         setLoading(false);
       }
@@ -61,8 +60,10 @@ export function AuthProvider({ children }) {
     return signOut(auth);
   };
 
-  // Resilient role validation
-  const rawRole = (userData?.role || "Member").toString().toLowerCase().trim();
+  const rawRole = (userData?.role || "Member")
+    .toString()
+    .toLowerCase()
+    .trim();
 
   const isSuperAdmin =
     rawRole.includes("super admin") ||
